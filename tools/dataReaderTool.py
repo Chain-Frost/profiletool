@@ -368,7 +368,7 @@ class DataReaderTool:
 
         projectedpointsinterp = []
 
-        for i, point in enumerate(polyline):
+        for i, _point in enumerate(polyline):
             if i == 0:
                 continue
             elif i == len(polyline) - 1:

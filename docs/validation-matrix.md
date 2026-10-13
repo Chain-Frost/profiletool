@@ -6,6 +6,10 @@ computed from physical metre distances, transformed sampling
 locations, exact zero raster values versus missing raster samples, invalid
 slope segments, short profiles, and vector point-chainage deduplication.
 
+## QGIS MCP / Codex-assisted desktop verification
+
+For an optional Windows Codex-to-QGIS bridge, see [QGIS MCP setup and desktop validation](qgis-mcp-desktop-validation.md). It documents the local network-installed MCP server, Python 3.14, QGIS-side plugin, connection check, and an example validation prompt. This integration does not run in GitHub Actions and does not replace visual inspection.
+
 ## QGIS desktop verification still required
 
 Run these representative scenarios in QGIS 3.40+/3.44 and QGIS 4.x:
