@@ -255,14 +255,10 @@ class PTDockWidget(QDockWidget, FormClass):
                 self.checkBox_mpl_tracking.setEnabled(True)
                 for item in self.plotWdg.allChildItems():
                     if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
-                        if item.name() == "cross_vertical":
-                            item.show()
-                        elif item.name() == "cross_horizontal":
+                        if item.name() == "cross_vertical" or item.name() == "cross_horizontal":
                             item.show()
                     elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
-                        if item.textItem.toPlainText()[0] == "X":
-                            item.show()
-                        elif item.textItem.toPlainText()[0] == "Y":
+                        if item.textItem.toPlainText()[0] == "X" or item.textItem.toPlainText()[0] == "Y":
                             item.show()
             elif int1 == 0:
                 self.showcursor = False
@@ -271,14 +267,10 @@ class PTDockWidget(QDockWidget, FormClass):
 
                 for item in self.plotWdg.allChildItems():
                     if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
-                        if item.name() == "cross_vertical":
-                            item.hide()
-                        elif item.name() == "cross_horizontal":
+                        if item.name() == "cross_vertical" or item.name() == "cross_horizontal":
                             item.hide()
                     elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
-                        if item.textItem.toPlainText()[0] == "X":
-                            item.hide()
-                        elif item.textItem.toPlainText()[0] == "Y":
+                        if item.textItem.toPlainText()[0] == "X" or item.textItem.toPlainText()[0] == "Y":
                             item.hide()
             self.profiletoolcore.plotProfil()
 
@@ -323,13 +315,11 @@ class PTDockWidget(QDockWidget, FormClass):
             self.refreshPlot()
 
     def _onSameAxisScaleStateChanged(self, state):
-        """
-        Called whenever the checkbox button for same scale axis status has changed
+        """Called whenever the checkbox button for same scale axis status has changed
         if checked, plot will always keep same scale on both axis (aspect ratio of 1)
 
         Only supported with PyQtGraph
         """
-
         if self.plotlibrary == "PyQtGraph":
             self.plotWdg.getViewBox().setAspectLocked(state == Qt.CheckState.Checked)
 
@@ -341,7 +331,7 @@ class PTDockWidget(QDockWidget, FormClass):
         groupTitle = profile["layer"].name()
         band = profile["band"]
         if band is not None and band > -1:
-            groupTitle += "_band_{}".format(band)
+            groupTitle += f"_band_{band}"
         return groupTitle.replace(" ", "_")
 
     def updateCoordinateTab(self):
@@ -478,7 +468,7 @@ class PTDockWidget(QDockWidget, FormClass):
     def createTemporaryLayer(self):
         nr = int(self.sender().objectName())
         type = "Point?crs=" + str(self.profiletoolcore.profiles[nr]["crs"].authid())
-        name = "ProfileTool_{}".format(self._profile_name(self.profiletoolcore.profiles[nr]))
+        name = f"ProfileTool_{self._profile_name(self.profiletoolcore.profiles[nr])}"
         vl = QgsVectorLayer(type, name, "memory")
         pr = vl.dataProvider()
         vl.startEditing()

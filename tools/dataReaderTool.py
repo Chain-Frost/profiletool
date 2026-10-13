@@ -41,7 +41,8 @@ from .utils import isProfilable
 
 class DataReaderTool:
     """def __init__(self):
-    self.profiles = None"""
+    self.profiles = None
+    """
 
     def dataRasterReaderTool(self, iface1, tool1, profile1, pointstoDraw1, resolution_mode):
         """Sample a raster/mesh along a line drawn in the project CRS.
@@ -317,9 +318,7 @@ class DataReaderTool:
 
     # def interpolateNodeofPolyline(self,geom):
     def interpolateNodeofPolyline(self, geom, projectedpoints):
-        """
-        projectedpoints : array [[lenght, xprojected ,yprojected ,dist from origignal point, segment of polyline on witch it's projected, atribute (z), xoriginal point, yoriginal point ,original point feature], ... ]
-        """
+        """Projectedpoints : array [[lenght, xprojected ,yprojected ,dist from origignal point, segment of polyline on witch it's projected, atribute (z), xoriginal point, yoriginal point ,original point feature], ... ]"""
         PRECISION = self._project_chainage_tolerance()
         polyline = geom.asPolyline()
         projectedpoints = projectedpoints[projectedpoints[:, 0].argsort()]
@@ -371,19 +370,17 @@ class DataReaderTool:
         for i, _point in enumerate(polyline):
             if i == 0:
                 continue
-            elif i == len(polyline) - 1:
+            if i == len(polyline) - 1:
                 break
-            else:
-                vertexpoint_xy = QgsPointXY(geom.vertexAt(i))
-                # vertexpoint_xy = QgsPointXY(vertexpoint.x(), vertexpoint.y())
-                lenpoly = geom.lineLocatePoint(qgis.core.QgsGeometry.fromPointXY(vertexpoint_xy))
+            vertexpoint_xy = QgsPointXY(geom.vertexAt(i))
+            # vertexpoint_xy = QgsPointXY(vertexpoint.x(), vertexpoint.y())
+            lenpoly = geom.lineLocatePoint(qgis.core.QgsGeometry.fromPointXY(vertexpoint_xy))
 
-                if min(abs(projectedpoints[:, 0] - lenpoly)) < PRECISION:
-                    continue
-                else:
-                    temp1 = self.interpolatePoint(vertexpoint_xy, geom, projectedpoints)
-                    if temp1 is not None:
-                        projectedpointsinterp.append(temp1)
+            if min(abs(projectedpoints[:, 0] - lenpoly)) < PRECISION:
+                continue
+            temp1 = self.interpolatePoint(vertexpoint_xy, geom, projectedpoints)
+            if temp1 is not None:
+                projectedpointsinterp.append(temp1)
 
         temp = projectedpoints.tolist() + projectedpointsinterp
         projectedpoints = np.array(temp)
@@ -418,5 +415,4 @@ class DataReaderTool:
                 vertexpoint.y(),
                 None,
             ]
-        else:
-            return None
+        return None

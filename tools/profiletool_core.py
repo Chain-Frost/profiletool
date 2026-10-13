@@ -352,9 +352,7 @@ class ProfileToolCore(QWidget):
                     print(str(e))
 
     def mouseevent_mpl(self, event):
-        """
-        case matplotlib library
-        """
+        """Case matplotlib library"""
         if event.xdata:
             try:
                 if self.vline:

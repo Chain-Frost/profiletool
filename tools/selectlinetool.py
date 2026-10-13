@@ -179,5 +179,4 @@ class SelectLineTool:
         """
         if layer is not None:
             return list(cast(Iterator[QgsFeature], layer.getFeatures()))
-        else:
-            return []
+        return []

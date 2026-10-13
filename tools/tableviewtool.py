@@ -64,23 +64,22 @@ class TableViewTool(QObject):
 
             if len(templist) == 0:
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", "No raster to add")
-                return
-            else:
-                # Identically named layers are allowed in QGIS. Disambiguate
-                # display names but continue tracking them by stable layer ID.
-                names = [entry[1] for entry in templist]
-                labels = [name if names.count(name) == 1 else f"{name} [{layer.id()[-8:]}]" for layer, name in templist]
-                selected_name, ok = QInputDialog.getItem(
-                    iface.mainWindow(),
-                    "Layer selector",
-                    "Choose layer",
-                    labels,
-                    0,
-                    False,
-                )
-                if not ok:
-                    return
-                layer2 = templist[labels.index(selected_name)][0]
+                return None
+            # Identically named layers are allowed in QGIS. Disambiguate
+            # display names but continue tracking them by stable layer ID.
+            names = [entry[1] for entry in templist]
+            labels = [name if names.count(name) == 1 else f"{name} [{layer.id()[-8:]}]" for layer, name in templist]
+            selected_name, ok = QInputDialog.getItem(
+                iface.mainWindow(),
+                "Layer selector",
+                "Choose layer",
+                labels,
+                0,
+                False,
+            )
+            if not ok:
+                return None
+            layer2 = templist[labels.index(selected_name)][0]
         else:
             if isProfilable(layer1):
                 layer2 = layer1
@@ -89,11 +88,11 @@ class TableViewTool(QObject):
                 if layer1.type() == layer1.MeshLayer:
                     text += "\n(MeshLayer support requires QGis version 3.6 or newer.)"
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", text)
-                return
+                return None
 
         # Ask the Band by a input dialog
         # First, if isProfilable, considerate the real band number (instead of band + 1 for raster)
-        if layer2.type() == layer2.PluginLayer and isProfilable(layer2) or layer2.type() == layer2.MeshLayer:
+        if (layer2.type() == layer2.PluginLayer and isProfilable(layer2)) or layer2.type() == layer2.MeshLayer:
             self.bandoffset = 0
             typename = "parameter"
         elif layer2.type() == layer2.RasterLayer:
@@ -103,7 +102,7 @@ class TableViewTool(QObject):
             self.bandoffset = 0
             typename = "field"
         else:
-            return
+            return None
 
         if layer2.type() == layer2.RasterLayer and layer2.bandCount() != 1:
             listband = []
@@ -125,8 +124,8 @@ class TableViewTool(QObject):
             fields = [field.name() for field in layer2.fields() if field.isNumeric()]
             if len(fields) == 0:
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", "Active layer is not a profilable layer")
-                return
-            elif len(fields) == 1:
+                return None
+            if len(fields) == 1:
                 choosenBand = fieldstemp.index(fields[0])
 
             else:
