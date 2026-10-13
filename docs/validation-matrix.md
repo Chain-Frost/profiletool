@@ -42,7 +42,7 @@ tests. It does not substitute for running this checklist in real QGIS.
 
 ## QGIS 4.2.1 evidence from 2026-10-14
 
-The fixture runner exercised all twelve scenario groups through real QGIS
+The initial fixture runner exercised all twelve scenario groups through real QGIS
 objects, widgets and plugin handlers in the default desktop session over MCP.
 All twelve automated scenarios passed, with no captured Qt callback errors or
 cleanup errors. This covers the automated portions described below, rather
@@ -91,3 +91,54 @@ The report records QGIS/Python versions, source hashes, per-scenario results,
 callback errors and restoration checks. The first failed run is retained as
 `first-run.json`; the crash-interrupted run was captured in `progress.json`
 before later reruns replaced that progress file. No commit or push was made.
+
+## Additional interaction and export evidence from 2026-10-14
+
+The extended runner passes **17 automated scenario groups** in QGIS 4.2.1:
+the twelve baseline groups plus five interaction/format/CRS groups. It captures
+no Qt callback or cleanup errors and restores the original project layers and
+CRS, canvas rendering flag and clipboard contents.
+
+These checks send mouse press/release events to the real canvas and plot
+viewports using QtTest. They exercise normal widget event dispatch and map-tool
+signals, rather than calling the click handlers directly. They are automated
+input events; human hardware clicks have not been performed by this runner.
+
+| Additional group | Evidence |
+| --- | --- |
+| Canvas clicks | Each branch of a multipart line selected separately; existing selections preserved; three pan/reactivation cycles |
+| Plot clicks | Actual plot viewport mouse event saves source elevation 3 at chainage 3 while displaying grade 100 percent |
+| Modal dialogs | Real layer selector, band selector and removal selector exercised using keyboard and OK-button mouse events; band 2 samples 100–119; correct source retained |
+| Raster/CRS cases | Northern UTM EPSG:32632 sampled in Web Mercator EPSG:3857; ASCII grid; rotated GeoTIFF with unequal pixel dimensions and negative grades; provider-visible NoData preserved |
+| PDF/tables | Matplotlib save button produces a PDF; independently reopened as one page, rendered and visually inspected with a visible NoData gap; both clipboard table buttons checked against source values and coordinates |
+
+PDF is offered by the Matplotlib export menu, not by PyQtGraph. Neither menu
+offers native CSV saving. The two clipboard buttons produce tab-separated
+text: chainage/elevation, or chainage/x/y/elevation. Their numeric values and
+NoData samples were validated and saved as `.tsv` evidence. Importing that text
+into a spreadsheet and saving CSV is a separate workflow. The README now
+describes the supported behavior instead of claiming native CSV export.
+
+The rotated-raster test also records an unresolved source-resolution
+limitation: QGIS exposes this rotated GeoTIFF through a square-pixel warped
+provider. Its grid omits a single-column raw-source NoData gap before Profile
+Tool samples it. Profile Tool matches that provider exactly. A wider gap is
+visible to the provider and remains a gap in the profile and negative grades.
+Passing these checks does **not** prove every raw-source NoData cell survives
+QGIS's rotated-raster resampling. This limitation needs assessment against the
+merge acceptance criteria.
+
+To repeat all seventeen groups from an empty QGIS development project:
+
+    import runpy
+    runpy.run_path("E:/Github/profiletool/scripts/validate_qgis_interactions.py")
+
+The ignored `validation_artifacts/qgis-desktop/interaction-report.json` records
+each result, actual dialog choices, export-menu contents, source checksums,
+callback errors and restoration checks. Its adjacent files include the PDF,
+PDF preview, plot-click screenshot, clipboard TSVs and raster fixtures.
+
+QGIS 3.44 is unavailable on this machine and remains untested. Human mouse and
+dialog confirmation also remains separate from the automated widget tests.
+The broader cases remain synthetic fixtures, not a representative real-data
+terrain survey. No PR description, commit, push or merge was performed here.

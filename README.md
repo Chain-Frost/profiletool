@@ -1,7 +1,9 @@
 # Profile Tool ![image](https://github.com/PANOimagen/profiletool/blob/master/icons/profileIcon.png?raw=true)
 
 This tool plots profile lines from raster layers or point vector layer with elevation field.
-Supports multiple lines as well as graph export to svg, pdf, png or csv file.
+Supports multiple lines and graph export to SVG/PNG, plus PDF with Matplotlib.
+Profile tables can be copied as tab-separated text for spreadsheet import;
+there is no native CSV file export action.
 Supports 3D polyline export to dxf.
 
 **Authors:** Borys Jurgiel - Patrice Verchere - Etienne Tourigny - Javier Becerra
