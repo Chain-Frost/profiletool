@@ -103,6 +103,11 @@ def reader_module(monkeypatch):
         def measureLine(self, start, end):
             return math.hypot(end.x() - start.x(), end.y() - start.y()) * 111_000.0
 
+    # Explicit PyQGIS imports should be importable without QGIS desktop.
+    # Tests that exercise their geometry behaviour replace these stubs.
+    core.QgsCoordinateTransform = object
+    core.QgsFeatureRequest = object
+    core.QgsGeometry = object
     core.QgsDistanceArea = DistanceArea
     core.QgsPointXY = Point
     core.QgsProject = SimpleNamespace(instance=lambda: project)
