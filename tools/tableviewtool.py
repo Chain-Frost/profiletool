@@ -45,7 +45,8 @@ class TableViewTool(QObject):
                 layer = iface.mapCanvas().layer(i)
                 if isProfilable(layer):
                     for j in range(0, mdl.rowCount()):
-                        if str(mdl.item(j, 2).data(Qt.ItemDataRole.EditRole)) == str(layer.name()):
+                        existing = mdl.item(j, 5).data(Qt.ItemDataRole.EditRole)
+                        if existing is not None and existing.id() == layer.id():
                             donothing = True
                 else:
                     donothing = True
@@ -57,19 +58,20 @@ class TableViewTool(QObject):
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", "No raster to add")
                 return
             else:
-                testqt, ok = QInputDialog.getItem(
-                    iface.mainWindow(),
-                    "Layer selector",
-                    "Choose layer",
-                    [templist[k][1] for k in range(len(templist))],
-                    False,
+                # Identically named layers are allowed in QGIS. Disambiguate
+                # display names but continue tracking them by stable layer ID.
+                names = [entry[1] for entry in templist]
+                labels = [
+                    name if names.count(name) == 1
+                    else f"{name} [{layer.id()[:8]}]"
+                    for layer, name in templist
+                ]
+                selected_name, ok = QInputDialog.getItem(
+                    iface.mainWindow(), "Layer selector", "Choose layer", labels, 0, False,
                 )
-                if ok:
-                    for i in range(0, len(templist)):
-                        if templist[i][1] == testqt:
-                            layer2 = templist[i][0]
-                else:
+                if not ok:
                     return
+                layer2 = templist[labels.index(selected_name)][0]
         else:
             if isProfilable(layer1):
                 layer2 = layer1
@@ -229,9 +231,10 @@ class TableViewTool(QObject):
     def onClick(self, iface, wdg, mdl, plotlibrary, index1):  # action when clicking the tableview
         temp = mdl.itemFromIndex(index1)
         if index1.column() == 1:  # modifying color
-            name = ("%s#%d") % (
-                mdl.item(index1.row(), 2).data(Qt.ItemDataRole.EditRole),
+            name = PlottingTool.curveName(
+                mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole),
                 mdl.item(index1.row(), 3).data(Qt.ItemDataRole.EditRole),
+                mdl,
             )
             color = QColorDialog().getColor(temp.data(Qt.ItemDataRole.BackgroundRole))
             mdl.setData(
@@ -240,9 +243,10 @@ class TableViewTool(QObject):
             PlottingTool().changeColor(wdg, plotlibrary, color, name)
         elif index1.column() == 0:  # modifying checkbox
             # name = mdl.item(index1.row(),2).data(Qt.ItemDataRole.EditRole)
-            name = ("%s#%d") % (
-                mdl.item(index1.row(), 2).data(Qt.ItemDataRole.EditRole),
+            name = PlottingTool.curveName(
+                mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole),
                 mdl.item(index1.row(), 3).data(Qt.ItemDataRole.EditRole),
+                mdl,
             )
             booltemp = temp.data(Qt.ItemDataRole.CheckStateRole)
             if booltemp is True:

@@ -297,7 +297,11 @@ class ProfileToolCore(QWidget):
         for i in range(model1.rowCount() - 1, -1, -1):
             item = model1.item(i, 5)
             layer = item.data(Qt.ItemDataRole.EditRole) if item else None
-            if layer is None or self.instance.mapLayer(layer.id()) is None:
+            try:
+                missing = layer is None or self.instance.mapLayer(layer.id()) is None
+            except RuntimeError:
+                missing = True  # Source layer's wrapped QGIS object was deleted.
+            if missing:
                 self.dockwidget.removeLayer(i)
                 return True
         return False

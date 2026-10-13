@@ -68,6 +68,18 @@ class PlottingTool:
     are used as the data series x and y values respectively.
     """
 
+    @staticmethod
+    def curveName(layer, band, model):
+        """Unique plot key; disambiguate layers with identical names."""
+        name = layer.name()
+        same_name = sum(
+            model.item(i, 2).data(Qt.ItemDataRole.EditRole) == name
+            for i in range(model.rowCount())
+        )
+        if same_name > 1:
+            name += f" [{layer.id()[:8]}]"
+        return f"{name}#{band}"
+
     def changePlotWidget(self, library, frame_for_plot):
 
         if library == "PyQtGraph":
@@ -162,7 +174,7 @@ class PlottingTool:
         if library == "PyQtGraph":
             # cretae graph
             for i, profile in enumerate(profiles):
-                tmp_name = ("%s#%d") % (profile["layer"].name(), profile["band"])
+                tmp_name = self.curveName(profile["layer"], profile["band"], model1)
                 # case line outside the raster
                 y = np.array(profile["plot_y"], dtype=float)  # replace None value by np.nan
                 x = np.array(profile["plot_x"])
@@ -179,7 +191,7 @@ class PlottingTool:
 
         elif library == "Matplotlib" and has_mpl:
             for i, profile in enumerate(profiles):
-                tmp_name = ("%s#%d") % (profile["layer"].name(), profile["band"])
+                tmp_name = self.curveName(profile["layer"], profile["band"], model1)
                 if model1.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
                     wdg.plotWdg.figure.get_axes()[0].plot(
                         profile["plot_x"],
