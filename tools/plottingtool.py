@@ -358,6 +358,8 @@ class PlottingTool:
                     break
 
     def manageMatplotlibAxe(self, axe1):
+        unit = "degrees" if QgsProject.instance().crs().isGeographic() else "m"
+        axe1.set_xlabel(f"Chainage ({unit})")
         axe1.grid()
         axe1.tick_params(
             axis="both",
