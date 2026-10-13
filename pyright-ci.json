@@ -1,0 +1,15 @@
+{
+  "include": [
+    "tools/profilers.py",
+    "scripts/write_qgis_env.py"
+  ],
+  "exclude": [
+    "pyqtgraph",
+    "dxfwrite",
+    "resources.py",
+    "**/__pycache__",
+    ".venv"
+  ],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "strict"
+}
