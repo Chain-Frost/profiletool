@@ -2,13 +2,17 @@
 
 # ruff: noqa: INP001 -- Standalone editor setup utility.
 import hashlib
+import importlib
 import json
 import subprocess
 import sys
 import zipfile
 from pathlib import Path
+from typing import cast
 
-from qgis.PyQt.QtCore import PYQT_VERSION_STR
+# Discover the QGIS-installed PyQt version at runtime. Static imports are not
+# resolvable in the QGIS-free CI interpreter used to check this helper.
+PYQT_VERSION_STR = cast(str, getattr(importlib.import_module("qgis.PyQt.QtCore"), "PYQT_VERSION_STR"))
 
 root = Path(__file__).resolve().parents[1]
 destination = root / ".vscode" / "qgis-type-stubs"
@@ -37,7 +41,7 @@ if len(matches) != 1:
     message = "Expected exactly one matching PyQt6 wheel in the typing cache."
     raise SystemExit(message)
 wheel = matches[0]
-extracted = []
+extracted: list[str] = []
 with zipfile.ZipFile(wheel) as archive:
     for name in archive.namelist():
         member = Path(name)
