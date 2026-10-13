@@ -26,6 +26,9 @@ jobs:
             __init__.py profileplugin.py tools/utils.py tools/ptmaptool.py \
             tools/tableviewtool.py ui/dlgabout.py scripts/qgis_dev.py \
             scripts/setup_qgis_typing.py tests/test_qgis_layer_lifecycle.py
+      - name: Ruff import-order suggestion
+        continue-on-error: true
+        run: ruff check --isolated --select I --diff tools/ptmaptool.py
       - name: Pyright baseline (QGIS-independent modules)
         run: pyright --project pyright-ci.json
       - name: Compile plugin sources
