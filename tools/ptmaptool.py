@@ -42,6 +42,7 @@ class ProfiletoolMapToolRenderer:
         self.pointstoDraw = []  # Polyline being drawn in freehand mode
         self.dblclktemp = None  # enable disctinction between leftclick and doubleclick
         self.isPlotting = False
+        self._signals_connected = False
         # the rubberband
         self.rubberband = QgsRubberBand(
             self.iface.mapCanvas(), QgsWkbTypes.GeometryType.LineGeometry
@@ -168,21 +169,26 @@ class ProfiletoolMapToolRenderer:
         self.iface.mainWindow().statusBar().showMessage("")
 
     def connectTool(self):
+        if self._signals_connected:
+            return
+        self._signals_connected = True
         self.tool.moved.connect(self.moved)
         self.tool.rightClicked.connect(self.rightClicked)
         self.tool.leftClicked.connect(self.leftClicked)
         self.tool.desactivate.connect(self.deactivate)
         self.iface.currentLayerChanged.connect(self.currentLayerChanged)
 
-    def deactivate(self):  # enable clean exit of the plugin
+    def deactivate(self):
+        """Disconnect only our callbacks; let QGIS switch map tools normally."""
         self.cleaning()
+        if not self._signals_connected:
+            return
+        self._signals_connected = False
         self.tool.moved.disconnect(self.moved)
         self.tool.rightClicked.disconnect(self.rightClicked)
         self.tool.leftClicked.disconnect(self.leftClicked)
         self.tool.desactivate.disconnect(self.deactivate)
         self.iface.currentLayerChanged.disconnect(self.currentLayerChanged)
-        self.canvas.unsetMapTool(self.tool)
-        self.canvas.setMapTool(self.profiletool.saveTool)
 
 
 class ProfiletoolMapTool(QgsMapTool):

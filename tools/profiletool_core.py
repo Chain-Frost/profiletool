@@ -94,15 +94,18 @@ class ProfileToolCore(QWidget):
         self.dockwidget.changePlotLibrary(self.dockwidget.cboLibrary.currentIndex())
 
     def activateProfileMapTool(self):
-        self.saveTool = (
-            self.iface.mapCanvas().mapTool()
-        )  # Save the standard mapttool for restoring it at the end
-        # Listeners of mouse
+        canvas = self.iface.mapCanvas()
+        if self.toolrenderer is not None:
+            if canvas.mapTool() != self.toolrenderer.tool:
+                self.saveTool = canvas.mapTool()
+                self.toolrenderer.connectTool()
+                canvas.setMapTool(self.toolrenderer.tool)
+            return
+        self.saveTool = canvas.mapTool()
         self.toolrenderer = ProfiletoolMapToolRenderer(self)
         self.toolrenderer.connectTool()
         self.toolrenderer.setSelectionMethod(self.dockwidget.comboBox.currentIndex())
-        # init the mouse listener comportement and save the classic to restore it on quit
-        self.iface.mapCanvas().setMapTool(self.toolrenderer.tool)
+        canvas.setMapTool(self.toolrenderer.tool)
         if not self._layers_signal_connected:
             self.instance.layersRemoved.connect(self.onLayersRemoved)
             self._layers_signal_connected = True

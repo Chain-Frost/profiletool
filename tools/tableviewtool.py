@@ -123,10 +123,7 @@ class TableViewTool(QObject):
                 choosenBand = fieldstemp.index(fields[0])
 
             else:
-                try:
-                    defaultfield = fieldstemp.index("z")
-                except ValueError:
-                    defaultfield = 2
+                defaultfield = fields.index("z") if "z" in fields else 0
                 testqt, ok = QInputDialog.getItem(
                     iface.mainWindow(),
                     typename.capitalize() + " selector",
@@ -190,7 +187,12 @@ class TableViewTool(QObject):
             mdl.item(row, 3).setFlags(Qt.ItemFlag.NoItemFlags)
 
         if layer2.type() == layer2.VectorLayer:
-            mdl.setData(mdl.index(row, 4, QModelIndex()), 100.0)
+            # Buffer distance is expressed in project CRS units: degrees in
+            # geographic projects, linear units in projected projects.
+            from qgis.core import QgsProject
+
+            default_buffer = 0.001 if QgsProject.instance().crs().isGeographic() else 100.0
+            mdl.setData(mdl.index(row, 4, QModelIndex()), default_buffer)
         else:
             mdl.setData(mdl.index(row, 4, QModelIndex()), "")
             mdl.item(row, 4).setFlags(Qt.ItemFlag.NoItemFlags)

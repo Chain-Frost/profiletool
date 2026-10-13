@@ -30,6 +30,7 @@ from qgis.PyQt.QtCore import QSettings, Qt
 from qgis.PyQt.QtWidgets import QFileDialog, QSizePolicy
 
 from .. import pyqtgraph as pg
+from .dataReaderTool import DataReaderTool
 from ..dxfwrite import DXFEngine as dxf
 from ..pyqtgraph import exporters
 
@@ -142,8 +143,10 @@ class PlottingTool:
                 y1 = float(pointstoDraw[i][1])
                 x2 = float(pointstoDraw[i + 1][0])
                 y2 = float(pointstoDraw[i + 1][1])
-                profileLen = sqrt(((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1))) + profileLen
-                wdg.plotWdg.figure.get_axes()[0].vlines(profileLen, 0, 1000, linewidth=1)
+                profileLen += sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+                wdg.plotWdg.figure.get_axes()[0].axvline(
+                    profileLen * DataReaderTool._project_distance_scale(), linewidth=1
+                )
             profileLen = 0
 
     def attachCurves(self, wdg, profiles, model1, library):
@@ -200,12 +203,10 @@ class PlottingTool:
             wdg.plotWdg.draw()
 
     def findMin(self, values):
-        minVal = min(z for z in values if z is not None)
-        return minVal
+        return min(float(z) for z in values if z is not None and np.isfinite(z))
 
     def findMax(self, values):
-        maxVal = max(z for z in values if z is not None)
-        return maxVal
+        return max(float(z) for z in values if z is not None and np.isfinite(z))
 
     def plotRangechanged(self, wdg, library):
 
@@ -231,7 +232,7 @@ class PlottingTool:
             for i in range(0, len(y_vals)):
                 if (
                     profiles[i]["layer"] is not None
-                    and len([z for z in y_vals[i] if z is not None]) > 0
+                    and any(z is not None and np.isfinite(z) for z in y_vals[i])
                 ):
                     minimumValue = min(self.findMin(y_vals[i]), minimumValue)
                     maximumValue = max(self.findMax(y_vals[i]) + 1, maximumValue)
@@ -363,6 +364,7 @@ class PlottingTool:
         )
 
     def outPrint(self, iface, wdg, mdl, library):
+        name = "Profile"
         # Postscript file rendering doesn't work properly yet.
         for i in range(0, mdl.rowCount()):
             if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
@@ -376,6 +378,7 @@ class PlottingTool:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
     def outPDF(self, iface, wdg, mdl, library):
+        name = "Profile"
         for i in range(0, mdl.rowCount()):
             if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
                 name = str(mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
@@ -429,36 +432,37 @@ class PlottingTool:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
     def outDXF(self, iface, wdg, mdl, library, profiles, type="3D"):
-
-        for i in range(0, mdl.rowCount()):
-            if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
-                name = str(mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
         fileName = getSaveFileName(
-            parent=iface.mainWindow(),
-            caption="Save As",
-            directory=wdg.profiletoolcore.loaddirectory,
-            # filter = "Profile of " + name + ".png",
-            filter="dxf (*.dxf)",
+            parent=iface.mainWindow(), caption="Save As",
+            directory=wdg.profiletoolcore.loaddirectory, filter="dxf (*.dxf)",
         )
-        if fileName:
-            wdg.profiletoolcore.loaddirectory = os.path.dirname(fileName)
-            QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
-
-            drawing = dxf.drawing(fileName)
-            for profile in profiles:
-                name = profile["layer"].name()
-                drawing.add_layer(name)
-                if type == "2D":
-                    points = [
-                        (l, z, 0)
-                        for l, z in zip(profile["l"], profile["z"])  # noqa: E74
-                        if z is not None
-                    ]
+        if not fileName:
+            return
+        wdg.profiletoolcore.loaddirectory = os.path.dirname(fileName)
+        QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
+        drawing = dxf.drawing(fileName)
+        for profile in profiles:
+            name = profile["layer"].name()
+            drawing.add_layer(name)
+            if type == "2D":
+                vertices = [
+                    (length, elevation, 0) if elevation is not None and np.isfinite(elevation)
+                    else None
+                    for length, elevation in zip(profile["l"], profile["z"])
+                ]
+            else:
+                vertices = [
+                    (x, y, elevation) if elevation is not None and np.isfinite(elevation)
+                    else None
+                    for x, y, elevation in zip(profile["x"], profile["y"], profile["z"])
+                ]
+            # NoData gaps must not become fictitious connecting lines.
+            part = []
+            for vertex in vertices + [None]:
+                if vertex is None:
+                    if len(part) >= 2:
+                        drawing.add(dxf.polyline(part, color=7, layer=name))
+                    part = []
                 else:
-                    points = [
-                        (x, y, z)
-                        for x, y, z in zip(profile["x"], profile["y"], profile["z"])
-                        if z is not None
-                    ]
-                drawing.add(dxf.polyline(points, color=7, layer=name))
-            drawing.save()
+                    part.append(vertex)
+        drawing.save()
