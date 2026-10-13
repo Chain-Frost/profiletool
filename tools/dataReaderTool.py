@@ -22,12 +22,18 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
-import platform
-from math import sqrt
-
 import numpy as np
 import qgis
-from qgis.core import *
+from qgis.core import (
+    Qgis,
+    QgsCoordinateTransform,
+    QgsDistanceArea,
+    QgsFeatureRequest,
+    QgsGeometry,
+    QgsPointXY,
+    QgsProject,
+    QgsUnitTypes,
+)
 from qgis.PyQt.QtCore import QCoreApplication
 
 from .utils import isProfilable
@@ -376,7 +382,7 @@ class DataReaderTool:
                     continue
                 else:
                     temp1 = self.interpolatePoint(vertexpoint_xy, geom, projectedpoints)
-                    if temp1 != None:
+                    if temp1 is not None:
                         projectedpointsinterp.append(temp1)
 
         temp = projectedpoints.tolist() + projectedpointsinterp

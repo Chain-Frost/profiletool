@@ -18,7 +18,7 @@ jobs:
       - name: Ruff baseline (plugin-owned files only)
         run: |
           ruff check --isolated --target-version py39 --select E,F,I,UP,B --ignore E501 \
-            tools/profilers.py scripts/write_qgis_env.py
+            tools/profilers.py tools/dataReaderTool.py tools/selectlinetool.py scripts/write_qgis_env.py
       - name: Pyright baseline (QGIS-independent modules)
         run: pyright --project pyright-ci.json
       - name: Compile plugin sources
