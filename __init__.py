@@ -22,7 +22,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
-from . import apicompat
+# QGIS 2 compatibility shims are obsolete; supported versions start at QGIS 3.40.
 
 
 def classFactory(iface):
