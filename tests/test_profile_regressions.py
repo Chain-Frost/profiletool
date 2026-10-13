@@ -209,3 +209,73 @@ def test_vector_chainage_dedup_keeps_closest_point(reader_module):
     deduped = reader.DataReaderTool().removeDuplicateLenght(array)
     assert len(deduped) == 2
     assert list(deduped[:, 5]) == [20, 30]
+
+def test_geographic_chainage_dedup_tolerance(reader_module):
+    reader, project, Crs = reader_module
+    project.crs = lambda: Crs(True)
+    assert reader.DataReaderTool._project_chainage_tolerance() == pytest.approx(1e-8)
+    array = np.array([
+        [0.1, 1, 0, 0.1, 0, 10, 1, 0, None],
+        [0.10001, 1, 0, 0.2, 0, 20, 1, 0, None],
+    ], dtype=object)
+    assert len(reader.DataReaderTool().removeDuplicateLenght(array)) == 2
+
+
+def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch):
+    reader, _, _ = reader_module
+    core = sys.modules["qgis.core"]
+
+    class Geometry:
+        def __init__(self, parts, multi=False):
+            self.parts, self.multi = parts, multi
+
+        def isMultipart(self):
+            return self.multi
+
+        def asMultiPolyline(self):
+            return self.parts
+
+        @staticmethod
+        def fromPointXY(point):
+            return SimpleNamespace(point=point)
+
+        @staticmethod
+        def fromPolylineXY(part):
+            return Geometry([part])
+
+        def distance(self, point_geom):
+            return min(
+                math.hypot(p.x() - point_geom.point.x(), p.y() - point_geom.point.y())
+                for p in self.parts[0]
+            )
+
+    class Feature:
+        def __init__(self, original=None):
+            self.geom = original.geometry() if original else None
+
+        def geometry(self):
+            return self.geom
+
+        def setGeometry(self, geometry):
+            self.geom = geometry
+
+    core.QgsFeature = Feature
+    core.QgsGeometry = Geometry
+    for name in ("QgsFeatureRequest", "QgsMapLayer", "QgsRectangle",
+                 "QgsSpatialIndex", "QgsWkbTypes"):
+        setattr(core, name, object)
+    widgets = types.ModuleType("qgis.PyQt.QtWidgets")
+    widgets.QMessageBox = object
+    monkeypatch.setitem(sys.modules, widgets.__name__, widgets)
+    sys.modules["qgis.PyQt"].QtWidgets = widgets
+    selected = _load("_profile_tool_test.selectlinetool", ROOT / "tools" / "selectlinetool.py")
+    p = reader.QgsPointXY
+    feature = Feature()
+    feature.setGeometry(Geometry([
+        [p(0, 0), p(10, 0)],
+        [p(0, 10), p(10, 10)],
+    ], multi=True))
+    result = selected.SelectLineTool.select_closest_part(feature, p(0, 9.9))
+    assert result is not feature
+    assert result.geometry().parts[0][0].y() == 10
+    assert feature.geometry().isMultipart()

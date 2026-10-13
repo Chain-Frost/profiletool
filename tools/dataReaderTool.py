@@ -116,6 +116,14 @@ class DataReaderTool:
             project_crs.mapUnits(), Qgis.DistanceUnit.Meters
         )
 
+    @staticmethod
+    def _project_chainage_tolerance():
+        """Tolerance in native project map units (not always metres)."""
+        project_crs = QgsProject.instance().crs()
+        if project_crs.isGeographic():
+            return 1e-8  # Avoid treating separate locations as duplicates.
+        return 0.01 / DataReaderTool._project_distance_scale()
+
     def _status_update(self, advancement_pct):
         """Send a progress message to status bar.
 
@@ -244,11 +252,12 @@ class DataReaderTool:
         if len(projectedpoints) < 2:
             return projectedpoints
         ordered = sorted(projectedpoints, key=lambda p: float(p[0]))
+        tolerance = self._project_chainage_tolerance()
         retained = []
         group = [ordered[0]]
         anchor = float(ordered[0][0])
         for point in ordered[1:]:
-            if float(point[0]) - anchor < 0.01:
+            if float(point[0]) - anchor < tolerance:
                 group.append(point)
             else:
                 retained.append(min(group, key=lambda p: float(p[3])))
@@ -262,7 +271,7 @@ class DataReaderTool:
         """
         projectedpoints : array [[lenght, xprojected ,yprojected ,dist from origignal point, segment of polyline on witch it's projected, atribute (z), xoriginal point, yoriginal point ,original point feature], ... ]
         """
-        PRECISION = 0.01
+        PRECISION = self._project_chainage_tolerance()
         polyline = geom.asPolyline()
         projectedpoints = projectedpoints[projectedpoints[:, 0].argsort()]
 

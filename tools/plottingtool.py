@@ -105,7 +105,10 @@ class PlottingTool:
             return plotWdg
 
         elif library == "Matplotlib" and has_mpl:
-            from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+            try:
+                from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+            except ImportError:
+                from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
             from matplotlib.figure import Figure
 
             fig = Figure(
