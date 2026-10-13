@@ -44,7 +44,10 @@ def slopes_pct(p):
     if len(x) == 1:
         return x, np.array([np.nan])
 
-    dx = np.diff(x)
+    # Geographic projects display angular chainage. In that case, source
+    # profiles supply independently measured metre chainages for valid grades.
+    physical_x = np.asarray(p.get("l_slope", p["l"]), dtype=float)
+    dx = np.diff(physical_x)
     dz = np.diff(y)
     grades = np.full(len(dx), np.nan)
     valid = (np.isfinite(dx) & np.isfinite(dz) & (dx != 0))

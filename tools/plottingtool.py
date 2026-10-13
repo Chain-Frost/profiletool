@@ -27,6 +27,7 @@ from math import sqrt
 
 import numpy as np
 from qgis.PyQt.QtCore import QSettings, Qt
+from qgis.core import QgsProject
 from qgis.PyQt.QtWidgets import QFileDialog, QSizePolicy
 
 from .. import pyqtgraph as pg
@@ -71,6 +72,8 @@ class PlottingTool:
 
         if library == "PyQtGraph":
             plotWdg = pg.PlotWidget()
+            unit = "degrees" if QgsProject.instance().crs().isGeographic() else "m"
+            plotWdg.setLabel("bottom", f"Chainage ({unit})")
             plotWdg.showGrid(True, True, 0.5)
             datavline = pg.InfiniteLine(
                 0, angle=90, pen=pg.mkPen("r", width=1), name="cross_vertical"
@@ -126,6 +129,8 @@ class PlottingTool:
             rect.set_facecolor((0.9, 0.9, 0.9))
 
             self.subplot = fig.add_axes((0.05, 0.15, 0.92, 0.82))
+            unit = "degrees" if QgsProject.instance().crs().isGeographic() else "m"
+            self.subplot.set_xlabel(f"Chainage ({unit})")
             self.subplot.set_xbound(0, 1000)
             self.subplot.set_ybound(0, 1000)
             self.manageMatplotlibAxe(self.subplot)

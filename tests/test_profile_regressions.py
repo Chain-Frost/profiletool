@@ -89,7 +89,23 @@ def reader_module(monkeypatch):
         def mapUnits(self):
             return "feet" if not self.geographic else "degrees"
 
-    project = SimpleNamespace(crs=lambda: ProjectCrs())
+    project = SimpleNamespace(
+        crs=lambda: ProjectCrs(),
+        transformContext=lambda: None,
+        ellipsoid=lambda: "WGS84",
+    )
+
+    class DistanceArea:
+        def setSourceCrs(self, crs, context):
+            pass
+
+        def setEllipsoid(self, ellipsoid):
+            pass
+
+        def measureLine(self, start, end):
+            return math.hypot(end.x() - start.x(), end.y() - start.y()) * 111_000.0
+
+    core.QgsDistanceArea = DistanceArea
     core.QgsPointXY = Point
     core.QgsProject = SimpleNamespace(instance=lambda: project)
     core.Qgis = SimpleNamespace(DistanceUnit=SimpleNamespace(Meters="metres"))
@@ -171,6 +187,7 @@ def test_project_crs_controls_chainage_units(reader_module):
         assert result["x"][-1] == pytest.approx(20.0)
         assert len(result["l"]) == 11
         assert result["crs"] == "source-layer-crs"
+        assert result["l_slope"][-1] == pytest.approx(1_110_000 if geographic else 3.048)
 
 
 def test_valid_zero_is_distinct_from_missing_sample(reader_module):
@@ -279,3 +296,13 @@ def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch):
     assert result is not feature
     assert result.geometry().parts[0][0].y() == 10
     assert feature.geometry().isMultipart()
+
+def test_geographic_grade_uses_metre_distance_without_changing_degree_axis(profilers):
+    profile = {
+        "l": [0, 0.01],
+        "l_slope": [0, 1000],
+        "z": [10, 20],
+    }
+    x, grades = profilers.slopes_pct(profile)
+    np.testing.assert_allclose(x, [0, 0.01])
+    np.testing.assert_allclose(grades, [1, 1])

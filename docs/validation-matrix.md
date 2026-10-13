@@ -1,7 +1,8 @@
 # Profile Tool regression verification
 
 The automatic regression suite covers project CRS chainage units (degrees for a
-geographic project, metres for a projected project), transformed sampling
+geographic project, metres for a projected project), geographic-project grades
+computed from physical metre distances, transformed sampling
 locations, exact zero raster values versus missing raster samples, invalid
 slope segments, short profiles, and vector point-chainage deduplication.
 

@@ -50,7 +50,7 @@ class DataReaderTool:
         self.pointstoDraw = pointstoDraw1
         self.iface = iface1
 
-        lengths, sample_x, sample_y = [], [], []
+        lengths, sample_x, sample_y, project_samples = [], [], [], []
         previous_length = 0.0
         project_scale = self._project_distance_scale()
         first_segment = True
@@ -90,6 +90,7 @@ class DataReaderTool:
                 # Transform each point; projecting only the endpoints and
                 # interpolating in layer CRS distorts long/mixed-CRS lines.
                 point_layer = tool1.toLayerCoordinates(layer, point_map)
+                project_samples.append(point_map)
                 sample_x.append(point_layer.x())
                 sample_y.append(point_layer.y())
                 lengths.append(previous_length + fraction * segment_length)
@@ -98,6 +99,7 @@ class DataReaderTool:
 
         profile1.update({
             "l": lengths,
+            "l_slope": self._slope_distances(project_samples, lengths),
             "z": self._extractZValues(sample_x, sample_y),
             "x": sample_x,
             "y": sample_y,
@@ -115,6 +117,29 @@ class DataReaderTool:
         return QgsUnitTypes.fromUnitToUnitFactor(
             project_crs.mapUnits(), Qgis.DistanceUnit.Meters
         )
+
+    @staticmethod
+    def _slope_distances(project_points, chainages):
+        """Slope distance in metres, even when displayed chainage is degrees.
+
+        A geographic project's displayed chainage remains angular. Geodesic
+        segment lengths are used only for grades, which must have linear units.
+        """
+        if not project_points:
+            return []
+        project = QgsProject.instance()
+        if not project.crs().isGeographic():
+            return chainages
+        distance = QgsDistanceArea()
+        distance.setSourceCrs(project.crs(), project.transformContext())
+        ellipsoid = project.ellipsoid()
+        distance.setEllipsoid(
+            ellipsoid if ellipsoid and ellipsoid != "NONE" else "WGS84"
+        )
+        result = [0.0]
+        for start, end in zip(project_points[:-1], project_points[1:]):
+            result.append(result[-1] + distance.measureLine(start, end))
+        return result
 
     @staticmethod
     def _project_chainage_tolerance():
@@ -233,6 +258,10 @@ class DataReaderTool:
 
         distance_scale = self._project_distance_scale()
         profile["l"] = [float(p[0]) * distance_scale for p in projected]
+        profile["l_slope"] = self._slope_distances(
+            [QgsPointXY(float(p[1]), float(p[2])) for p in projected],
+            profile["l"],
+        )
         profile["z"] = [float(p[5]) if p[5] is not None else np.nan for p in projected]
         profile["x"] = [float(p[1]) for p in projected]
         profile["y"] = [float(p[2]) for p in projected]
