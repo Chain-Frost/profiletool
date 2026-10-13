@@ -23,21 +23,29 @@
 #
 # ---------------------------------------------------------------------
 
+from __future__ import annotations
+
 from contextlib import suppress
 from os import path
+from typing import cast
 
 from qgis.core import QgsSettings
+from qgis.gui import QgisInterface, QgsMapTool
 from qgis.PyQt.QtCore import QCoreApplication, QTranslator
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QMainWindow
 
 from .tools.profiletool_core import ProfileToolCore
 
 
 class ProfilePlugin:
-    def __init__(self, iface):
+    def __init__(self, iface: QgisInterface) -> None:
         self.iface = iface
-        self.canvas = iface.mapCanvas()
+        canvas = iface.mapCanvas()
+        if canvas is None:
+            message = "Profile Tool requires a QGIS map canvas."
+            raise ValueError(message)
+        self.canvas = canvas
 
         # translation
         # initialize plugin directory
@@ -51,11 +59,11 @@ class ProfilePlugin:
             self.translator.load(locale_path)
             QCoreApplication.installTranslator(self.translator)
 
-        self.profiletool = None
+        self.profiletool: ProfileToolCore | None = None
         self.dockOpened = False  # remember for not reopening dock if there's already one opened
         self.canvas.mapToolSet.connect(self.mapToolChanged)
 
-    def initGui(self):
+    def initGui(self) -> None:
         # create action
         self.action = QAction(
             QIcon(path.join(self.plugin_dir, "icons/profileIcon.png")),
@@ -71,44 +79,51 @@ class ProfilePlugin:
         self.iface.addPluginToMenu("&Profile Tool", self.action)
         self.iface.addPluginToMenu("&Profile Tool", self.aboutAction)
 
-    def unload(self):
+    def unload(self) -> None:
+        core = self.profiletool
         with suppress(AttributeError, RuntimeError, TypeError):
-            self.profiletool.dockwidget.close()
+            if core is not None:
+                core.dockwidget.close()
+        with suppress(RuntimeError, TypeError):
             self.canvas.mapToolSet.disconnect(self.mapToolChanged)
 
         self.iface.removeToolBarIcon(self.action)
         self.iface.removePluginMenu("&Profile Tool", self.action)
         self.iface.removePluginMenu("&Profile Tool", self.aboutAction)
 
-    def tr(self, message):
+    def tr(self, message: str) -> str:
         return QCoreApplication.translate("ProfilePlugin", message)
 
-    def run(self):
-
-        if not self.dockOpened:
+    def run(self) -> None:
+        core = self.profiletool
+        if not self.dockOpened or core is None:
             # if self.profiletool is None:
-            self.profiletool = ProfileToolCore(self.iface, self)
-            self.iface.addDockWidget(self.profiletool.dockwidget.location, self.profiletool.dockwidget)
-            self.profiletool.dockwidget.closed.connect(self.cleaning)
+            core = ProfileToolCore(self.iface, self)
+            self.profiletool = core
+            self.iface.addDockWidget(core.dockwidget.location, core.dockwidget)
+            core.dockwidget.closed.connect(self.cleaning)
             self.dockOpened = True
-            self.profiletool.activateProfileMapTool()
-        else:
-            self.profiletool.activateProfileMapTool()
+        core.activateProfileMapTool()
 
-    def cleaning(self):
+    def cleaning(self) -> None:
         self.dockOpened = False
-        self.profiletool.cleaning()
-        if self.profiletool.toolrenderer:
-            self.canvas.unsetMapTool(self.profiletool.toolrenderer.tool)
-        if self.profiletool.saveTool is not None:
-            self.canvas.setMapTool(self.profiletool.saveTool)
-        self.iface.mainWindow().statusBar().showMessage("")
+        core = self.profiletool
+        if core is None:
+            return
+        core.cleaning()
+        if core.toolrenderer:
+            self.canvas.unsetMapTool(core.toolrenderer.tool)
+        if core.saveTool is not None:
+            self.canvas.setMapTool(core.saveTool)
+        status_bar = cast(QMainWindow, self.iface.mainWindow()).statusBar()
+        if status_bar is not None:
+            status_bar.showMessage("")
 
-    def mapToolChanged(self, newtool, oldtool=None):
+    def mapToolChanged(self, newtool: QgsMapTool | None, oldtool: QgsMapTool | None = None) -> None:
         pass
         # print('maptoolchanged',newtool,oldtool)
 
-    def about(self):
+    def about(self) -> None:
         from .ui.dlgabout import DlgAbout
 
         DlgAbout(self.iface.mainWindow()).exec()

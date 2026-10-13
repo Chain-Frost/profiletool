@@ -6,3 +6,4 @@ __pycache__
 .vscode/qgis.env
 .vscode/qgis-tools/
 validation_artifacts/
+.vscode/qgis-type-stubs/

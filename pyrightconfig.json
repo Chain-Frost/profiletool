@@ -15,6 +15,8 @@
     ".venv"
   ],
   "extraPaths": [
+    "..",
+    ".vscode/qgis-type-stubs",
     "C:/OSGeo4W/apps/qgis/python",
     "C:/OSGeo4W/apps/qgis/python/plugins"
   ],

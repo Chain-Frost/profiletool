@@ -23,6 +23,8 @@
 #
 # ---------------------------------------------------------------------
 
+from __future__ import annotations
+
 import os
 from contextlib import suppress
 
@@ -30,6 +32,7 @@ import numpy as np
 
 # qgis import
 from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsMapLayer, QgsPointXY, QgsProject, QgsVectorLayer, QgsWkbTypes
+from qgis.gui import QgsMapTool
 
 # from qgis.gui import *
 from qgis.PyQt.QtCore import QSettings, QSignalBlocker, Qt
@@ -74,7 +77,7 @@ class ProfileToolCore(QWidget):
         # self.toolrenderer = ProfiletoolMapToolRenderer(self)
         self.toolrenderer = None
         # the maptool previously loaded
-        self.saveTool = None  # Save the standard mapttool for restoring it at the end
+        self.saveTool: QgsMapTool | None = None  # Save the standard map tool for restoring it at the end.
         # Used to remove highlighting from previously active layer.
         self.previousLayerId = None
         self.pointLayer = None

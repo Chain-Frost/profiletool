@@ -24,8 +24,17 @@
 # ---------------------------------------------------------------------
 # QGIS 2 compatibility shims are obsolete; supported versions start at QGIS 3.40.
 
+from __future__ import annotations
 
-def classFactory(iface):
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from qgis.gui import QgisInterface
+
+    from .profileplugin import ProfilePlugin
+
+
+def classFactory(iface: QgisInterface) -> ProfilePlugin:
     from .profileplugin import ProfilePlugin
 
     return ProfilePlugin(iface)

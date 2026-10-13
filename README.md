@@ -92,3 +92,19 @@ runner selects the regression suite. **Python: QGIS environment (current file)**
 is available in Run and Debug for standalone scripts. A Python interpreter does
 not create a running QGIS desktop `iface`; use the existing MCP connection for
 scripts requiring the live application.
+
+OSGeo4W may omit PyQt's type definition files even though its compiled modules
+are installed. Generate matching editor/Pyright definitions with:
+
+    C:\OSGeo4W\bin\python-qgis.bat scripts\setup_qgis_typing.py
+
+This downloads the official PyQt6 wheel matching the installed binding version
+and extracts only `.pyi` definitions into the ignored `.vscode/qgis-type-stubs/`
+folder. The wheel version, SHA-256 and source URL are recorded in its manifest.
+Two missing names in the generated callback types are normalized for analysis.
+The workspace analysis paths use this folder; it is not added to the runtime
+Python path and no OSGeo4W binaries are replaced. Refresh after an OSGeo4W
+upgrade. This helper currently targets the installed PyQt6 environment.
+
+Editor/Pyright analysis also includes the workspace's parent folder so tests
+can resolve the `profiletool` package, matching their runtime import path.

@@ -286,7 +286,14 @@ def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch):
 
     core.QgsFeature = Feature
     core.QgsGeometry = Geometry
-    for name in ("QgsFeatureRequest", "QgsMapLayer", "QgsRectangle", "QgsSpatialIndex", "QgsWkbTypes"):
+    for name in (
+        "QgsFeatureRequest",
+        "QgsMapLayer",
+        "QgsRectangle",
+        "QgsSpatialIndex",
+        "QgsVectorLayer",
+        "QgsWkbTypes",
+    ):
         setattr(core, name, object)
     widgets = types.ModuleType("qgis.PyQt.QtWidgets")
     widgets.QMessageBox = object

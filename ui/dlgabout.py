@@ -22,18 +22,34 @@
 #
 # ---------------------------------------------------------------------
 
+from __future__ import annotations
+
 import os
+from typing import TYPE_CHECKING
 
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import QSettings
-from qgis.PyQt.QtWidgets import QDialog
+from qgis.PyQt.QtWidgets import QDialog, QLabel, QWidget
 
 uiFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__), "about.ui"))
-FormClass = uic.loadUiType(uiFilePath)[0]
+if TYPE_CHECKING:
+
+    class FormClass:
+        """Typed fields supplied by the generated about.ui form at runtime."""
+
+        title: QLabel
+        description: QLabel
+
+        def setupUi(self, dialog: QDialog) -> None:
+            """Populate the dialog with the fields declared by about.ui."""
+            ...
+
+else:
+    FormClass = uic.loadUiType(uiFilePath)[0]
 
 
 class DlgAbout(QDialog, FormClass):
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         QDialog.__init__(self, parent)
         self.setupUi(self)
 

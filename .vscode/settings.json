@@ -3,6 +3,8 @@
   "python.envFile": "${workspaceFolder}/.vscode/qgis.env",
   "python.terminal.useEnvFile": false,
   "python.analysis.extraPaths": [
+    "${workspaceFolder}/..",
+    "${workspaceFolder}/.vscode/qgis-type-stubs",
     "C:/OSGeo4W/apps/qgis/python",
     "C:/OSGeo4W/apps/qgis/python/plugins"
   ],

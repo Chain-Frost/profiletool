@@ -22,14 +22,14 @@
 #
 # ---------------------------------------------------------------------
 
-from qgis.core import QgsWkbTypes
+from qgis.core import Qgis, QgsMapLayer, QgsVectorLayer
 
 
-def isProfilable(layer):
-    """Returns True if layer can be profiled, else returns False"""
-    return (
-        (layer.type() == layer.RasterLayer)
-        or (layer.type() == layer.MeshLayer)
-        or (layer.type() == layer.PluginLayer and layer.LAYER_TYPE == "selafin_viewer")
-        or (layer.type() == layer.VectorLayer and layer.geometryType() == QgsWkbTypes.PointGeometry)
-    )
+def isProfilable(layer: QgsMapLayer) -> bool:
+    """Return whether a layer supports raster, mesh or point profiling."""
+    layer_type = layer.type()
+    if layer_type in (Qgis.LayerType.Raster, Qgis.LayerType.Mesh):
+        return True
+    if layer_type == Qgis.LayerType.Plugin:
+        return getattr(layer, "LAYER_TYPE", None) == "selafin_viewer"
+    return isinstance(layer, QgsVectorLayer) and layer.geometryType() == Qgis.GeometryType.Point
