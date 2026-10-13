@@ -1,0 +1,19 @@
+{
+  "include": [
+    "__init__.py",
+    "profileplugin.py",
+    "apicompat",
+    "tools",
+    "ui",
+    "tests"
+  ],
+  "exclude": [
+    "pyqtgraph",
+    "dxfwrite",
+    "resources.py",
+    "**/__pycache__",
+    ".venv"
+  ],
+  "pythonVersion": "3.9",
+  "typeCheckingMode": "strict"
+}
