@@ -156,8 +156,9 @@ class ProfiletoolMapToolRenderer:
 
     def setBufferGeometry(self, geoms):
         self.rubberbandbuf.reset()
-        for g in geoms:
-            self.rubberbandbuf.addGeometry(g, None)
+        for geom in geoms:
+            if geom is not None and not geom.isNull() and not geom.isEmpty():
+                self.rubberbandbuf.addGeometry(geom, None)
 
     def cleaning(self):  # used on right click
         self.pointstoDraw = []

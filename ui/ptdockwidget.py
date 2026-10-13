@@ -314,22 +314,23 @@ class PTDockWidget(QDockWidget, FormClass):
         if isinstance(layer1, bool):  # comes from click
             layer1 = self.iface.activeLayer()
 
+        before = self.mdl.rowCount()
         self.tableViewTool.addLayer(self.iface, self.mdl, layer1)
-        self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw, False)
-        if layer1 is None: # no layer selected in the dropdown
-            return
-        layer1.dataChanged.connect(self.refreshPlot)
+        if self.mdl.rowCount() > before:
+            selected_layer = self.mdl.item(self.mdl.rowCount() - 1, 5).data(
+                Qt.ItemDataRole.EditRole
+            )
+            selected_layer.dataChanged.connect(self.refreshPlot)
 
     def removeLayer(self, index=None):
         if isinstance(index, bool):  # come from button
             index = self.tableViewTool.chooseLayerForRemoval(self.iface, self.mdl)
 
         if index is not None:
-            layer = self.mdl.index(index, 4).data()
+            layer = self.mdl.index(index, 5).data()
             with suppress(AttributeError, RuntimeError, TypeError):
                 layer.dataChanged.disconnect(self.refreshPlot)
             self.tableViewTool.removeLayer(self.mdl, index)
-        self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw, False, True)
 
     def refreshPlot(self):
         #
@@ -349,7 +350,7 @@ class PTDockWidget(QDockWidget, FormClass):
             == QgsMapLayer.LayerType.VectorLayer
         ):
 
-            self.profiletoolcore.plotProfil()
+            self.refreshPlot()
 
     def _onSameAxisScaleStateChanged(self, state):
         """
@@ -390,11 +391,11 @@ class PTDockWidget(QDockWidget, FormClass):
         self.profilePushButton = []
         self.coordsPushButton = []
         self.tolayerPushButton = []
-        self.tableView = []
+        self.profileTableViews = []
+        self.profileModels = []
         self.verticalLayout = []
-        if self.mdl.rowCount() != self.profiletoolcore.profiles:
-            # keep the number of profiles and the model in sync.
-            self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw, False, False)
+        if self.mdl.rowCount() != len(self.profiletoolcore.profiles or []):
+            return
         for i in range(0, self.mdl.rowCount()):
             self.groupBox.append(QGroupBox(self.scrollAreaWidgetContents))
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -409,13 +410,14 @@ class PTDockWidget(QDockWidget, FormClass):
             self.verticalLayout.append(QVBoxLayout(self.groupBox[i]))
             self.verticalLayout[i].setObjectName("verticalLayout")
             # The table
-            self.tableView.append(QTableView(self.groupBox[i]))
+            self.profileTableViews.append(QTableView(self.groupBox[i]))
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            self.tableView[i].setSizePolicy(sizePolicy)
-            self.tableView[i].setObjectName("tableView" + str(i))
+            self.profileTableViews[i].setSizePolicy(sizePolicy)
+            self.profileTableViews[i].setObjectName("tableView" + str(i))
             # font = QFont("Arial", 8)
             column = len(self.profiletoolcore.profiles[i]["l"])
             self.mdl2 = QStandardItemModel(2, column)
+            self.profileModels.append(self.mdl2)
             for j in range(len(self.profiletoolcore.profiles[i]["l"])):
                 self.mdl2.setData(
                     self.mdl2.index(0, j, QModelIndex()), self.profiletoolcore.profiles[i]["l"][j]
@@ -425,21 +427,21 @@ class PTDockWidget(QDockWidget, FormClass):
                     self.mdl2.index(1, j, QModelIndex()), self.profiletoolcore.profiles[i]["z"][j]
                 )
                 # self.mdl2.setData(self.mdl2.index(1, j, QModelIndex())  ,font ,QtCore.Qt.FontRole)
-            self.tableView[i].verticalHeader().setDefaultSectionSize(18)
-            self.tableView[i].horizontalHeader().setDefaultSectionSize(60)
-            self.tableView[i].setModel(self.mdl2)
+            self.profileTableViews[i].verticalHeader().setDefaultSectionSize(18)
+            self.profileTableViews[i].horizontalHeader().setDefaultSectionSize(60)
+            self.profileTableViews[i].setModel(self.mdl2)
             # 2 * header (1 header + 1 horz slider) + nrows + a small margin
             minTableHeight = (
-                2 * self.tableView[i].horizontalHeader().height()
+                2 * self.profileTableViews[i].horizontalHeader().height()
                 + sum(
-                    self.tableView[i].rowHeight(j)
-                    for j in range(self.tableView[i].model().rowCount())
+                    self.profileTableViews[i].rowHeight(j)
+                    for j in range(self.profileTableViews[i].model().rowCount())
                 )
                 + 6
             )  # extra safety margin
-            self.tableView[i].setMinimumHeight(minTableHeight)
+            self.profileTableViews[i].setMinimumHeight(minTableHeight)
 
-            self.verticalLayout[i].addWidget(self.tableView[i])
+            self.verticalLayout[i].addWidget(self.profileTableViews[i])
 
             self.horizontalLayout = QHBoxLayout()
 
@@ -522,7 +524,7 @@ class PTDockWidget(QDockWidget, FormClass):
 
     def createTemporaryLayer(self):
         nr = int(self.sender().objectName())
-        type = "Point?crs=" + str(self.profiletoolcore.profiles[nr]["layer"].crs().authid())
+        type = "Point?crs=" + str(self.profiletoolcore.profiles[nr]["crs"].authid())
         name = "ProfileTool_{}".format(self._profile_name(self.profiletoolcore.profiles[nr]))
         vl = QgsVectorLayer(type, name, "memory")
         pr = vl.dataProvider()

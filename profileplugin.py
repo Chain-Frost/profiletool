@@ -103,7 +103,8 @@ class ProfilePlugin:
         self.profiletool.cleaning()
         if self.profiletool.toolrenderer:
             self.canvas.unsetMapTool(self.profiletool.toolrenderer.tool)
-        self.canvas.setMapTool(self.profiletool.saveTool)
+        if self.profiletool.saveTool is not None:
+            self.canvas.setMapTool(self.profiletool.saveTool)
         self.iface.mainWindow().statusBar().showMessage("")
 
     def mapToolChanged(self, newtool, oldtool=None):

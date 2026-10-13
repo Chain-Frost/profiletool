@@ -53,10 +53,30 @@ class SelectLineTool:
             # get the point coordinates in the layer's CRS
             point = tool.toLayerCoordinates(layer, QgsPointXY(newPoints[0][0], newPoints[0][1]))
             closestFeatures = self.select_closest_feature(iface, layer, point)
+            if closestFeatures:
+                closestFeatures = [self.select_closest_part(closestFeatures[0], point)]
         elif self.selectionMethod == "layer":
             closestFeatures = self.select_layer_features(iface, layer, None)
 
         return layer, closestFeatures
+
+    @staticmethod
+    def select_closest_part(feature, clicked_point):
+        """Return a feature copy containing only the clicked multipart line."""
+        geometry = feature.geometry()
+        if not geometry.isMultipart():
+            return feature
+        parts = geometry.asMultiPolyline()
+        if not parts:
+            return feature
+        click_geometry = QgsGeometry.fromPointXY(clicked_point)
+        best_part = min(
+            parts,
+            key=lambda part: QgsGeometry.fromPolylineXY(part).distance(click_geometry),
+        )
+        selected = QgsFeature(feature)
+        selected.setGeometry(QgsGeometry.fromPolylineXY(best_part))
+        return selected
 
     @staticmethod
     def checkIsLineLayer(layer):
