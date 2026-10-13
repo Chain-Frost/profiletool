@@ -21,13 +21,23 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
+from qgis.core import QgsMapLayer, QgsProject
 from qgis.PyQt.QtCore import QModelIndex, QObject, Qt, pyqtSignal
-from qgis.PyQt.QtGui import QColor
+from qgis.PyQt.QtGui import QColor, QStandardItemModel
 from qgis.PyQt.QtWidgets import QColorDialog, QInputDialog, QMessageBox
 
 # plugin import
 from .plottingtool import PlottingTool
 from .utils import isProfilable
+
+
+def layer_from_model(model: QStandardItemModel, row: int) -> QgsMapLayer | None:
+    """Resolve a source ID through the project, avoiding deleted Qt wrappers."""
+    item = model.item(row, 5)
+    layer_id = item.data(Qt.ItemDataRole.EditRole) if item else None
+    return QgsProject.instance().mapLayer(layer_id) if isinstance(layer_id, str) else None
 
 
 class TableViewTool(QObject):
@@ -43,8 +53,8 @@ class TableViewTool(QObject):
                 layer = iface.mapCanvas().layer(i)
                 if isProfilable(layer):
                     for j in range(mdl.rowCount()):
-                        existing = mdl.item(j, 5).data(Qt.ItemDataRole.EditRole)
-                        if existing is not None and existing.id() == layer.id():
+                        existing_id = mdl.item(j, 5).data(Qt.ItemDataRole.EditRole)
+                        if existing_id == layer.id():
                             donothing = True
                 else:
                     donothing = True
@@ -59,7 +69,7 @@ class TableViewTool(QObject):
                 # Identically named layers are allowed in QGIS. Disambiguate
                 # display names but continue tracking them by stable layer ID.
                 names = [entry[1] for entry in templist]
-                labels = [name if names.count(name) == 1 else f"{name} [{layer.id()[:8]}]" for layer, name in templist]
+                labels = [name if names.count(name) == 1 else f"{name} [{layer.id()[-8:]}]" for layer, name in templist]
                 selected_name, ok = QInputDialog.getItem(
                     iface.mainWindow(),
                     "Layer selector",
@@ -180,15 +190,13 @@ class TableViewTool(QObject):
         if layer2.type() == layer2.VectorLayer:
             # Buffer distance is expressed in project CRS units: degrees in
             # geographic projects, linear units in projected projects.
-            from qgis.core import QgsProject
-
             default_buffer = 0.001 if QgsProject.instance().crs().isGeographic() else 100.0
             mdl.setData(mdl.index(row, 4, QModelIndex()), default_buffer)
         else:
             mdl.setData(mdl.index(row, 4, QModelIndex()), "")
             mdl.item(row, 4).setFlags(Qt.ItemFlag.NoItemFlags)
 
-        mdl.setData(mdl.index(row, 5, QModelIndex()), layer2)
+        mdl.setData(mdl.index(row, 5, QModelIndex()), layer2.id())
         mdl.item(row, 5).setFlags(Qt.ItemFlag.NoItemFlags)
         self.layerAddedOrRemoved.emit()
 
@@ -216,10 +224,13 @@ class TableViewTool(QObject):
         return None
 
     def onClick(self, iface, wdg, mdl, plotlibrary, index1):  # action when clicking the tableview
+        layer = layer_from_model(mdl, index1.row())
+        if layer is None:
+            return
         temp = mdl.itemFromIndex(index1)
         if index1.column() == 1:  # modifying color
             name = PlottingTool.curveName(
-                mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole),
+                layer,
                 mdl.item(index1.row(), 3).data(Qt.ItemDataRole.EditRole),
                 mdl,
             )
@@ -229,7 +240,7 @@ class TableViewTool(QObject):
         elif index1.column() == 0:  # modifying checkbox
             # name = mdl.item(index1.row(),2).data(Qt.ItemDataRole.EditRole)
             name = PlottingTool.curveName(
-                mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole),
+                layer,
                 mdl.item(index1.row(), 3).data(Qt.ItemDataRole.EditRole),
                 mdl,
             )
@@ -241,12 +252,8 @@ class TableViewTool(QObject):
             mdl.setData(mdl.index(temp.row(), 0, QModelIndex()), booltemp, Qt.ItemDataRole.CheckStateRole)
             PlottingTool().changeAttachCurve(wdg, plotlibrary, booltemp, name)
         elif (
-            index1.column() == 3
-            and mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole).type()
-            == mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole).PluginLayer
-            and mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole).LAYER_TYPE == "selafin_viewer"
+            index1.column() == 3 and layer.type() == layer.PluginLayer and layer.LAYER_TYPE == "selafin_viewer"
         ):  # modifying selafin_viewer parameter
-            layer = mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole)
             listparameterband = []
             listparametername = []
             for i in range(layer.bandCount()):

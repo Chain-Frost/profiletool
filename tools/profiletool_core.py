@@ -32,7 +32,7 @@ import numpy as np
 from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsMapLayer, QgsPointXY, QgsProject, QgsVectorLayer, QgsWkbTypes
 
 # from qgis.gui import *
-from qgis.PyQt.QtCore import QSettings, Qt
+from qgis.PyQt.QtCore import QSettings, QSignalBlocker, Qt
 
 # from qgis.PyQt.QtGui import QColor
 # from qgis.PyQt.QtSvg import *  # required in some distros
@@ -46,6 +46,7 @@ from .dataReaderTool import DataReaderTool
 from .plottingtool import PlottingTool
 from .ptmaptool import ProfiletoolMapToolRenderer
 from .selectlinetool import SelectLineTool
+from .tableviewtool import layer_from_model
 
 
 class ProfileToolCore(QWidget):
@@ -153,9 +154,12 @@ class ProfileToolCore(QWidget):
         self.pointstoDraw = list(points1)
         self.profiles = []
         self.distancesPicked = []
+        self.removeClosedLayers(self.dockwidget.mdl)
 
         for i in range(self.dockwidget.mdl.rowCount()):
-            layer = self.dockwidget.mdl.item(i, 5).data(Qt.ItemDataRole.EditRole)
+            layer = layer_from_model(self.dockwidget.mdl, i)
+            if layer is None:
+                continue
             band = self.dockwidget.mdl.item(i, 3).data(Qt.ItemDataRole.EditRole)
             profile = {"layer": layer, "band": band}
             if layer.type() == QgsMapLayer.VectorLayer:
@@ -189,6 +193,7 @@ class ProfileToolCore(QWidget):
     def plotProfil(self, vertline=True):
         self.disableMouseCoordonates()
         if self.removeClosedLayers(self.dockwidget.mdl):
+            self.updateProfil(self.pointstoDraw, False, True)
             return
         plotting = PlottingTool()
         plotting.clearData(self.dockwidget, self.profiles, self.dockwidget.plotlibrary)
@@ -292,21 +297,20 @@ class ProfileToolCore(QWidget):
 
     # remove layers which were removed from QGIS
     def onLayersRemoved(self, *args):
-        self.removeClosedLayers(self.dockwidget.mdl)
+        self.updateProfil(self.pointstoDraw, False, True)
 
     def removeClosedLayers(self, model1):
         """Remove missing layers by stable ID, not by non-unique layer name."""
-        for i in range(model1.rowCount() - 1, -1, -1):
-            item = model1.item(i, 5)
-            layer = item.data(Qt.ItemDataRole.EditRole) if item else None
-            try:
-                missing = layer is None or self.instance.mapLayer(layer.id()) is None
-            except RuntimeError:
-                missing = True  # Source layer's wrapped QGIS object was deleted.
-            if missing:
-                self.dockwidget.removeLayer(i)
-                return True
-        return False
+        removed = False
+        blocker = QSignalBlocker(self.dockwidget.tableViewTool)
+        try:
+            for i in range(model1.rowCount() - 1, -1, -1):
+                if layer_from_model(model1, i) is None:
+                    self.dockwidget.removeLayer(i)
+                    removed = True
+        finally:
+            blocker.unblock()
+        return removed
 
     def cleaning(self):
         self.profiles = []

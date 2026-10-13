@@ -53,7 +53,7 @@ from qgis.PyQt.QtWidgets import (
 
 # plugin import
 from ..tools.plottingtool import PlottingTool
-from ..tools.tableviewtool import TableViewTool
+from ..tools.tableviewtool import TableViewTool, layer_from_model
 
 try:
     import matplotlib
@@ -146,6 +146,10 @@ class PTDockWidget(QDockWidget, FormClass):
             self.profiletoolcore.toolrenderer.connectTool()
 
     def changePlotLibrary(self, item):
+        # Each library switch replaces the plot, not the tracking checkbox.
+        # Remove our previous connection before connecting the new plot once.
+        with suppress(TypeError, RuntimeError):
+            self.checkBox_mpl_tracking.stateChanged.disconnect(self.profiletoolcore.activateMouseTracking)
         self.plotlibrary = self.cboLibrary.itemText(item)
         self.addPlotWidget(self.plotlibrary)
 
@@ -289,15 +293,16 @@ class PTDockWidget(QDockWidget, FormClass):
         before = self.mdl.rowCount()
         self.tableViewTool.addLayer(self.iface, self.mdl, layer1)
         if self.mdl.rowCount() > before:
-            selected_layer = self.mdl.item(self.mdl.rowCount() - 1, 5).data(Qt.ItemDataRole.EditRole)
-            selected_layer.dataChanged.connect(self.refreshPlot)
+            selected_layer = layer_from_model(self.mdl, self.mdl.rowCount() - 1)
+            if selected_layer is not None:
+                selected_layer.dataChanged.connect(self.refreshPlot)
 
     def removeLayer(self, index=None):
         if isinstance(index, bool):  # come from button
             index = self.tableViewTool.chooseLayerForRemoval(self.iface, self.mdl)
 
         if index is not None:
-            layer = self.mdl.index(index, 5).data()
+            layer = layer_from_model(self.mdl, index)
             with suppress(AttributeError, RuntimeError, TypeError):
                 layer.dataChanged.disconnect(self.refreshPlot)
             self.tableViewTool.removeLayer(self.mdl, index)
@@ -313,11 +318,8 @@ class PTDockWidget(QDockWidget, FormClass):
         self.tableViewTool.onClick(self.iface, self, self.mdl, self.plotlibrary, index1)
 
     def _onChange(self, item):
-        if (
-            self.mdl.item(item.row(), 5) is not None
-            and item.column() == 4
-            and self.mdl.item(item.row(), 5).data(Qt.ItemDataRole.EditRole).type() == QgsMapLayer.LayerType.VectorLayer
-        ):
+        layer = layer_from_model(self.mdl, item.row())
+        if layer is not None and item.column() == 4 and layer.type() == QgsMapLayer.LayerType.VectorLayer:
             self.refreshPlot()
 
     def _onSameAxisScaleStateChanged(self, state):

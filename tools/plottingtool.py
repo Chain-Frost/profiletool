@@ -27,6 +27,8 @@ from math import sqrt
 import numpy as np
 from qgis.core import QgsProject
 from qgis.PyQt.QtCore import QSettings, Qt
+from qgis.PyQt.QtGui import QPainter
+from qgis.PyQt.QtSvg import QSvgGenerator
 from qgis.PyQt.QtWidgets import QFileDialog, QSizePolicy
 
 from .. import pyqtgraph as pg
@@ -71,7 +73,7 @@ class PlottingTool:
         name = layer.name()
         same_name = sum(model.item(i, 2).data(Qt.ItemDataRole.EditRole) == name for i in range(model.rowCount()))
         if same_name > 1:
-            name += f" [{layer.id()[:8]}]"
+            name += f" [{layer.id()[-8:]}]"
         return f"{name}#{band}"
 
     def changePlotWidget(self, library, frame_for_plot):
@@ -409,9 +411,21 @@ class PlottingTool:
             QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
 
             if library == "PyQtGraph":
-                exporter = exporters.SVGExporter(wdg.plotWdg.getPlotItem().scene())
-                # exporter =  pg.exporters.ImageExporter(wdg.plotWdg.getPlotItem()
-                exporter.export(fileName=fileName)
+                # Qt 6 SVG paths are not compatible with the bundled
+                # pyqtgraph exporter's coordinate parser. Render through Qt
+                # directly so paths, including NoData gaps, remain vector data.
+                generator = QSvgGenerator()
+                generator.setFileName(fileName)
+                generator.setSize(wdg.plotWdg.size())
+                generator.setViewBox(wdg.plotWdg.rect())
+                painter = QPainter()
+                if not painter.begin(generator):
+                    message = "Could not open SVG export for painting."
+                    raise OSError(message)
+                try:
+                    wdg.plotWdg.render(painter)
+                finally:
+                    painter.end()
             elif library == "Matplotlib" and has_mpl:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 

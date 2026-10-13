@@ -5,3 +5,4 @@ __pycache__
 .pytest_cache/
 .vscode/qgis.env
 .vscode/qgis-tools/
+validation_artifacts/
