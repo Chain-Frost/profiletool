@@ -19,6 +19,13 @@ jobs:
         run: |
           ruff check --isolated --target-version py39 --select E,F,I,UP,B --ignore E501 \
             tools/profilers.py tools/dataReaderTool.py tools/selectlinetool.py scripts/write_qgis_env.py
+      - name: Ruff next-scope audit (informational)
+        continue-on-error: true
+        run: |
+          ruff check --isolated --target-version py39 --select E,F,I,UP,B --ignore E501 --output-format concise \
+            __init__.py profileplugin.py tools/utils.py tools/ptmaptool.py \
+            tools/tableviewtool.py ui/dlgabout.py scripts/qgis_dev.py \
+            scripts/setup_qgis_typing.py tests/test_qgis_layer_lifecycle.py
       - name: Pyright baseline (QGIS-independent modules)
         run: pyright --project pyright-ci.json
       - name: Compile plugin sources
