@@ -18,17 +18,16 @@ jobs:
       - name: Ruff baseline (plugin-owned files only)
         run: |
           ruff check --isolated --target-version py39 --select E,F,I,UP,B --ignore E501 \
-            tools/profilers.py tools/dataReaderTool.py tools/selectlinetool.py scripts/write_qgis_env.py
-      - name: Ruff next-scope audit (informational)
+            __init__.py profileplugin.py \
+            tools/profilers.py tools/dataReaderTool.py tools/selectlinetool.py tools/utils.py \
+            tools/ptmaptool.py tools/tableviewtool.py ui/dlgabout.py \
+            scripts/write_qgis_env.py scripts/qgis_dev.py scripts/setup_qgis_typing.py \
+            tests/test_qgis_layer_lifecycle.py
+      - name: Pyright next-scope audit (informational)
         continue-on-error: true
         run: |
-          ruff check --isolated --target-version py39 --select E,F,I,UP,B --ignore E501 --output-format concise \
-            __init__.py profileplugin.py tools/utils.py tools/ptmaptool.py \
-            tools/tableviewtool.py ui/dlgabout.py scripts/qgis_dev.py \
-            scripts/setup_qgis_typing.py tests/test_qgis_layer_lifecycle.py
-      - name: Ruff import-order suggestion
-        continue-on-error: true
-        run: ruff check --isolated --select I --diff tools/ptmaptool.py
+          python -c "import json; p=json.load(open('pyright-ci.json')); p['include'].extend(['tests/test_profile_regressions.py', 'scripts/setup_qgis_typing.py', 'tools/utils.py']); open('pyright-audit.json','w').write(json.dumps(p))"
+          pyright --project pyright-audit.json
       - name: Pyright baseline (QGIS-independent modules)
         run: pyright --project pyright-ci.json
       - name: Compile plugin sources

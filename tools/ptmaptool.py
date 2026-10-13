@@ -25,7 +25,13 @@
 from __future__ import annotations
 
 from qgis.core import QgsPointXY, QgsWkbTypes
-from qgis.gui import QgsMapCanvas, QgsMapMouseEvent, QgsMapTool, QgsRubberBand, QgsVertexMarker
+from qgis.gui import (
+    QgsMapCanvas,
+    QgsMapMouseEvent,
+    QgsMapTool,
+    QgsRubberBand,
+    QgsVertexMarker,
+)
 from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor, QCursor
 from qgis.PyQt.QtWidgets import QAction
