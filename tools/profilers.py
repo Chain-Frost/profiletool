@@ -36,20 +36,26 @@ def height(p):
 
 
 def slopes_pct(p):
-    """Return a profile's slope in percentage.
+    """Return grade at each sample; invalid or absent data remain gaps."""
+    x = np.asarray(p["l"], dtype=float)
+    y = np.asarray(p["z"], dtype=float)
+    if len(x) == 0:
+        return x, np.empty(0, dtype=float)
+    if len(x) == 1:
+        return x, np.array([np.nan])
 
-    Returns the x (distance from origin) and y (slope in percentage)
-    coordinates for the plot.
-    """
-    x = np.array(p["l"], dtype=float)
-    y = np.array(p["z"], dtype=float)
-    slope_pct = 100.0 * (y[1:] - y[:-1]) / (x[1:] - x[:-1])
-    slope_pct = np.concatenate(
-        (slope_pct[0:1], 0.5 * (slope_pct[1:] + slope_pct[:-1]), slope_pct[-1:])
-    )
-    slope_pct[np.isnan(slope_pct)] = 0
-    slope_pct[np.isinf(slope_pct)] = 0
-    return x, slope_pct
+    dx = np.diff(x)
+    dz = np.diff(y)
+    grades = np.full(len(dx), np.nan)
+    valid = (np.isfinite(dx) & np.isfinite(dz) & (dx != 0))
+    np.divide(100 * dz, dx, out=grades, where=valid)
+
+    result = np.full(len(x), np.nan)
+    result[0], result[-1] = grades[0], grades[-1]
+    if len(x) > 2:
+        adjacent = np.isfinite(grades[:-1]) & np.isfinite(grades[1:])
+        result[1:-1] = np.where(adjacent, (grades[:-1] + grades[1:]) / 2, np.nan)
+    return x, result
 
 
 def slopes_deg(p):
