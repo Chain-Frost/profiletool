@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profile
@@ -36,17 +35,13 @@ class ProfiletoolMapToolRenderer:
         self.profiletool = profiletool
         self.iface = self.profiletool.iface
         self.canvas = self.profiletool.iface.mapCanvas()
-        self.tool = ProfiletoolMapTool(
-            self.canvas, self.profiletool.plugincore.action
-        )  # the mouselistener
+        self.tool = ProfiletoolMapTool(self.canvas, self.profiletool.plugincore.action)  # the mouselistener
         self.pointstoDraw = []  # Polyline being drawn in freehand mode
         self.dblclktemp = None  # enable disctinction between leftclick and doubleclick
         self.isPlotting = False
         self._signals_connected = False
         # the rubberband
-        self.rubberband = QgsRubberBand(
-            self.iface.mapCanvas(), QgsWkbTypes.GeometryType.LineGeometry
-        )
+        self.rubberband = QgsRubberBand(self.iface.mapCanvas(), QgsWkbTypes.GeometryType.LineGeometry)
         self.rubberband.setWidth(2)
         self.rubberband.setColor(QColor(Qt.GlobalColor.red))
 
@@ -71,16 +66,14 @@ class ProfiletoolMapToolRenderer:
 
     def updateRubberBand(self):
         self.resetRubberBand()
-        for i in range(0, len(self.pointstoDraw)):
+        for i in range(len(self.pointstoDraw)):
             self.rubberband.addPoint(QgsPointXY(self.pointstoDraw[i][0], self.pointstoDraw[i][1]))
 
     def moved(self, position):  # draw the polyline on the temp layer (rubberband)
         if self.selectionmethod == 0:
             if len(self.pointstoDraw) > 0:
                 # Get mouse coords
-                mapPos = self.canvas.getCoordinateTransform().toMapCoordinates(
-                    position["x"], position["y"]
-                )
+                mapPos = self.canvas.getCoordinateTransform().toMapCoordinates(position["x"], position["y"])
                 # Draw on temp layer
                 self.updateRubberBand()
                 self.rubberband.addPoint(QgsPointXY(mapPos.x(), mapPos.y()))
@@ -192,7 +185,6 @@ class ProfiletoolMapToolRenderer:
 
 
 class ProfiletoolMapTool(QgsMapTool):
-
     moved = pyqtSignal(dict)
     rightClicked = pyqtSignal(dict)
     leftClicked = pyqtSignal(dict)

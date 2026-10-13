@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profilers
@@ -23,10 +22,29 @@
 #
 # ---------------------------------------------------------------------
 
+"""Height and grade transformations for sampled profiles."""
+
+from collections.abc import Callable
+from typing import TypedDict
+
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 
-def height(p):
+class ProfileSamples(TypedDict):
+    """Required displayed chainage and elevation samples."""
+
+    l: ArrayLike  # noqa: E741 -- Existing profile dictionary key for chainage.
+    z: ArrayLike
+
+
+class ProfileData(ProfileSamples, total=False):
+    """Profile samples with optional physical chainage for grade calculations."""
+
+    l_slope: ArrayLike
+
+
+def height(p: ProfileData) -> tuple[ArrayLike, ArrayLike]:
     """Return the height profile for given track p.
 
     Returns the x (distance from origin) and y (height)
@@ -35,7 +53,7 @@ def height(p):
     return p["l"], p["z"]
 
 
-def slopes_pct(p):
+def slopes_pct(p: ProfileData) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Return grade at each sample; invalid or absent data remain gaps."""
     x = np.asarray(p["l"], dtype=float)
     y = np.asarray(p["z"], dtype=float)
@@ -50,7 +68,7 @@ def slopes_pct(p):
     dx = np.diff(physical_x)
     dz = np.diff(y)
     grades = np.full(len(dx), np.nan)
-    valid = (np.isfinite(dx) & np.isfinite(dz) & (dx != 0))
+    valid = np.isfinite(dx) & np.isfinite(dz) & (dx != 0)
     np.divide(100 * dz, dx, out=grades, where=valid)
 
     result = np.full(len(x), np.nan)
@@ -61,7 +79,7 @@ def slopes_pct(p):
     return x, result
 
 
-def slopes_deg(p):
+def slopes_deg(p: ProfileData) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Return a profile's slope in degrees.
 
     Returns the x (distance from origin) and y (slope in degrees)
@@ -72,4 +90,8 @@ def slopes_deg(p):
     return x, slope_deg
 
 
-PLOT_PROFILERS = {"Height": height, "Slope (%)": slopes_pct, "Slope (°)": slopes_deg}
+PLOT_PROFILERS: dict[str, Callable[[ProfileData], tuple[ArrayLike, ArrayLike]]] = {
+    "Height": height,
+    "Slope (%)": slopes_pct,
+    "Slope (°)": slopes_deg,
+}

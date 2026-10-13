@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profile
@@ -89,9 +88,7 @@ class ProfilePlugin:
         if not self.dockOpened:
             # if self.profiletool is None:
             self.profiletool = ProfileToolCore(self.iface, self)
-            self.iface.addDockWidget(
-                self.profiletool.dockwidget.location, self.profiletool.dockwidget
-            )
+            self.iface.addDockWidget(self.profiletool.dockwidget.location, self.profiletool.dockwidget)
             self.profiletool.dockwidget.closed.connect(self.cleaning)
             self.dockOpened = True
             self.profiletool.activateProfileMapTool()

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profile
@@ -44,9 +43,7 @@ class SelectLineTool:
         closestFeatures = []
         layer = iface.activeLayer()
         if layer is None or not self.checkIsLineLayer(layer):
-            QMessageBox.warning(
-                iface.mainWindow(), "Closest Feature Finder", "No line layer selected"
-            )
+            QMessageBox.warning(iface.mainWindow(), "Closest Feature Finder", "No line layer selected")
             return None, closestFeatures
 
         if self.selectionMethod == "feature":
@@ -108,10 +105,7 @@ class SelectLineTool:
         closestFeature = QgsFeature()
 
         f = QgsFeature()
-        if (
-            featureId is None
-            or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) is False
-        ):
+        if featureId is None or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) is False:
             closestFeature = None
 
         booltemp = layer.geometryType() != QgsWkbTypes.PointGeometry
@@ -162,10 +156,7 @@ class SelectLineTool:
             # closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).next()
             closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f)
             closestFeature = f
-            if (
-                featureId is None
-                or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) is False
-            ):
+            if featureId is None or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) is False:
                 closestFeature = None
 
         return [closestFeature] if closestFeature else []

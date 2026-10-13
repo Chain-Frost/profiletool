@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profile
@@ -24,14 +23,13 @@
 #
 # ---------------------------------------------------------------------
 
+import os
 from contextlib import suppress
 
 import numpy as np
-import os
 
 # qgis import
-from qgis.core import QgsGeometry, QgsMapLayer, QgsPointXY, QgsProject, Qgis
-from qgis.core import QgsVectorLayer, QgsFeature, QgsWkbTypes
+from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsMapLayer, QgsPointXY, QgsProject, QgsVectorLayer, QgsWkbTypes
 
 # from qgis.gui import *
 from qgis.PyQt.QtCore import QSettings, Qt
@@ -67,7 +65,7 @@ class ProfileToolCore(QWidget):
         self.doTracking = False
         self.liveUpdate = True
         # the datas / results
-        # dictionary where is saved the plotting data {"l":[l],"z":[z], "layer":layer1, "curve":curve1}  # noqa: E501
+        # dictionary where is saved the plotting data {"l":[l],"z":[z], "layer":layer1, "curve":curve1}
         self.profiles = None
         # The line information
         self.pointstoDraw = []
@@ -138,9 +136,7 @@ class ProfileToolCore(QWidget):
                     parts = geometry.asMultiPolyline() if geometry.isMultipart() else [geometry.asPolyline()]
                     if not parts or not parts[0]:
                         continue
-                    part_points = [
-                        self.toolrenderer.tool.toMapCoordinates(layer, p) for p in parts[0]
-                    ]
+                    part_points = [self.toolrenderer.tool.toMapCoordinates(layer, p) for p in parts[0]]
                     converted = [[p.x(), p.y()] for p in part_points]
                     if points and converted and points[-1] != converted[0]:
                         # Do not join distinct/disconnected lines with a
@@ -164,7 +160,10 @@ class ProfileToolCore(QWidget):
             profile = {"layer": layer, "band": band}
             if layer.type() == QgsMapLayer.VectorLayer:
                 profile, buffer_geom, guide_geom = DataReaderTool().dataVectorReaderTool(
-                    self.iface, self.toolrenderer.tool, profile, self.pointstoDraw,
+                    self.iface,
+                    self.toolrenderer.tool,
+                    profile,
+                    self.pointstoDraw,
                     float(self.dockwidget.mdl.item(i, 4).data(Qt.ItemDataRole.EditRole)),
                 )
                 profile["_buffer_geometry"] = buffer_geom
@@ -173,12 +172,13 @@ class ProfileToolCore(QWidget):
                 if not self.dockwidget.profileInterpolationCheckBox.isChecked():
                     resolution_mode = "samples"
                 else:
-                    resolution_mode = (
-                        "full" if self.dockwidget.fullResolutionCheckBox.isChecked() else "limited"
-                    )
+                    resolution_mode = "full" if self.dockwidget.fullResolutionCheckBox.isChecked() else "limited"
                 profile = DataReaderTool().dataRasterReaderTool(
-                    self.iface, self.toolrenderer.tool, profile,
-                    self.pointstoDraw, resolution_mode,
+                    self.iface,
+                    self.toolrenderer.tool,
+                    profile,
+                    self.pointstoDraw,
+                    resolution_mode,
                 )
             profile["plot_x"] = []
             profile["plot_y"] = []
@@ -208,8 +208,7 @@ class ProfileToolCore(QWidget):
         for profile in self.profiles:
             profile["plot_x"], profile["plot_y"] = profile_func(profile)
 
-        plotting.attachCurves(self.dockwidget, self.profiles, self.dockwidget.mdl,
-                              self.dockwidget.plotlibrary)
+        plotting.attachCurves(self.dockwidget, self.profiles, self.dockwidget.mdl, self.dockwidget.plotlibrary)
         plotting.reScalePlot(self.dockwidget, self.profiles, self.dockwidget.plotlibrary)
         self.dockwidget.updateCoordinateTab()
         self.updateCursorOnMap(self.x_cursor)
@@ -235,23 +234,26 @@ class ProfileToolCore(QWidget):
             self.pointLayer = None
             for layer in QgsProject.instance().mapLayersByName("profile_points"):
                 fields = {field.name() for field in layer.fields()}
-                if (layer.type() == QgsMapLayer.VectorLayer
-                        and layer.geometryType() == QgsWkbTypes.PointGeometry
-                        and {"d", "z"} <= fields
-                        and layer.crs() == QgsProject.instance().crs()):
+                if (
+                    layer.type() == QgsMapLayer.VectorLayer
+                    and layer.geometryType() == QgsWkbTypes.PointGeometry
+                    and {"d", "z"} <= fields
+                    and layer.crs() == QgsProject.instance().crs()
+                ):
                     self.pointLayer = layer
                     break
 
         if self.pointLayer is None:
             self.pointLayer = QgsVectorLayer(
-                "Point?field=z:double&field=d:double&index=yes&crs="
-                + QgsProject.instance().crs().authid(),
-                "profile_points", "memory",
+                "Point?field=z:double&field=d:double&index=yes&crs=" + QgsProject.instance().crs().authid(),
+                "profile_points",
+                "memory",
             )
             QgsProject.instance().addMapLayer(self.pointLayer)
             qml_path = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),
-                "profile_points", "profile_points.qml",
+                "profile_points",
+                "profile_points.qml",
             )
             self.pointLayer.loadNamedStyle(qml_path)
 
@@ -263,7 +265,9 @@ class ProfileToolCore(QWidget):
         self.pointLayer.updateExtents()
         self.pointLayer.triggerRepaint()
         self.iface.messageBar().pushMessage(
-            "Profile Tool", 'Point added to layer "profile_points"', level=Qgis.Info,
+            "Profile Tool",
+            'Point added to layer "profile_points"',
+            level=Qgis.Info,
         )
 
     def updateCursorOnMap(self, x):
@@ -274,9 +278,7 @@ class ProfileToolCore(QWidget):
                 geom = QgsGeometry.fromPolylineXY(points)
                 try:
                     if len(points) > 1:
-                        pointprojected = geom.interpolate(
-                            float(x) / DataReaderTool._project_distance_scale()
-                        ).asPoint()
+                        pointprojected = geom.interpolate(float(x) / DataReaderTool._project_distance_scale()).asPoint()
                     else:
                         pointprojected = points[0]
                 except (IndexError, AttributeError, ValueError):
@@ -322,7 +324,6 @@ class ProfileToolCore(QWidget):
 
     def activateMouseTracking(self, int1):
         if self.dockwidget.TYPE == "PyQtGraph":
-
             if int1 == 2:
                 self.doTracking = True
             elif int1 == 0:
@@ -331,9 +332,7 @@ class ProfileToolCore(QWidget):
         elif self.dockwidget.TYPE == "Matplotlib":
             if int1 == 2:
                 self.doTracking = True
-                self.cid = self.dockwidget.plotWdg.mpl_connect(
-                    "motion_notify_event", self.mouseevent_mpl
-                )
+                self.cid = self.dockwidget.plotWdg.mpl_connect("motion_notify_event", self.mouseevent_mpl)
             elif int1 == 0:
                 self.doTracking = False
                 with suppress(AttributeError, RuntimeError, TypeError):
@@ -356,9 +355,7 @@ class ProfileToolCore(QWidget):
             except Exception:
                 pass
             xdata = float(event.xdata)
-            self.vline = self.dockwidget.plotWdg.figure.get_axes()[0].axvline(
-                xdata, linewidth=2, color="k"
-            )
+            self.vline = self.dockwidget.plotWdg.figure.get_axes()[0].axvline(xdata, linewidth=2, color="k")
             self.dockwidget.plotWdg.draw()
             self.updateCursorOnMap(xdata)
 
@@ -366,9 +363,7 @@ class ProfileToolCore(QWidget):
         if library == "PyQtGraph":
             self.dockwidget.plotWdg.scene().sigMouseMoved.connect(self.mouseMovedPyQtGraph)
             self.dockwidget.plotWdg.scene().sigMouseClicked.connect(self.mouseClickedPyQtGraph)
-            self.dockwidget.plotWdg.getViewBox().autoRange(
-                items=self.dockwidget.plotWdg.getPlotItem().listDataItems()
-            )
+            self.dockwidget.plotWdg.getViewBox().autoRange(items=self.dockwidget.plotWdg.getPlotItem().listDataItems())
             # self.dockwidget.plotWdg.getViewBox().sigRangeChanged.connect(self.dockwidget.plotRangechanged)
             self.dockwidget.connectPlotRangechanged()
 
@@ -436,9 +431,7 @@ class ProfileToolCore(QWidget):
                                 xtoplot = np.array(x, dtype=float)[nearestindex]
                                 ytoplot = np.array(y)[nearestindex]
                             else:
-                                if abs(np.array(y)[nearestindex] - mousePoint.y()) < abs(
-                                    ytoplot - mousePoint.y()
-                                ):
+                                if abs(np.array(y)[nearestindex] - mousePoint.y()) < abs(ytoplot - mousePoint.y()):
                                     ytoplot = np.array(y)[nearestindex]
                                     xtoplot = np.array(x)[nearestindex]
                             compt += 1
@@ -448,20 +441,14 @@ class ProfileToolCore(QWidget):
                 # plot xy label and cursor
                 if xtoplot is not None and ytoplot is not None:
                     for item in self.dockwidget.plotWdg.allChildItems():
-                        if (
-                            str(type(item))
-                            == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>"  # noqa: E501
-                        ):
+                        if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
                             if item.name() == "cross_vertical":
                                 item.show()
                                 item.setPos(xtoplot)
                             elif item.name() == "cross_horizontal":
                                 item.show()
                                 item.setPos(ytoplot)
-                        elif (
-                            str(type(item))
-                            == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>"
-                        ):
+                        elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
                             if item.textItem.toPlainText()[0] == "X":
                                 item.show()
                                 item.setText("X : " + str(round(xtoplot, 3)))

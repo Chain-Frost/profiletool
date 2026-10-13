@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profile
@@ -26,21 +25,21 @@ import os
 from math import sqrt
 
 import numpy as np
-from qgis.PyQt.QtCore import QSettings, Qt
 from qgis.core import QgsProject
+from qgis.PyQt.QtCore import QSettings, Qt
 from qgis.PyQt.QtWidgets import QFileDialog, QSizePolicy
 
 from .. import pyqtgraph as pg
-from .dataReaderTool import DataReaderTool
 from ..dxfwrite import DXFEngine as dxf
 from ..pyqtgraph import exporters
+from .dataReaderTool import DataReaderTool
 
 pg.setConfigOption("background", "w")
 
 
 try:
-    import matplotlib  # noqa:F401
-    from matplotlib import rc  # noqa:F403,F401
+    import matplotlib
+    from matplotlib import rc
 
     has_mpl = True
 except ImportError:
@@ -49,9 +48,7 @@ except ImportError:
 
 def getSaveFileName(parent, caption, directory, filter):
     """Qt4/Qt5 compatible getSaveFileName"""
-    fileName = QFileDialog.getSaveFileName(
-        parent=parent, caption=caption, directory=directory, filter=filter
-    )
+    fileName = QFileDialog.getSaveFileName(parent=parent, caption=caption, directory=directory, filter=filter)
     if isinstance(fileName, tuple):  # pyqt5 case
         fileName = fileName[0]
     return fileName
@@ -72,10 +69,7 @@ class PlottingTool:
     def curveName(layer, band, model):
         """Unique plot key; disambiguate layers with identical names."""
         name = layer.name()
-        same_name = sum(
-            model.item(i, 2).data(Qt.ItemDataRole.EditRole) == name
-            for i in range(model.rowCount())
-        )
+        same_name = sum(model.item(i, 2).data(Qt.ItemDataRole.EditRole) == name for i in range(model.rowCount()))
         if same_name > 1:
             name += f" [{layer.id()[:8]}]"
         return f"{name}#{band}"
@@ -87,12 +81,8 @@ class PlottingTool:
             unit = "degrees" if QgsProject.instance().crs().isGeographic() else "m"
             plotWdg.setLabel("bottom", f"Chainage ({unit})")
             plotWdg.showGrid(True, True, 0.5)
-            datavline = pg.InfiniteLine(
-                0, angle=90, pen=pg.mkPen("r", width=1), name="cross_vertical"
-            )
-            datahline = pg.InfiniteLine(
-                0, angle=0, pen=pg.mkPen("r", width=1), name="cross_horizontal"
-            )
+            datavline = pg.InfiniteLine(0, angle=90, pen=pg.mkPen("r", width=1), name="cross_vertical")
+            datahline = pg.InfiniteLine(0, angle=0, pen=pg.mkPen("r", width=1), name="cross_horizontal")
             plotWdg.addItem(datavline)
             plotWdg.addItem(datahline)
             # cursor
@@ -129,9 +119,7 @@ class PlottingTool:
             fig = Figure(
                 (1.0, 1.0),
                 linewidth=0.0,
-                subplotpars=matplotlib.figure.SubplotParams(
-                    left=0, bottom=0, right=1, top=1, wspace=0, hspace=0
-                ),
+                subplotpars=matplotlib.figure.SubplotParams(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0),
             )
 
             font = {"family": "arial", "weight": "normal", "size": 12}
@@ -158,7 +146,7 @@ class PlottingTool:
             pass
         elif library == "Matplotlib" and has_mpl:
             profileLen = 0
-            for i in range(0, len(pointstoDraw) - 1):
+            for i in range(len(pointstoDraw) - 1):
                 x1 = float(pointstoDraw[i][0])
                 y1 = float(pointstoDraw[i][1])
                 x2 = float(pointstoDraw[i + 1][0])
@@ -249,11 +237,8 @@ class PlottingTool:
             # Automatic mode
             minimumValue = 1000000000
             maximumValue = -1000000000
-            for i in range(0, len(y_vals)):
-                if (
-                    profiles[i]["layer"] is not None
-                    and any(z is not None and np.isfinite(z) for z in y_vals[i])
-                ):
+            for i in range(len(y_vals)):
+                if profiles[i]["layer"] is not None and any(z is not None and np.isfinite(z) for z in y_vals[i]):
                     minimumValue = min(self.findMin(y_vals[i]), minimumValue)
                     maximumValue = max(self.findMax(y_vals[i]) + 1, maximumValue)
                     wdg.sbMaxVal.setValue(maximumValue)
@@ -265,9 +250,7 @@ class PlottingTool:
             if library == "PyQtGraph":
                 wdg.disconnectPlotRangechanged()
                 if auto:
-                    wdg.plotWdg.getViewBox().autoRange(
-                        items=wdg.plotWdg.getPlotItem().listDataItems()
-                    )
+                    wdg.plotWdg.getViewBox().autoRange(items=wdg.plotWdg.getPlotItem().listDataItems())
                     wdg.plotRangechanged()
                 else:
                     wdg.plotWdg.getViewBox().setYRange(minimumValue, maximumValue, padding=0)
@@ -330,9 +313,7 @@ class PlottingTool:
                     wdg.plotWdg.draw()
                     break
 
-    def changeAttachCurve(
-        self, wdg, library, bool, name
-    ):  # Action when clicking the tableview - checkstate
+    def changeAttachCurve(self, wdg, library, bool, name):  # Action when clicking the tableview - checkstate
 
         if library == "PyQtGraph":
             pitems = wdg.plotWdg.getPlotItem()
@@ -388,7 +369,7 @@ class PlottingTool:
     def outPrint(self, iface, wdg, mdl, library):
         name = "Profile"
         # Postscript file rendering doesn't work properly yet.
-        for i in range(0, mdl.rowCount()):
+        for i in range(mdl.rowCount()):
             if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
                 name = str(mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
                 # return
@@ -401,7 +382,7 @@ class PlottingTool:
 
     def outPDF(self, iface, wdg, mdl, library):
         name = "Profile"
-        for i in range(0, mdl.rowCount()):
+        for i in range(mdl.rowCount()):
             if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
                 name = str(mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
                 break
@@ -455,8 +436,10 @@ class PlottingTool:
 
     def outDXF(self, iface, wdg, mdl, library, profiles, type="3D"):
         fileName = getSaveFileName(
-            parent=iface.mainWindow(), caption="Save As",
-            directory=wdg.profiletoolcore.loaddirectory, filter="dxf (*.dxf)",
+            parent=iface.mainWindow(),
+            caption="Save As",
+            directory=wdg.profiletoolcore.loaddirectory,
+            filter="dxf (*.dxf)",
         )
         if not fileName:
             return
@@ -468,14 +451,12 @@ class PlottingTool:
             drawing.add_layer(name)
             if type == "2D":
                 vertices = [
-                    (length, elevation, 0) if elevation is not None and np.isfinite(elevation)
-                    else None
+                    (length, elevation, 0) if elevation is not None and np.isfinite(elevation) else None
                     for length, elevation in zip(profile["l"], profile["z"])
                 ]
             else:
                 vertices = [
-                    (x, y, elevation) if elevation is not None and np.isfinite(elevation)
-                    else None
+                    (x, y, elevation) if elevation is not None and np.isfinite(elevation) else None
                     for x, y, elevation in zip(profile["x"], profile["y"], profile["z"])
                 ]
             # NoData gaps must not become fictitious connecting lines.

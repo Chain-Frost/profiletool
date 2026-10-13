@@ -35,9 +35,7 @@ def test_grade_two_points(profilers):
 
 
 def test_missing_elevations_are_not_fabricated_zero_slopes(profilers):
-    _, grade = profilers.slopes_pct(
-        {"l": [0, 1, 2, 3, 4], "z": [2, 3, np.nan, 6, 7]}
-    )
+    _, grade = profilers.slopes_pct({"l": [0, 1, 2, 3, 4], "z": [2, 3, np.nan, 6, 7]})
     assert np.isfinite(grade[0])
     assert np.isnan(grade[1:4]).all()
     assert np.isfinite(grade[4])
@@ -109,9 +107,7 @@ def reader_module(monkeypatch):
     core.QgsPointXY = Point
     core.QgsProject = SimpleNamespace(instance=lambda: project)
     core.Qgis = SimpleNamespace(DistanceUnit=SimpleNamespace(Meters="metres"))
-    core.QgsUnitTypes = SimpleNamespace(
-        fromUnitToUnitFactor=lambda source, target: 0.3048 if source == "feet" else 1.0
-    )
+    core.QgsUnitTypes = SimpleNamespace(fromUnitToUnitFactor=lambda source, target: 0.3048 if source == "feet" else 1.0)
     qgis.core = core
     qgis.gui = types.ModuleType("qgis.gui")
     qgis.utils = SimpleNamespace(iface=None)
@@ -180,8 +176,11 @@ def test_project_crs_controls_chainage_units(reader_module):
     for geographic, expected_end in [(True, 10.0), (False, 3.048)]:
         project.crs = lambda geographic=geographic: Crs(geographic)
         result = reader.DataReaderTool().dataRasterReaderTool(
-            Interface(), MapTool(), {"layer": Layer(), "band": 1},
-            [[0.0, 0.0], [10.0, 0.0]], "full",
+            Interface(),
+            MapTool(),
+            {"layer": Layer(), "band": 1},
+            [[0.0, 0.0], [10.0, 0.0]],
+            "full",
         )
         assert result["l"][-1] == pytest.approx(expected_end)
         assert result["x"][-1] == pytest.approx(20.0)
@@ -218,23 +217,30 @@ def test_valid_zero_is_distinct_from_missing_sample(reader_module):
 
 def test_vector_chainage_dedup_keeps_closest_point(reader_module):
     reader, _, _ = reader_module
-    array = np.array([
-        [1, 1, 0, 4, 0, 10, 1, 0, None],
-        [1.004, 1, 0, 0.2, 0, 20, 1, 0, None],
-        [2, 2, 0, 0.1, 0, 30, 2, 0, None],
-    ], dtype=object)
+    array = np.array(
+        [
+            [1, 1, 0, 4, 0, 10, 1, 0, None],
+            [1.004, 1, 0, 0.2, 0, 20, 1, 0, None],
+            [2, 2, 0, 0.1, 0, 30, 2, 0, None],
+        ],
+        dtype=object,
+    )
     deduped = reader.DataReaderTool().removeDuplicateLenght(array)
     assert len(deduped) == 2
     assert list(deduped[:, 5]) == [20, 30]
+
 
 def test_geographic_chainage_dedup_tolerance(reader_module):
     reader, project, Crs = reader_module
     project.crs = lambda: Crs(True)
     assert reader.DataReaderTool._project_chainage_tolerance() == pytest.approx(1e-8)
-    array = np.array([
-        [0.1, 1, 0, 0.1, 0, 10, 1, 0, None],
-        [0.10001, 1, 0, 0.2, 0, 20, 1, 0, None],
-    ], dtype=object)
+    array = np.array(
+        [
+            [0.1, 1, 0, 0.1, 0, 10, 1, 0, None],
+            [0.10001, 1, 0, 0.2, 0, 20, 1, 0, None],
+        ],
+        dtype=object,
+    )
     assert len(reader.DataReaderTool().removeDuplicateLenght(array)) == 2
 
 
@@ -261,10 +267,7 @@ def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch):
             return Geometry([part])
 
         def distance(self, point_geom):
-            return min(
-                math.hypot(p.x() - point_geom.point.x(), p.y() - point_geom.point.y())
-                for p in self.parts[0]
-            )
+            return min(math.hypot(p.x() - point_geom.point.x(), p.y() - point_geom.point.y()) for p in self.parts[0])
 
     class Feature:
         def __init__(self, original=None):
@@ -278,8 +281,7 @@ def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch):
 
     core.QgsFeature = Feature
     core.QgsGeometry = Geometry
-    for name in ("QgsFeatureRequest", "QgsMapLayer", "QgsRectangle",
-                 "QgsSpatialIndex", "QgsWkbTypes"):
+    for name in ("QgsFeatureRequest", "QgsMapLayer", "QgsRectangle", "QgsSpatialIndex", "QgsWkbTypes"):
         setattr(core, name, object)
     widgets = types.ModuleType("qgis.PyQt.QtWidgets")
     widgets.QMessageBox = object
@@ -288,14 +290,20 @@ def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch):
     selected = _load("_profile_tool_test.selectlinetool", ROOT / "tools" / "selectlinetool.py")
     p = reader.QgsPointXY
     feature = Feature()
-    feature.setGeometry(Geometry([
-        [p(0, 0), p(10, 0)],
-        [p(0, 10), p(10, 10)],
-    ], multi=True))
+    feature.setGeometry(
+        Geometry(
+            [
+                [p(0, 0), p(10, 0)],
+                [p(0, 10), p(10, 10)],
+            ],
+            multi=True,
+        )
+    )
     result = selected.SelectLineTool.select_closest_part(feature, p(0, 9.9))
     assert result is not feature
     assert result.geometry().parts[0][0].y() == 10
     assert feature.geometry().isMultipart()
+
 
 def test_geographic_grade_uses_metre_distance_without_changing_degree_axis(profilers):
     profile = {

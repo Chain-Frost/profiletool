@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profile
@@ -32,7 +31,6 @@ from .utils import isProfilable
 
 
 class TableViewTool(QObject):
-
     layerAddedOrRemoved = pyqtSignal()  # Emitted when a new layer is added
 
     def addLayer(self, iface, mdl, layer1=None):
@@ -40,11 +38,11 @@ class TableViewTool(QObject):
             templist = []
             j = 0
             # Ask the layer by a input dialog
-            for i in range(0, iface.mapCanvas().layerCount()):
+            for i in range(iface.mapCanvas().layerCount()):
                 donothing = False
                 layer = iface.mapCanvas().layer(i)
                 if isProfilable(layer):
-                    for j in range(0, mdl.rowCount()):
+                    for j in range(mdl.rowCount()):
                         existing = mdl.item(j, 5).data(Qt.ItemDataRole.EditRole)
                         if existing is not None and existing.id() == layer.id():
                             donothing = True
@@ -61,13 +59,14 @@ class TableViewTool(QObject):
                 # Identically named layers are allowed in QGIS. Disambiguate
                 # display names but continue tracking them by stable layer ID.
                 names = [entry[1] for entry in templist]
-                labels = [
-                    name if names.count(name) == 1
-                    else f"{name} [{layer.id()[:8]}]"
-                    for layer, name in templist
-                ]
+                labels = [name if names.count(name) == 1 else f"{name} [{layer.id()[:8]}]" for layer, name in templist]
                 selected_name, ok = QInputDialog.getItem(
-                    iface.mainWindow(), "Layer selector", "Choose layer", labels, 0, False,
+                    iface.mainWindow(),
+                    "Layer selector",
+                    "Choose layer",
+                    labels,
+                    0,
+                    False,
                 )
                 if not ok:
                     return
@@ -84,11 +83,7 @@ class TableViewTool(QObject):
 
         # Ask the Band by a input dialog
         # First, if isProfilable, considerate the real band number (instead of band + 1 for raster)
-        if (
-            layer2.type() == layer2.PluginLayer
-            and isProfilable(layer2)
-            or layer2.type() == layer2.MeshLayer
-        ):
+        if layer2.type() == layer2.PluginLayer and isProfilable(layer2) or layer2.type() == layer2.MeshLayer:
             self.bandoffset = 0
             typename = "parameter"
         elif layer2.type() == layer2.RasterLayer:
@@ -97,10 +92,12 @@ class TableViewTool(QObject):
         elif layer2.type() == layer2.VectorLayer:
             self.bandoffset = 0
             typename = "field"
+        else:
+            return
 
         if layer2.type() == layer2.RasterLayer and layer2.bandCount() != 1:
             listband = []
-            for i in range(0, layer2.bandCount()):
+            for i in range(layer2.bandCount()):
                 listband.append(str(i + self.bandoffset))
             testqt, ok = QInputDialog.getItem(
                 iface.mainWindow(),
@@ -117,9 +114,7 @@ class TableViewTool(QObject):
             fieldstemp = [field.name() for field in layer2.fields()]
             fields = [field.name() for field in layer2.fields() if field.isNumeric()]
             if len(fields) == 0:
-                QMessageBox.warning(
-                    iface.mainWindow(), "Profile tool", "Active layer is not a profilable layer"
-                )
+                QMessageBox.warning(iface.mainWindow(), "Profile tool", "Active layer is not a profilable layer")
                 return
             elif len(fields) == 1:
                 choosenBand = fieldstemp.index(fields[0])
@@ -137,14 +132,10 @@ class TableViewTool(QObject):
                     choosenBand = fieldstemp.index(testqt)
                 else:
                     return defaultfield
-        elif (
-            layer2.type() == layer2.PluginLayer
-            and isProfilable(layer2)
-            and layer2.LAYER_TYPE == "selafin_viewer"
-        ):
+        elif layer2.type() == layer2.PluginLayer and isProfilable(layer2) and layer2.LAYER_TYPE == "selafin_viewer":
             listparameterband = []
             listparametername = []
-            for i in range(0, layer2.bandCount()):
+            for i in range(layer2.bandCount()):
                 listparameterband.append(layer2.hydrauparser.parametres[i][0])
                 listparametername.append(layer2.hydrauparser.parametres[i][1])
             defaultparam = 3
@@ -176,9 +167,7 @@ class TableViewTool(QObject):
             or layer2.type() == layer2.MeshLayer
         ):
             lineColour = Qt.blue
-        mdl.setData(
-            mdl.index(row, 1, QModelIndex()), QColor(lineColour), Qt.ItemDataRole.BackgroundRole
-        )
+        mdl.setData(mdl.index(row, 1, QModelIndex()), QColor(lineColour), Qt.ItemDataRole.BackgroundRole)
         mdl.item(row, 1).setFlags(Qt.ItemFlag.NoItemFlags)
         mdl.setData(mdl.index(row, 2, QModelIndex()), layer2.name())
         mdl.item(row, 2).setFlags(Qt.ItemFlag.NoItemFlags)
@@ -217,13 +206,11 @@ class TableViewTool(QObject):
             return None
 
         list1 = []
-        for i in range(0, mdl.rowCount()):
+        for i in range(mdl.rowCount()):
             list1.append(str(i + 1) + " : " + mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
-        testqt, ok = QInputDialog.getItem(
-            iface.mainWindow(), "Layer selector", "Choose the Layer", list1, False
-        )
+        testqt, ok = QInputDialog.getItem(iface.mainWindow(), "Layer selector", "Choose the Layer", list1, False)
         if ok:
-            for i in range(0, mdl.rowCount()):
+            for i in range(mdl.rowCount()):
                 if testqt == (str(i + 1) + " : " + mdl.item(i, 2).data(Qt.ItemDataRole.EditRole)):
                     return i
         return None
@@ -237,9 +224,7 @@ class TableViewTool(QObject):
                 mdl,
             )
             color = QColorDialog().getColor(temp.data(Qt.ItemDataRole.BackgroundRole))
-            mdl.setData(
-                mdl.index(temp.row(), 1, QModelIndex()), color, Qt.ItemDataRole.BackgroundRole
-            )
+            mdl.setData(mdl.index(temp.row(), 1, QModelIndex()), color, Qt.ItemDataRole.BackgroundRole)
             PlottingTool().changeColor(wdg, plotlibrary, color, name)
         elif index1.column() == 0:  # modifying checkbox
             # name = mdl.item(index1.row(),2).data(Qt.ItemDataRole.EditRole)
@@ -253,21 +238,18 @@ class TableViewTool(QObject):
                 booltemp = False
             else:
                 booltemp = True
-            mdl.setData(
-                mdl.index(temp.row(), 0, QModelIndex()), booltemp, Qt.ItemDataRole.CheckStateRole
-            )
+            mdl.setData(mdl.index(temp.row(), 0, QModelIndex()), booltemp, Qt.ItemDataRole.CheckStateRole)
             PlottingTool().changeAttachCurve(wdg, plotlibrary, booltemp, name)
         elif (
             index1.column() == 3
             and mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole).type()
             == mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole).PluginLayer
-            and mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole).LAYER_TYPE
-            == "selafin_viewer"
+            and mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole).LAYER_TYPE == "selafin_viewer"
         ):  # modifying selafin_viewer parameter
             layer = mdl.item(index1.row(), 5).data(Qt.ItemDataRole.EditRole)
             listparameterband = []
             listparametername = []
-            for i in range(0, layer.bandCount()):
+            for i in range(layer.bandCount()):
                 listparameterband.append(layer.hydrauparser.parametres[i][0])
                 listparametername.append(layer.hydrauparser.parametres[i][1])
             previousparam = int(mdl.item(index1.row(), 3).data(Qt.ItemDataRole.EditRole))

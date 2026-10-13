@@ -8,8 +8,8 @@ import tempfile
 import traceback
 from pathlib import Path
 
-from qgis.core import Qgis
 import qgis.utils
+from qgis.core import Qgis
 from qgis.utils import iface
 
 root_value = globals().get("PROFILETOOL_DEV_ROOT") or os.environ.get("PROFILETOOL_DEV_ROOT")

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profile
@@ -24,11 +23,9 @@
 # ---------------------------------------------------------------------
 
 import os
-import platform
 
 from qgis.PyQt import uic
-from qgis.PyQt.QtCore import *
-from qgis.PyQt.QtGui import *
+from qgis.PyQt.QtCore import QSettings
 from qgis.PyQt.QtWidgets import QDialog
 
 uiFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__), "about.ui"))
@@ -40,14 +37,12 @@ class DlgAbout(QDialog, FormClass):
         QDialog.__init__(self, parent)
         self.setupUi(self)
 
-        fp = os.path.join(
-            os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), "metadata.txt"
-        )
+        fp = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), "metadata.txt")
 
-        iniText = QSettings(fp, QSettings.IniFormat)
-        verno = iniText.value("version")
-        name = iniText.value("name")
-        description = iniText.value("description")
+        iniText = QSettings(fp, QSettings.Format.IniFormat)
+        verno = iniText.value("version", "", type=str)
+        name = iniText.value("name", "", type=str)
+        description = iniText.value("description", "", type=str)
 
         self.title.setText(name)
         self.description.setText(description + " - " + verno)

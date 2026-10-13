@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profile
@@ -73,10 +72,14 @@ class DataReaderTool:
                 else:
                     steps = max(
                         1,
-                        int(np.ceil(max(
-                            abs(end_layer.x() - start_layer.x()) / pixel_x,
-                            abs(end_layer.y() - start_layer.y()) / pixel_y,
-                        ))),
+                        int(
+                            np.ceil(
+                                max(
+                                    abs(end_layer.x() - start_layer.x()) / pixel_x,
+                                    abs(end_layer.y() - start_layer.y()) / pixel_y,
+                                )
+                            )
+                        ),
                     )
             else:
                 steps = max(1, int(np.ceil(np.hypot(dx, dy))))
@@ -97,14 +100,16 @@ class DataReaderTool:
             previous_length += segment_length
             first_segment = False
 
-        profile1.update({
-            "l": lengths,
-            "l_slope": self._slope_distances(project_samples, lengths),
-            "z": self._extractZValues(sample_x, sample_y),
-            "x": sample_x,
-            "y": sample_y,
-            "crs": layer.crs(),
-        })
+        profile1.update(
+            {
+                "l": lengths,
+                "l_slope": self._slope_distances(project_samples, lengths),
+                "z": self._extractZValues(sample_x, sample_y),
+                "x": sample_x,
+                "y": sample_y,
+                "crs": layer.crs(),
+            }
+        )
         iface1.mainWindow().statusBar().showMessage("")
         return profile1
 
@@ -114,9 +119,7 @@ class DataReaderTool:
         project_crs = QgsProject.instance().crs()
         if project_crs.isGeographic():
             return 1.0  # degrees, matching the geographic project CRS
-        return QgsUnitTypes.fromUnitToUnitFactor(
-            project_crs.mapUnits(), Qgis.DistanceUnit.Meters
-        )
+        return QgsUnitTypes.fromUnitToUnitFactor(project_crs.mapUnits(), Qgis.DistanceUnit.Meters)
 
     @staticmethod
     def _slope_distances(project_points, chainages):
@@ -133,9 +136,7 @@ class DataReaderTool:
         distance = QgsDistanceArea()
         distance.setSourceCrs(project.crs(), project.transformContext())
         ellipsoid = project.ellipsoid()
-        distance.setEllipsoid(
-            ellipsoid if ellipsoid and ellipsoid != "NONE" else "WGS84"
-        )
+        distance.setEllipsoid(ellipsoid if ellipsoid and ellipsoid != "NONE" else "WGS84")
         result = [0.0]
         for start, end in zip(project_points[:-1], project_points[1:]):
             result.append(result[-1] + distance.measureLine(start, end))
@@ -205,8 +206,15 @@ class DataReaderTool:
         irrespective of the source point layer's CRS.
         """
         layer = profile1["layer"]
-        profile = {"layer": layer, "band": profile1["band"], "l": [], "z": [],
-                   "x": [], "y": [], "crs": QgsProject.instance().crs()}
+        profile = {
+            "layer": layer,
+            "band": profile1["band"],
+            "l": [],
+            "z": [],
+            "x": [],
+            "y": [],
+            "crs": QgsProject.instance().crs(),
+        }
         if len(pointstoDraw1) < 2:
             return profile, None, None
 
@@ -222,9 +230,7 @@ class DataReaderTool:
         to_project = QgsCoordinateTransform(layer_crs, project_crs, QgsProject.instance())
         search_geom = QgsGeometry(buffer_geom)
         search_geom.transform(to_layer)
-        candidates = layer.getFeatures(
-            QgsFeatureRequest().setFilterRect(search_geom.boundingBox())
-        )
+        candidates = layer.getFeatures(QgsFeatureRequest().setFilterRect(search_geom.boundingBox()))
 
         projected = []
         for feature in candidates:
@@ -244,11 +250,19 @@ class DataReaderTool:
             if not np.isfinite(elevation):
                 continue
             original = point_geom.asPoint()
-            projected.append([
-                distance_along, projected_point.x(), projected_point.y(),
-                distance_from_line, 0, elevation, original.x(), original.y(),
-                feature,
-            ])
+            projected.append(
+                [
+                    distance_along,
+                    projected_point.x(),
+                    projected_point.y(),
+                    distance_from_line,
+                    0,
+                    elevation,
+                    original.x(),
+                    original.y(),
+                    feature,
+                ]
+            )
 
         if not projected:
             return profile, buffer_geom, QgsGeometry.fromMultiPolylineXY([])
@@ -266,9 +280,9 @@ class DataReaderTool:
         profile["x"] = [float(p[1]) for p in projected]
         profile["y"] = [float(p[2]) for p in projected]
         guides = [
-            [QgsPointXY(float(p[1]), float(p[2])),
-             QgsPointXY(float(p[6]), float(p[7]))]
-            for p in projected if p[6] is not None and p[7] is not None
+            [QgsPointXY(float(p[1]), float(p[2])), QgsPointXY(float(p[6]), float(p[7]))]
+            for p in projected
+            if p[6] is not None and p[7] is not None
         ]
         multipoly = QgsGeometry.fromMultiPolylineXY(guides)
         return profile, buffer_geom, multipoly
@@ -384,9 +398,7 @@ class DataReaderTool:
             lentemp = lenpoly - projectedpoints[previouspointindex][0]
             z = (
                 projectedpoints[previouspointindex][5]
-                + (projectedpoints[nextpointindex][5] - projectedpoints[previouspointindex][5])
-                / lentot
-                * lentemp
+                + (projectedpoints[nextpointindex][5] - projectedpoints[previouspointindex][5]) / lentot * lentemp
             )
             # return [lenpoly, point[0], point[1], -1, None ,z,point[0], point[1], None ]
             return [
