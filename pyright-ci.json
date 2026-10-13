@@ -1,7 +1,8 @@
 {
   "include": [
     "tools/profilers.py",
-    "scripts/write_qgis_env.py"
+    "scripts/write_qgis_env.py",
+    "scripts/setup_qgis_typing.py"
   ],
   "exclude": [
     "pyqtgraph",

@@ -23,11 +23,6 @@ jobs:
             tools/ptmaptool.py tools/tableviewtool.py ui/dlgabout.py \
             scripts/write_qgis_env.py scripts/qgis_dev.py scripts/setup_qgis_typing.py \
             tests/test_qgis_layer_lifecycle.py
-      - name: Pyright next-scope audit (informational)
-        continue-on-error: true
-        run: |
-          python -c "import json; p=json.load(open('pyright-ci.json')); p['include'].append('scripts/setup_qgis_typing.py'); open('pyright-audit.json','w').write(json.dumps(p))"
-          pyright --project pyright-audit.json
       - name: Pyright baseline (QGIS-independent modules)
         run: pyright --project pyright-ci.json
       - name: Compile plugin sources
