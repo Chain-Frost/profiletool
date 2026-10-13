@@ -12,7 +12,7 @@ from typing import cast
 
 # Discover the QGIS-installed PyQt version at runtime. Static imports are not
 # resolvable in the QGIS-free CI interpreter used to check this helper.
-PYQT_VERSION_STR = cast(str, getattr(importlib.import_module("qgis.PyQt.QtCore"), "PYQT_VERSION_STR"))
+PYQT_VERSION_STR = cast(str, getattr(importlib.import_module("qgis.PyQt.QtCore"), "PYQT_VERSION_STR"))  # noqa: B009 -- QGIS runtime module is not installed in CI.
 
 root = Path(__file__).resolve().parents[1]
 destination = root / ".vscode" / "qgis-type-stubs"
