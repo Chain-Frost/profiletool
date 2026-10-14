@@ -108,3 +108,24 @@ upgrade. This helper currently targets the installed PyQt6 environment.
 
 Editor/Pyright analysis also includes the workspace's parent folder so tests
 can resolve the `profiletool` package, matching their runtime import path.
+
+## Full Pyright diagnostic triage
+
+The full strict type check must run in a matching OSGeo4W QGIS/PyQt
+environment. It is not comparable to a headless CI run without QGIS. To
+capture and classify the **actual** full-workspace errors in PowerShell:
+
+```powershell
+& "C:\OSGeo4W\bin\python-qgis.bat" -m pyright --project pyrightconfig.json --outputjson > pyright-full.json
+& "C:\OSGeo4W\bin\python-qgis.bat" scripts/pyright_triage.py pyright-full.json --output pyright-summary.json
+```
+
+Pyright normally returns a nonzero exit status when errors are present. This
+is expected; run the second command regardless. The summary groups error
+codes, affected source files and unresolved imports. It strips local path
+prefixes and uses only the real diagnostics; no missing QGIS symbols are
+replaced with permissive `Any` types.
+
+The old `apicompat/` QGIS 2 monkey-patches have been removed because the
+QGIS 3.40+/4.x plugin entry point no longer loads them; these pre-PyQt5
+compatibility shims must not be reintroduced to address typing warnings.

@@ -2,7 +2,6 @@
   "include": [
     "__init__.py",
     "profileplugin.py",
-    "apicompat",
     "tools",
     "ui",
     "tests"
