@@ -175,7 +175,7 @@ class TableViewTool(QObject):
             or (layer2.type() == layer2.PluginLayer and layer2.LAYER_TYPE == "selafin_viewer")
             or layer2.type() == layer2.MeshLayer
         ):
-            lineColour = Qt.blue
+            lineColour = Qt.GlobalColor.blue
         mdl.setData(mdl.index(row, 1, QModelIndex()), QColor(lineColour), Qt.ItemDataRole.BackgroundRole)
         mdl.item(row, 1).setFlags(Qt.ItemFlag.NoItemFlags)
         mdl.setData(mdl.index(row, 2, QModelIndex()), layer2.name())

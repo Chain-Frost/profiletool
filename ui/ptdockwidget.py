@@ -358,7 +358,7 @@ class PTDockWidget(QDockWidget, FormClass):
             self.groupBox[i].setSizePolicy(sizePolicy)
             profileTitle = self._profile_name(self.profiletoolcore.profiles[i])
 
-            self.groupBox[i].setTitle(QApplication.translate("GroupBox" + str(i), profileTitle, None))
+            self.groupBox[i].setTitle(QApplication.translate("GroupBox" + str(i), profileTitle))
             self.groupBox[i].setObjectName("groupBox" + str(i))
 
             self.verticalLayout.append(QVBoxLayout(self.groupBox[i]))
@@ -395,7 +395,7 @@ class PTDockWidget(QDockWidget, FormClass):
             self.profilePushButton.append(QPushButton(self.groupBox[i]))
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
             self.profilePushButton[i].setSizePolicy(sizePolicy)
-            self.profilePushButton[i].setText(QApplication.translate("GroupBox", "Copy to clipboard", None))
+            self.profilePushButton[i].setText(QApplication.translate("GroupBox", "Copy to clipboard"))
             self.profilePushButton[i].setObjectName(str(i))
             self.horizontalLayout.addWidget(self.profilePushButton[i])
 
@@ -404,14 +404,14 @@ class PTDockWidget(QDockWidget, FormClass):
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
             self.coordsPushButton[i].setSizePolicy(sizePolicy)
             self.coordsPushButton[i].setText(
-                QApplication.translate("GroupBox", "Copy to clipboard (with coordinates)", None)
+                QApplication.translate("GroupBox", "Copy to clipboard (with coordinates)")
             )
 
             # button to copy to clipboard with coordinates
             self.tolayerPushButton.append(QPushButton(self.groupBox[i]))
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
             self.tolayerPushButton[i].setSizePolicy(sizePolicy)
-            self.tolayerPushButton[i].setText(QApplication.translate("GroupBox", "Create Temporary layer", None))
+            self.tolayerPushButton[i].setText(QApplication.translate("GroupBox", "Create Temporary layer"))
 
             self.coordsPushButton[i].setObjectName(str(i))
             self.horizontalLayout.addWidget(self.coordsPushButton[i])

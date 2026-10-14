@@ -69,7 +69,7 @@ class ProfileToolCore(QWidget):
         self.liveUpdate = True
         # the datas / results
         # dictionary where is saved the plotting data {"l":[l],"z":[z], "layer":layer1, "curve":curve1}
-        self.profiles = None
+        self.profiles = []
         # The line information
         self.pointstoDraw = []
         # he renderer for temporary polyline
@@ -239,10 +239,11 @@ class ProfileToolCore(QWidget):
         if self.pointLayer is None or not QgsProject.instance().mapLayer(self.pointLayer.id()):
             self.pointLayer = None
             for layer in QgsProject.instance().mapLayersByName("profile_points"):
+                if not isinstance(layer, QgsVectorLayer):
+                    continue
                 fields = {field.name() for field in layer.fields()}
                 if (
-                    layer.type() == QgsMapLayer.VectorLayer
-                    and layer.geometryType() == QgsWkbTypes.PointGeometry
+                    layer.geometryType() == QgsWkbTypes.PointGeometry
                     and {"d", "z"} <= fields
                     and layer.crs() == QgsProject.instance().crs()
                 ):

@@ -44,9 +44,7 @@ pg.setConfigOption("background", "w")
 
 try:
     import matplotlib as mpl
-    from matplotlib import rc
-
-    has_mpl = True
+    has_mpl = bool(mpl.__version__)
 except ImportError:
     has_mpl = False
 
@@ -119,12 +117,13 @@ class PlottingTool:
                 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
             except ImportError:
                 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-            from matplotlib.figure import Figure
+            from matplotlib import rc
+            from matplotlib.figure import Figure, SubplotParams
 
             fig = Figure(
                 (1.0, 1.0),
                 linewidth=0.0,
-                subplotpars=mpl.figure.SubplotParams(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0),
+                subplotpars=SubplotParams(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0),
             )
 
             font = {"family": "arial", "weight": "normal", "size": 12}
