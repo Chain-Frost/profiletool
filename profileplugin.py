@@ -28,7 +28,7 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from os import path
+from pathlib import Path
 from typing import cast
 
 from qgis.core import QgsSettings
@@ -53,14 +53,14 @@ class ProfilePlugin:
 
         # translation
         # initialize plugin directory
-        self.plugin_dir = path.dirname(__file__)
+        self.plugin_dir = str(Path(__file__).resolve().parent)
         # initialize locale
         locale = QgsSettings().value("locale/userLocale", "en_US")[0:2]
-        locale_path = path.join(self.plugin_dir, "i18n", f"profiletool_{locale}.qm")
+        locale_path = Path(self.plugin_dir) / "i18n" / f"profiletool_{locale}.qm"
 
-        if path.exists(locale_path):
+        if locale_path.exists():
             self.translator = QTranslator()
-            self.translator.load(locale_path)
+            self.translator.load(str(locale_path))
             QCoreApplication.installTranslator(self.translator)
 
         self.profiletool: ProfileToolCore | None = None
@@ -71,7 +71,7 @@ class ProfilePlugin:
         # create action
         """Register toolbar actions and plugin-menu entries."""
         self.action = QAction(
-            QIcon(path.join(self.plugin_dir, "icons/profileIcon.png")),
+            QIcon(str(Path(self.plugin_dir) / "icons" / "profileIcon.png")),
             self.tr("Terrain profile"),
             self.iface.mainWindow(),
         )

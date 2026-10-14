@@ -158,6 +158,11 @@ class DataReaderTool:
         return profile1
 
     @staticmethod
+    def project_distance_scale() -> float:
+        """Return the shared conversion from project units to plot chainage units."""
+        return DataReaderTool._project_distance_scale()
+
+    @staticmethod
     def _project_distance_scale() -> float:
         """Conversion from project map units to plotted chainage units."""
         project_crs = DataReaderTool._project().crs()
@@ -262,8 +267,8 @@ class DataReaderTool:
 
     def dataVectorReaderTool(
         self,
-        iface1: QgisInterface,
-        tool1: QgsMapTool,
+        iface1: QgisInterface,  # noqa: ARG002 -- Preserve the legacy vector-reader call signature.
+        tool1: QgsMapTool,  # noqa: ARG002 -- Preserve the legacy vector-reader call signature.
         profile1: ReaderProfile,
         pointstoDraw1: Sequence[Sequence[float]],
         valbuf1: float,

@@ -90,13 +90,16 @@ convention = "google"
 extend-ignore-names = ["classFactory"]
 
 [lint.per-file-ignores]
+# QGIS invokes the factory only after its interface is ready.
+"__init__.py" = ["PLC0415"]
 # Preserve the established names in legacy plugin modules. New code should use
 # snake_case, including additions to these files; Ruff still checks new modules.
 # Keep this list explicit so new files do not inherit the compatibility exception.
 # N802: functions; N803: parameters; N806: locals; N815/N816: class/module variables.
-"profileplugin.py" = ["N802", "N803", "N806", "N815", "N816"]
-"tools/dataReaderTool.py" = ["N802", "N803", "N806", "N815", "N816"]
-"tools/plottingtool.py" = ["N802", "N803", "N806", "N815", "N816"]
+# Dialogs, mesh tools and optional Matplotlib backends intentionally load lazily.
+"profileplugin.py" = ["N802", "N803", "N806", "N815", "N816", "PLC0415"]
+"tools/dataReaderTool.py" = ["N802", "N803", "N806", "N815", "N816", "N999", "PLC0415"]
+"tools/plottingtool.py" = ["N802", "N803", "N806", "N815", "N816", "PLC0415"]
 "tools/profiletool_core.py" = ["N802", "N803", "N806", "N815", "N816"]
 "tools/ptmaptool.py" = ["N802", "N803", "N806", "N815", "N816"]
 "tools/selectlinetool.py" = ["N802", "N803", "N806", "N815", "N816"]
@@ -109,7 +112,12 @@ extend-ignore-names = ["classFactory"]
     "D",      # Test and QGIS-console scripts do not require production docstrings.
     "INP001", # Tests are not an importable package.
     "S101",   # Assertions are expected in tests.
+    "SLF001", # Regression tests intentionally exercise internal helpers.
 ]
+
+# These fixtures implement Qt/QGIS methods by their actual public names.
+"tests/test_profile_regressions.py" = ["N802"]
+"tests/test_qgis_layer_lifecycle.py" = ["PLC0415"] # Matplotlib is optional.
 
 [format]
 quote-style = "double"

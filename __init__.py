@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 
 def classFactory(iface: QgisInterface) -> ProfilePlugin:
+    """Create the plugin instance after QGIS provides its desktop interface."""
     from .profileplugin import ProfilePlugin
 
     return ProfilePlugin(iface)

@@ -105,20 +105,19 @@ class ProfiletoolMapToolRenderer:
 
     def moved(self, position: Mapping[str, int]) -> None:  # draw the polyline on the temp layer (rubberband)
         """Extend the freehand preview to the mouse's current map position."""
-        if self.selectionmethod == 0:
-            if len(self.pointstoDraw) > 0:
-                # Get mouse coords
-                transform = self.canvas.getCoordinateTransform()
-                if transform is None:
-                    return
-                mapPos = transform.toMapCoordinates(position["x"], position["y"])
-                # Draw on temp layer
-                self.updateRubberBand()
-                self.rubberband.addPoint(QgsPointXY(mapPos.x(), mapPos.y()))
+        if self.selectionmethod == 0 and len(self.pointstoDraw) > 0:
+            # Get mouse coords
+            transform = self.canvas.getCoordinateTransform()
+            if transform is None:
+                return
+            mapPos = transform.toMapCoordinates(position["x"], position["y"])
+            # Draw on temp layer
+            self.updateRubberBand()
+            self.rubberband.addPoint(QgsPointXY(mapPos.x(), mapPos.y()))
         if self.selectionmethod in (1, 2):
             return
 
-    def rightClicked(self, position: Mapping[str, int]) -> None:  # used to quit the current action
+    def rightClicked(self, position: Mapping[str, int]) -> None:  # noqa: ARG002 -- Keep the signal callback signature.
         """Finish a drawn profile or clear an idle freehand selection."""
         if self.selectionmethod == 0:
             if self.isPlotting:

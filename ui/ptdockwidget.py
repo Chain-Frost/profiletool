@@ -26,8 +26,8 @@
 
 from __future__ import annotations
 
-import os
 from contextlib import suppress
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from qgis.core import (
@@ -68,7 +68,7 @@ except ImportError:
     matplotlib_loaded = False
 
 
-uiFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__), "profiletool.ui"))
+uiFilePath = str(Path(__file__).resolve().with_name("profiletool.ui"))
 if TYPE_CHECKING:
     from qgis.gui import QgisInterface
 
@@ -260,7 +260,7 @@ class PTDockWidget(QDockWidget, FormClass):
         with suppress(AttributeError, RuntimeError, TypeError):
             self.plotWdg.getViewBox().sigRangeChanged.disconnect(self.plotRangechanged)
 
-    def plotRangechanged(self, param: object = None) -> None:  # called when pyqtgraph view changed
+    def plotRangechanged(self, param: object = None) -> None:  # noqa: ARG002 -- PyQtGraph range signal payload.
         """Refresh vertical-bound controls after the plot view range changes."""
         PlottingTool().plotRangechanged(self, self.cboLibrary.currentText())
 
@@ -519,9 +519,9 @@ class PTDockWidget(QDockWidget, FormClass):
         if sender is None:
             return
         nr = int(sender.objectName())
-        type = "Point?crs=" + str(self.profiletoolcore.profiles[nr]["crs"].authid())
+        layer_uri = "Point?crs=" + str(self.profiletoolcore.profiles[nr]["crs"].authid())
         name = f"ProfileTool_{self._profile_name(self.profiletoolcore.profiles[nr])}"
-        vl = QgsVectorLayer(type, name, "memory")
+        vl = QgsVectorLayer(layer_uri, name, "memory")
         pr = vl.dataProvider()
         if pr is None:
             return
@@ -559,7 +559,7 @@ class PTDockWidget(QDockWidget, FormClass):
     # other things ****************************************************************
     # ********************************************************************************
 
-    def closeEvent(self, event: QCloseEvent | None) -> None:
+    def closeEvent(self, event: QCloseEvent | None) -> None:  # noqa: ARG002 -- Qt override signature.
         """Emit the dock-close signal and clear owned profile state."""
         self.closed.emit()
         self.profiletoolcore.cleaning()
@@ -599,7 +599,7 @@ class PTDockWidget(QDockWidget, FormClass):
         """Delegate PNG export to the current plotting backend."""
         PlottingTool().outPNG(self.iface, self, self.mdl, self.cboLibrary.currentText())
 
-    def outDXF(self, type: str) -> None:
+    def outDXF(self, type: str) -> None:  # noqa: A002 -- Preserve the legacy keyword argument.
         """Delegate the requested 2D or 3D profile export to the DXF writer."""
         PlottingTool().outDXF(
             self.iface,

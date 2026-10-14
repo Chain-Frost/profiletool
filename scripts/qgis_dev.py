@@ -40,7 +40,7 @@ try:
     if "profiletool" not in qgis.utils.active_plugins:
         qgis.utils.active_plugins.append("profiletool")
     status["loaded"] = True
-except Exception:
+except Exception:  # noqa: BLE001 -- Startup boundary records the complete traceback in the status report.
     status["loaded"] = False
     status["traceback"] = traceback.format_exc()
     traceback.print_exc()

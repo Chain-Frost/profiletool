@@ -102,15 +102,15 @@ class SelectLineTool:
         return isinstance(layer, QgsVectorLayer) and layer.geometryType() == Qgis.GeometryType.Point
 
     @staticmethod
-    def select_closest_feature(iface: QgisInterface, layer: QgsVectorLayer, point: QgsPointXY) -> list[QgsFeature]:
+    def select_closest_feature(iface: QgisInterface, layer: QgsVectorLayer, point: QgsPointXY) -> list[QgsFeature]:  # noqa: ARG004 -- Preserve the legacy selection helper signature.
         """Returns a list with the closest feature in given layer."""
         # Create the index with the layers features
         layerindex = QgsSpatialIndex()
         # rajout
         f = QgsFeature()
         #
-        iter = layer.getFeatures()
-        while iter.nextFeature(f):
+        feature_iterator = layer.getFeatures()
+        while feature_iterator.nextFeature(f):
             layerindex.addFeature(f)
 
         # get the feature which has the closest bounding box using the spatial index
@@ -170,7 +170,9 @@ class SelectLineTool:
 
     @staticmethod
     def select_layer_features(
-        iface: QgisInterface | None, layer: QgsVectorLayer | None, point: QgsPointXY | None
+        iface: QgisInterface | None,  # noqa: ARG004 -- Common selection helper signature.
+        layer: QgsVectorLayer | None,
+        point: QgsPointXY | None,  # noqa: ARG004 -- Common selection helper signature.
     ) -> list[QgsFeature]:
         """Returns a list with all the features in layer.
 

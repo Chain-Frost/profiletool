@@ -26,14 +26,14 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import QSettings
 from qgis.PyQt.QtWidgets import QDialog, QLabel, QWidget
 
-uiFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__), "about.ui"))
+uiFilePath = str(Path(__file__).resolve().with_name("about.ui"))
 if TYPE_CHECKING:
 
     class FormClass:
@@ -57,7 +57,7 @@ class DlgAbout(QDialog, FormClass):
         QDialog.__init__(self, parent)
         self.setupUi(self)
 
-        fp = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), "metadata.txt")
+        fp = str(Path(__file__).resolve().parent.parent / "metadata.txt")
 
         iniText = QSettings(fp, QSettings.Format.IniFormat)
         verno = iniText.value("version", "", type=str)

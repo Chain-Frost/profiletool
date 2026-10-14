@@ -64,7 +64,8 @@ ReaderFixture = tuple[types.ModuleType, SimpleNamespace, Callable[[bool], object
 
 def _load(name: str, path: Path) -> types.ModuleType:
     spec = importlib.util.spec_from_file_location(name, path)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -194,10 +195,10 @@ def reader_module(monkeypatch: pytest.MonkeyPatch) -> ReaderFixture:
 
 
 def test_project_crs_controls_chainage_units(reader_module: ReaderFixture) -> None:
-    reader, project, Crs = reader_module
+    reader, project, crs_factory = reader_module
 
     class Provider:
-        def sample(self, pt: _Coordinates, band: int) -> tuple[float, bool]:
+        def sample(self, pt: _Coordinates, _band: int) -> tuple[float, bool]:
             return float(pt.x()), True
 
     class Layer:
@@ -221,7 +222,7 @@ def test_project_crs_controls_chainage_units(reader_module: ReaderFixture) -> No
             return "source-layer-crs"
 
     class MapTool:
-        def toLayerCoordinates(self, layer: object, point: _Coordinates) -> _Coordinates:
+        def toLayerCoordinates(self, _layer: object, point: _Coordinates) -> _Coordinates:
             return reader.QgsPointXY(point.x() * 2, point.y() * 2)
 
     class Interface:
@@ -235,7 +236,7 @@ def test_project_crs_controls_chainage_units(reader_module: ReaderFixture) -> No
             pass
 
     for geographic, expected_end in [(True, 10.0), (False, 3.048)]:
-        project.crs = lambda geographic=geographic: Crs(geographic)
+        project.crs = lambda geographic=geographic: crs_factory(geographic)
         result = reader.DataReaderTool().dataRasterReaderTool(
             Interface(),
             MapTool(),
@@ -254,7 +255,7 @@ def test_valid_zero_is_distinct_from_missing_sample(reader_module: ReaderFixture
     reader, _, _ = reader_module
 
     class Provider:
-        def sample(self, point: _Coordinates, band: int) -> tuple[float, bool]:
+        def sample(self, point: _Coordinates, _band: int) -> tuple[float, bool]:
             return (0.0, True) if point.x() == 0 else (0.0, False)
 
     class Layer:
@@ -292,8 +293,8 @@ def test_vector_chainage_dedup_keeps_closest_point(reader_module: ReaderFixture)
 
 
 def test_geographic_chainage_dedup_tolerance(reader_module: ReaderFixture) -> None:
-    reader, project, Crs = reader_module
-    project.crs = lambda: Crs(True)
+    reader, project, crs_factory = reader_module
+    project.crs = lambda: crs_factory(True)
     assert reader.DataReaderTool._project_chainage_tolerance() == pytest.approx(1e-8)
     array = np.array(
         [

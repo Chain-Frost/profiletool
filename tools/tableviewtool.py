@@ -234,7 +234,7 @@ class TableViewTool(QObject):
         try:
             mdl.removeRow(index)
             self.layerAddedOrRemoved.emit()
-        except Exception:
+        except RuntimeError:  # A Qt model can be deleted during dock shutdown.
             return
 
     def chooseLayerForRemoval(self, iface: QgisInterface, mdl: QStandardItemModel) -> int | None:

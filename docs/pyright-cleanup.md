@@ -4,15 +4,27 @@ Measured on 14 October 2026 using the configured OSGeo4W Python 3.12 / QGIS
 4.2.1 environment and matching PyQt6 type definitions.
 
 Full strict Pyright decreased from **2,259 errors at commit `84b3ed3`** to
-**324 errors in the working tree**, with zero warnings: 1,935 fewer errors.
+**311 errors in the working tree**, with zero warnings: 1,948 fewer errors.
 The first batch reduced the count to 1,857 and was committed as `1e0a667`.
 The subsequent reader, plotting, table-model, map-tool, core and UI work removes
-another 1,533 errors.
+another 1,546 errors.
 The working-tree result includes uncommitted changes and is not a hosted CI
 result. Generated reports remain local and ignored.
 
 ## Changes
 
+- Converted plugin-owned filesystem operations to `pathlib` while keeping
+  strings at Qt/QGIS boundaries. Renamed shadowing locals, preserved legacy
+  keyword and callback parameters, and documented compatibility exemptions.
+- Kept optional imports lazy and test-double Qt names intact. Startup reporting
+  retains its outer exception boundary; JSON-schema validation retains its
+  tested ValueError contract. Model cleanup now catches only RuntimeError, and
+  tracking-line cleanup tolerates only an already-removed artist. Regression
+  coverage checks that case. Added a public distance-scale helper while keeping
+  the legacy private method available.
+- Reviewed and applied six Ruff suggestions: two PT018 assertion splits, three
+  SIM102 condition merges and one RUF005 DXF list-unpacking change. All 18
+  isolated tests and 17 live desktop cases passed afterward.
 - Cleared EM101, D101, D102 and SIM108 findings: seven exception-message
   extractions, 93 descriptive public API docstrings, and three reviewed
   conditional-assignment simplifications. The docstring pass preserved the
@@ -98,8 +110,8 @@ remain acceptable after checking callers and compatibility.
 | CI-scoped strict Pyright | Zero errors and warnings |
 | Headless CI regression suite | 16 passed |
 | Tests in isolated QGIS processes | 18 passed |
-| Full strict Pyright | 324 errors, zero warnings |
-| Full Ruff inventory | 139 findings remain after legacy naming exemptions |
+| Full strict Pyright | 311 errors, zero warnings |
+| Full Ruff inventory | 40 findings remain after documented compatibility exemptions |
 | EM101, D101, D102, SIM108 | Zero findings |
 | Live QGIS desktop automation through MCP | All 17 cases passed |
 | Live console distance script | Passed; temporary layer removed |
@@ -120,10 +132,10 @@ separate report-sharing branch is unchanged.
 
 | Diagnostic category | Count | Typical difficulty |
 | --- | --- | --- |
-| Unknown member/argument/variable/lambda types | 268 | Moderate to hard: QGIS and plotting-library API boundaries |
+| Unknown member/argument/variable/lambda types | 258 | Moderate to hard: QGIS and plotting-library API boundaries |
 | Undeclared attributes | 25 | Moderate to hard: generated stubs and legacy plugin interfaces |
 | Possibly missing objects | 16 | Easy to moderate: lifecycle and state checks |
-| Compatibility and cleanup findings | 15 | Easy to moderate; some preserve intentional legacy APIs |
+| Compatibility and cleanup findings | 12 | Easy to moderate; some preserve intentional legacy APIs |
 
 The latest reader pass typed its polyline return and interpolation collections
 and guarded progress status bars. All 18 isolated tests and 17 live desktop

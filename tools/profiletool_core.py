@@ -27,9 +27,9 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Sequence
 from contextlib import suppress
+from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 
 import numpy as np
@@ -186,7 +186,10 @@ class ProfileToolCore(QWidget):
         self.updateProfil(points, False, plotProfil)
 
     def updateProfil(
-        self, points1: Sequence[Sequence[float]], removeSelection: bool = True, plotProfil: bool = True
+        self,
+        points1: Sequence[Sequence[float]],
+        removeSelection: bool = True,  # noqa: ARG002 -- Retained argument; source selections are preserved.
+        plotProfil: bool = True,
     ) -> None:
         """Sample selected, manually added layers without changing feature selections."""
         self.pointstoDraw = list(points1)
@@ -273,7 +276,7 @@ class ProfileToolCore(QWidget):
         points = [QgsPointXY(*p) for p in self.pointstoDraw]
         geom = QgsGeometry.fromPolylineXY(points)
         try:
-            scale = DataReaderTool._project_distance_scale()
+            scale = DataReaderTool.project_distance_scale()
             map_distance = float(x) / scale
             point_projected = geom.interpolate(map_distance).asPoint()
         except (AttributeError, TypeError, ValueError, ZeroDivisionError):
@@ -302,12 +305,8 @@ class ProfileToolCore(QWidget):
                 "memory",
             )
             self.instance.addMapLayer(self.pointLayer)
-            qml_path = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)),
-                "profile_points",
-                "profile_points.qml",
-            )
-            self.pointLayer.loadNamedStyle(qml_path)
+            qml_path = Path(__file__).resolve().parent.parent / "profile_points" / "profile_points.qml"
+            self.pointLayer.loadNamedStyle(str(qml_path))
 
         feature = QgsFeature(self.pointLayer.fields())
         feature.setGeometry(QgsGeometry.fromPointXY(point_projected))
@@ -338,7 +337,7 @@ class ProfileToolCore(QWidget):
                 geom = QgsGeometry.fromPolylineXY(points)
                 try:
                     if len(points) > 1:
-                        pointprojected = geom.interpolate(float(x) / DataReaderTool._project_distance_scale()).asPoint()
+                        pointprojected = geom.interpolate(float(x) / DataReaderTool.project_distance_scale()).asPoint()
                     else:
                         pointprojected = points[0]
                 except (IndexError, AttributeError, ValueError):
@@ -351,7 +350,7 @@ class ProfileToolCore(QWidget):
             self.toolrenderer.rubberbandpoint.hide()
 
     # remove layers which were removed from QGIS
-    def onLayersRemoved(self, *args: object) -> None:
+    def onLayersRemoved(self, *args: object) -> None:  # noqa: ARG002 -- QGIS supplies removed layer IDs.
         """Resample the current path after project source layers are removed."""
         self.updateProfil(self.pointstoDraw, False, True)
 
@@ -403,23 +402,22 @@ class ProfileToolCore(QWidget):
                     if self.cid is not None:
                         self.dockwidget.plotWdg.mpl_disconnect(self.cid)
                         self.cid = None
-                try:
-                    if self.vline is not None:
-                        self.vline.remove()
-                        self.vline = None
-                        self.dockwidget.plotWdg.draw()
-                except Exception as e:
-                    print(str(e))
+                if self.vline is not None:
+                    self._remove_tracking_line()
+                    self.dockwidget.plotWdg.draw()
+
+    def _remove_tracking_line(self) -> None:
+        """Clear the tracking artist, tolerating a line already removed by redraw."""
+        line = self.vline
+        self.vline = None
+        if line is not None:
+            with suppress(ValueError):
+                line.remove()
 
     def mouseevent_mpl(self, event: MouseEvent) -> None:
         """Handle interactive mouse movement in the Matplotlib view."""
         if event.xdata is not None and self.dockwidget.plotWdg is not None:
-            try:
-                if self.vline is not None:
-                    self.vline.remove()
-                    self.vline = None
-            except Exception:
-                pass
+            self._remove_tracking_line()
             xdata = float(event.xdata)
             self.vline = self.dockwidget.plotWdg.figure.get_axes()[0].axvline(xdata, linewidth=2, color="k")
             self.dockwidget.plotWdg.draw()
@@ -489,7 +487,7 @@ class ProfileToolCore(QWidget):
         # si connexion directe du signal "mouseMoved" : la fonction reçoit le point courant
         # si le point est dans la zone courante
         if self.dockwidget.plotWdg.sceneBoundingRect().contains(pos) and self.dockwidget.showcursor:
-            range = self.dockwidget.plotWdg.getViewBox().viewRange()
+            view_range = self.dockwidget.plotWdg.getViewBox().viewRange()
             # récupère le point souris à partir ViewBox
             mousePoint = self.dockwidget.plotWdg.getViewBox().mapSceneToView(pos)
 
@@ -532,10 +530,10 @@ class ProfileToolCore(QWidget):
                             if item.textItem.toPlainText()[0] == "X":
                                 item.show()
                                 item.setText("X : " + str(round(xtoplot, 3)))
-                                item.setPos(xtoplot, range[1][0])
+                                item.setPos(xtoplot, view_range[1][0])
                             elif item.textItem.toPlainText()[0] == "Y":
                                 item.show()
                                 item.setText("Y : " + str(round(ytoplot, 3)))
-                                item.setPos(range[0][0], ytoplot)
+                                item.setPos(view_range[0][0], ytoplot)
             # tracking part
             self.updateCursorOnMap(xtoplot)

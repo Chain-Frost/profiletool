@@ -39,7 +39,7 @@ def summarise(payload: dict[str, object]) -> dict[str, object]:
     raw = payload.get("generalDiagnostics")
     if not isinstance(raw, list):
         msg = "Pyright JSON must contain a generalDiagnostics list."
-        raise ValueError(msg)
+        raise ValueError(msg)  # noqa: TRY004 -- Validate JSON schema while preserving the ValueError contract.
     diagnostics = cast(list[object], raw)
 
     rules: Counter[str] = Counter()
@@ -89,7 +89,7 @@ def main() -> None:
     raw = json.loads(args.input.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         msg = "Expected a JSON object from Pyright."
-        raise ValueError(msg)
+        raise ValueError(msg)  # noqa: TRY004 -- An invalid JSON root is a report-schema error.
     result = summarise(cast(dict[str, object], raw))
     formatted = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
     if args.output is not None:

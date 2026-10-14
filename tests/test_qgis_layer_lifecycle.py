@@ -115,6 +115,11 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(monkeypatch
                     event.xdata = 1.0
                     core.mouseevent_mpl(event)
                     assert len(axes.lines) == before_lines + 1
+                    assert core.vline is not None
+                    core.vline.remove()
+                    event.xdata = 2.0
+                    core.mouseevent_mpl(event)
+                    assert len(axes.lines) == before_lines + 1
                     core.activateMouseTracking(0)
                     assert core.vline is None
                     assert len(axes.lines) == before_lines

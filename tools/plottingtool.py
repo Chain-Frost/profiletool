@@ -25,9 +25,9 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Sequence
 from math import sqrt
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -38,7 +38,9 @@ from qgis.PyQt.QtSvg import QSvgGenerator
 from qgis.PyQt.QtWidgets import QFileDialog, QSizePolicy, QWidget
 
 from .. import pyqtgraph as pg
-from ..dxfwrite import DXFEngine as dxf
+from ..dxfwrite import (
+    DXFEngine as dxf,  # noqa: N813 -- Preserve the established writer alias.
+)
 from ..pyqtgraph import exporters
 from .dataReaderTool import DataReaderTool
 from .profile_types import Profile
@@ -61,7 +63,7 @@ except ImportError:
     has_mpl = False
 
 
-def getSaveFileName(parent: QWidget | None, caption: str, directory: str, filter: str) -> str:
+def getSaveFileName(parent: QWidget | None, caption: str, directory: str, filter: str) -> str:  # noqa: A002 -- Legacy keyword.
     """Return the selected output path from the Qt file dialog."""
     fileName, _selected_filter = QFileDialog.getSaveFileName(
         parent=parent, caption=caption, directory=directory, filter=filter
@@ -93,7 +95,7 @@ class PlottingTool:
             name += f" [{layer.id()[-8:]}]"
         return f"{name}#{band}"
 
-    def changePlotWidget(self, library: str, frame_for_plot: QWidget):
+    def changePlotWidget(self, library: str, frame_for_plot: QWidget):  # noqa: ARG002 -- Legacy widget factory signature.
         """Construct the selected plotting backend and configure its axes and cursors."""
         if library == "PyQtGraph":
             plotWdg = pg.PlotWidget()
@@ -177,7 +179,7 @@ class PlottingTool:
                 y2 = float(pointstoDraw[i + 1][1])
                 profileLen += sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                 wdg.plotWdg.figure.get_axes()[0].axvline(
-                    profileLen * DataReaderTool._project_distance_scale(), linewidth=1
+                    profileLen * DataReaderTool.project_distance_scale(), linewidth=1
                 )
             profileLen = 0
 
@@ -242,11 +244,9 @@ class PlottingTool:
                     color_item.data(Qt.ItemDataRole.BackgroundRole),
                     tmp_name,
                 )
-            try:
+            if profiles and len(profiles[-1]["plot_x"]) > 0:
                 self.reScalePlot(wdg, profiles, library)
                 wdg.plotWdg.figure.get_axes()[0].set_xbound(0, max(profiles[-1]["plot_x"]))
-            except Exception:
-                pass
             wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
             wdg.plotWdg.draw()
 
@@ -264,10 +264,10 @@ class PlottingTool:
             return
 
         if library == "PyQtGraph":
-            range = wdg.plotWdg.getViewBox().viewRange()
+            view_range = wdg.plotWdg.getViewBox().viewRange()
             wdg.disconnectYSpinbox()
-            wdg.sbMaxVal.setValue(range[1][1])
-            wdg.sbMinVal.setValue(range[1][0])
+            wdg.sbMaxVal.setValue(view_range[1][1])
+            wdg.sbMinVal.setValue(view_range[1][0])
             wdg.connectYSpinbox()
 
     def reScalePlot(
@@ -365,7 +365,7 @@ class PlottingTool:
                     wdg.plotWdg.draw()
                     break
 
-    def changeAttachCurve(self, wdg: PTDockWidget, library: str | None, bool: int | Qt.CheckState, name: str) -> None:
+    def changeAttachCurve(self, wdg: PTDockWidget, library: str | None, bool: int | Qt.CheckState, name: str) -> None:  # noqa: A002 -- Preserve the legacy keyword argument.
         """Update a named curve's visibility from its source-table check state."""
         if wdg.plotWdg is None:
             return
@@ -438,9 +438,8 @@ class PlottingTool:
         fileName = getSaveFileName(
             iface.mainWindow(), "Save As", "Profile of " + name + ".ps", "PostScript Format (*.ps)"
         )
-        if fileName:
-            if library == "Matplotlib" and has_mpl:
-                wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
+        if fileName and library == "Matplotlib" and has_mpl:
+            wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
     def outPDF(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
         """Save the Matplotlib plot as PDF after selecting an output path."""
@@ -459,11 +458,10 @@ class PlottingTool:
             "Profile of " + name + ".pdf",
             "Portable Document Format (*.pdf)",
         )
-        if fileName:
-            if library == "Matplotlib" and has_mpl:
-                wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
+        if fileName and library == "Matplotlib" and has_mpl:
+            wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
-    def outSVG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+    def outSVG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:  # noqa: ARG002 -- Common export signature.
         """Export the current plot as SVG using the selected backend."""
         if wdg.plotWdg is None:
             return
@@ -475,7 +473,7 @@ class PlottingTool:
         )
 
         if fileName:
-            wdg.profiletoolcore.loaddirectory = os.path.dirname(fileName)
+            wdg.profiletoolcore.loaddirectory = str(Path(fileName).parent)
             QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
 
             if library == "PyQtGraph":
@@ -497,7 +495,7 @@ class PlottingTool:
             elif library == "Matplotlib" and has_mpl:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
-    def outPNG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+    def outPNG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:  # noqa: ARG002 -- Common export signature.
         """Export the current plot as PNG using the selected backend."""
         if wdg.plotWdg is None:
             return
@@ -509,7 +507,7 @@ class PlottingTool:
         )
 
         if fileName:
-            wdg.profiletoolcore.loaddirectory = os.path.dirname(fileName)
+            wdg.profiletoolcore.loaddirectory = str(Path(fileName).parent)
             QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
 
             if library == "PyQtGraph":
@@ -522,10 +520,10 @@ class PlottingTool:
         self,
         iface: QgisInterface,
         wdg: PTDockWidget,
-        mdl: QStandardItemModel,
-        library: str | None,
+        mdl: QStandardItemModel,  # noqa: ARG002 -- Common export signature.
+        library: str | None,  # noqa: ARG002 -- Common export signature.
         profiles: Sequence[Profile],
-        type: str = "3D",
+        type: str = "3D",  # noqa: A002 -- Preserve the legacy keyword argument.
     ) -> None:
         """Export 2D or source-coordinate 3D polylines, splitting at missing elevations."""
         fileName = getSaveFileName(
@@ -536,7 +534,7 @@ class PlottingTool:
         )
         if not fileName:
             return
-        wdg.profiletoolcore.loaddirectory = os.path.dirname(fileName)
+        wdg.profiletoolcore.loaddirectory = str(Path(fileName).parent)
         QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
         drawing = dxf.drawing(fileName)
         for profile in profiles:
@@ -554,7 +552,7 @@ class PlottingTool:
                 ]
             # NoData gaps must not become fictitious connecting lines.
             part: list[tuple[float, float, float]] = []
-            for vertex in vertices + [None]:
+            for vertex in [*vertices, None]:
                 if vertex is None:
                     if len(part) >= 2:
                         drawing.add(dxf.polyline(part, color=7, layer=name))

@@ -12,7 +12,8 @@ import pytest
 def _module() -> ModuleType:
     path = Path(__file__).resolve().parents[1] / "scripts" / "pyright_triage.py"
     spec = importlib.util.spec_from_file_location("profiletool_pyright_triage", path)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
