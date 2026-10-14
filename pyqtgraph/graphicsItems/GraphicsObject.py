@@ -17,7 +17,16 @@ class GraphicsObject(GraphicsItem, QtWidgets.QGraphicsObject):
         GraphicsItem.__init__(self)
         
     def itemChange(self, change, value):
-        ret = super().itemChange(change, value)
+        try:
+            ret = super().itemChange(change, value)
+        except TypeError as exc:
+            # Some PyQt5 builds cannot convert the default Qt QVariant return
+            # from QGraphicsObject.itemChange back into a Python object.
+            # Qt's default implementation returns the supplied value; the
+            # base C++ method has already run before its conversion fails.
+            if QT_LIB != 'PyQt5' or 'unable to convert a QVariant back to a Python object' not in str(exc):
+                raise
+            ret = value
         if change in [self.GraphicsItemChange.ItemParentHasChanged, self.GraphicsItemChange.ItemSceneHasChanged]:
             if self.__class__.__dict__.get('parentChanged') is not None:
                 # user's GraphicsObject subclass has a parentChanged() method
