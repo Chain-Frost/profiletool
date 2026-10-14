@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from contextlib import suppress
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from qgis.core import (
     Qgis,
@@ -56,6 +56,7 @@ from qgis.PyQt.QtWidgets import (
 )
 
 # plugin import
+from .. import pyqtgraph as pg
 from ..tools.plottingtool import PlottingTool
 from ..tools.tableviewtool import TableViewTool, layer_from_model
 
@@ -72,6 +73,7 @@ uiFilePath = str(Path(__file__).resolve().with_name("profiletool.ui"))
 if TYPE_CHECKING:
     from qgis.gui import QgisInterface
 
+    from ..tools.plot_types import DockPlotItem
     from ..tools.profile_types import Profile
     from ..tools.profiletool_core import ProfileToolCore
     from .profiletool_form_types import Ui_ProfileTool as FormClass
@@ -249,16 +251,24 @@ class PTDockWidget(QDockWidget, FormClass):
 
     def connectPlotRangechanged(self) -> None:
         """Connect PyQtGraph range changes to the bound-control update."""
-        if self.plotWdg is None:
+        plot_item = self._pyqtgraph_plot_item()
+        if plot_item is None or (view_box := plot_item.getViewBox()) is None:
             return
-        self.plotWdg.getViewBox().sigRangeChanged.connect(self.plotRangechanged)
+        view_box.sigRangeChanged.connect(self.plotRangechanged)
 
     def disconnectPlotRangechanged(self) -> None:
         """Disconnect range updates while changing the plot programmatically."""
-        if self.plotWdg is None:
+        plot_item = self._pyqtgraph_plot_item()
+        if plot_item is None or (view_box := plot_item.getViewBox()) is None:
             return
         with suppress(AttributeError, RuntimeError, TypeError):
-            self.plotWdg.getViewBox().sigRangeChanged.disconnect(self.plotRangechanged)
+            view_box.sigRangeChanged.disconnect(self.plotRangechanged)
+
+    def _pyqtgraph_plot_item(self) -> DockPlotItem | None:
+        """Resolve the real PyQtGraph plot item without Matplotlib forwarding."""
+        if isinstance(self.plotWdg, pg.PlotWidget):
+            return cast("DockPlotItem | None", self.plotWdg.getPlotItem())
+        return None
 
     def plotRangechanged(self, param: object = None) -> None:  # noqa: ARG002 -- PyQtGraph range signal payload.
         """Refresh vertical-bound controls after the plot view range changes."""
@@ -282,7 +292,8 @@ class PTDockWidget(QDockWidget, FormClass):
 
     def showCursor(self, int1: int) -> None:
         """Toggle PyQtGraph cursor visibility and map-tracking controls."""
-        if self.plotWdg is None:
+        plot_item = self._pyqtgraph_plot_item()
+        if plot_item is None:
             return
         # For pyqtgraph mode
         if self.plotlibrary == "PyQtGraph":
@@ -290,28 +301,22 @@ class PTDockWidget(QDockWidget, FormClass):
                 self.showcursor = True
                 self.profiletoolcore.doTracking = bool(self.checkBox_mpl_tracking.checkState())
                 self.checkBox_mpl_tracking.setEnabled(True)
-                for item in self.plotWdg.allChildItems():
-                    if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
+                for item in plot_item.allChildItems():
+                    if isinstance(item, pg.InfiniteLine):
                         if item.name() == "cross_vertical" or item.name() == "cross_horizontal":
                             item.show()
-                    elif (
-                        str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>"
-                        and item.textItem.toPlainText()[0] in ("X", "Y")
-                    ):
+                    elif isinstance(item, pg.TextItem) and item.textItem.toPlainText().startswith(("X", "Y")):
                         item.show()
             elif int1 == 0:
                 self.showcursor = False
                 self.profiletoolcore.doTracking = False
                 self.checkBox_mpl_tracking.setEnabled(False)
 
-                for item in self.plotWdg.allChildItems():
-                    if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
+                for item in plot_item.allChildItems():
+                    if isinstance(item, pg.InfiniteLine):
                         if item.name() == "cross_vertical" or item.name() == "cross_horizontal":
                             item.hide()
-                    elif (
-                        str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>"
-                        and item.textItem.toPlainText()[0] in ("X", "Y")
-                    ):
+                    elif isinstance(item, pg.TextItem) and item.textItem.toPlainText().startswith(("X", "Y")):
                         item.hide()
             self.profiletoolcore.plotProfil()
 
@@ -364,8 +369,9 @@ class PTDockWidget(QDockWidget, FormClass):
 
         Aspect-ratio locking is supported only by PyQtGraph.
         """
-        if self.plotlibrary == "PyQtGraph" and self.plotWdg is not None:
-            self.plotWdg.getViewBox().setAspectLocked(state == Qt.CheckState.Checked)
+        plot_item = self._pyqtgraph_plot_item()
+        if plot_item is not None and (view_box := plot_item.getViewBox()) is not None:
+            view_box.setAspectLocked(state == Qt.CheckState.Checked)
 
     # ********************************************************************************
     # coordinate tab ****************************************************************
@@ -374,7 +380,7 @@ class PTDockWidget(QDockWidget, FormClass):
     def _profile_name(profile: Profile) -> str:
         groupTitle = profile["layer"].name()
         band = profile["band"]
-        if band is not None and band > -1:
+        if band > -1:
             groupTitle += f"_band_{band}"
         return groupTitle.replace(" ", "_")
 

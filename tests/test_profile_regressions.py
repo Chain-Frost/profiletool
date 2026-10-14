@@ -55,7 +55,7 @@ def _translate(_context: str, message: str) -> str:
 
 def _unit_factor(source: str, _target: str) -> float:
     """Convert the fixture's foot distances to metres."""
-    return 0.3048 if source == "feet" else 1.0
+    return {"feet": 0.3048, "survey-feet": 1200 / 3937}.get(source, 1.0)
 
 
 def _not_profilable(_layer: object) -> bool:
@@ -240,7 +240,7 @@ def test_project_crs_controls_chainage_units(reader_module: ReaderFixture) -> No
         def showMessage(self, value: str) -> None:
             pass
 
-    for geographic, expected_end in [(True, 10.0), (False, 3.048)]:
+    for geographic, expected_end in [(True, 10.0), (False, 10.0)]:
         project.crs = lambda geographic=geographic: crs_factory(geographic=geographic)
         result = reader.DataReaderTool().dataRasterReaderTool(
             Interface(),
@@ -309,6 +309,19 @@ def test_geographic_chainage_dedup_tolerance(reader_module: ReaderFixture) -> No
         dtype=object,
     )
     assert len(reader.DataReaderTool().removeDuplicateLenght(array)) == 2
+
+
+@pytest.mark.parametrize(("unit", "factor"), [("metres", 1.0), ("feet", 0.3048), ("survey-feet", 1200 / 3937)])
+def test_native_project_units_keep_separate_grade_distances(
+    reader_module: ReaderFixture, unit: str, factor: float
+) -> None:
+    """Display native units while preserving the established metre-based grade distances."""
+    reader, project, _factory = reader_module
+    project.crs = lambda: SimpleNamespace(isGeographic=lambda: False, mapUnits=lambda: unit)
+    points = [reader.QgsPointXY(0, 0), reader.QgsPointXY(12, 0)]
+    assert reader.DataReaderTool.project_distance_scale() == 1.0
+    assert reader.DataReaderTool._slope_distances(points, [0.0, 12.0]) == pytest.approx([0.0, 12 * factor])
+    assert reader.DataReaderTool._project_chainage_tolerance() == pytest.approx(0.01 / factor)
 
 
 def test_only_clicked_part_of_multipart_feature(reader_module: ReaderFixture, monkeypatch: pytest.MonkeyPatch) -> None:

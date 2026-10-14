@@ -80,8 +80,7 @@ class DataReaderTool:
     ) -> ReaderProfile:
         """Sample a raster/mesh along a line drawn in the project CRS.
 
-        Chainage uses project-CRS angular units for geographic projects, and
-        metres for projected projects (including projected CRSs in feet).
+        Chainage uses the project CRS's native angular or linear units.
         Sample coordinates are stored in the source layer CRS.
         """
         self.tool = tool1
@@ -164,15 +163,12 @@ class DataReaderTool:
 
     @staticmethod
     def _project_distance_scale() -> float:
-        """Conversion from project map units to plotted chainage units."""
-        project_crs = DataReaderTool._project().crs()
-        if project_crs.isGeographic():
-            return 1.0  # degrees, matching the geographic project CRS
-        return QgsUnitTypes.fromUnitToUnitFactor(project_crs.mapUnits(), Qgis.DistanceUnit.Meters)
+        """Keep displayed chainage in native project map units."""
+        return 1.0
 
     @staticmethod
     def _slope_distances(project_points: Sequence[QgsPointXY], chainages: list[float]) -> list[float]:
-        """Slope distance in metres, even when displayed chainage is degrees.
+        """Slope distance in metres, independently of displayed CRS units.
 
         A geographic project's displayed chainage remains angular. Geodesic
         segment lengths are used only for grades, which must have linear units.
@@ -181,7 +177,8 @@ class DataReaderTool:
             return []
         project = DataReaderTool._project()
         if not project.crs().isGeographic():
-            return chainages
+            factor = QgsUnitTypes.fromUnitToUnitFactor(project.crs().mapUnits(), Qgis.DistanceUnit.Meters)
+            return [chainage * factor for chainage in chainages]
         distance = QgsDistanceArea()
         distance.setSourceCrs(project.crs(), project.transformContext())
         ellipsoid = project.ellipsoid()
@@ -197,7 +194,8 @@ class DataReaderTool:
         project_crs = DataReaderTool._project().crs()
         if project_crs.isGeographic():
             return 1e-8  # Avoid treating separate locations as duplicates.
-        return 0.01 / DataReaderTool._project_distance_scale()
+        metres_per_unit = QgsUnitTypes.fromUnitToUnitFactor(project_crs.mapUnits(), Qgis.DistanceUnit.Meters)
+        return 0.01 / metres_per_unit
 
     def _status_update(self, advancement_pct: int) -> None:
         """Send a progress message to status bar.

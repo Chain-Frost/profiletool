@@ -46,8 +46,9 @@ from qgis.core import (
 from qgis.gui import QgisInterface, QgsMapTool
 from qgis.PyQt.QtCore import QPointF, QSettings, QSignalBlocker, Qt
 from qgis.PyQt.QtGui import QStandardItemModel
-from qgis.PyQt.QtWidgets import QWidget
+from qgis.PyQt.QtWidgets import QGraphicsItem, QWidget
 
+from .. import pyqtgraph as pg
 from ..ui.ptdockwidget import PTDockWidget
 from . import profilers
 
@@ -65,6 +66,7 @@ if TYPE_CHECKING:
 
     from ..profileplugin import ProfilePlugin
     from ..pyqtgraph.graphicsItems.PlotItem.PlotItem import PlotItem
+    from .plot_types import PlotScene
 
 
 class _SceneMouseEvent(Protocol):
@@ -80,10 +82,11 @@ class ProfileToolCore(QWidget):
         QWidget.__init__(self, parent)
         self.iface = iface
         self.plugincore = plugincore
-        self.instance = QgsProject.instance()
-        if self.instance is None:
+        project = QgsProject.instance()
+        if project is None:
             msg = "Profile Tool requires an active QGIS project"
             raise RuntimeError(msg)
+        self.instance = project
         self.vline: Line2D | None = None
         self.cid: int | None = None
 
@@ -432,9 +435,13 @@ class ProfileToolCore(QWidget):
         if self.dockwidget.plotWdg is None:
             return
         if library == "PyQtGraph":
-            self.dockwidget.plotWdg.scene().sigMouseMoved.connect(self.mouseMovedPyQtGraph)
-            self.dockwidget.plotWdg.scene().sigMouseClicked.connect(self.mouseClickedPyQtGraph)
-            self.dockwidget.plotWdg.getViewBox().autoRange(items=self.dockwidget.plotWdg.getPlotItem().listDataItems())
+            scene = cast("PlotScene | None", self.dockwidget.plotWdg.scene())
+            plot_item = self.dockwidget.plotWdg.getPlotItem()
+            if scene is None or plot_item is None:
+                return
+            scene.sigMouseMoved.connect(self.mouseMovedPyQtGraph)
+            scene.sigMouseClicked.connect(self.mouseClickedPyQtGraph)
+            self.dockwidget.plotWdg.getViewBox().autoRange(items=plot_item.listDataItems())
             self.dockwidget.connectPlotRangechanged()
 
     def mouseClickedPyQtGraph(self, event: _SceneMouseEvent) -> None:
@@ -476,45 +483,50 @@ class ProfileToolCore(QWidget):
 
     def disableMouseCoordonates(self) -> None:
         """Disconnect owned PyQtGraph mouse and range-change callbacks."""
-        if self.dockwidget.plotWdg is None:
+        if self.dockwidget.plotWdg is None or self.dockwidget.plotlibrary != "PyQtGraph":
+            return
+        scene = cast("PlotScene | None", self.dockwidget.plotWdg.scene())
+        if scene is None:
             return
         with suppress(AttributeError, RuntimeError, TypeError):
-            self.dockwidget.plotWdg.scene().sigMouseMoved.disconnect(self.mouseMovedPyQtGraph)
+            scene.sigMouseMoved.disconnect(self.mouseMovedPyQtGraph)
         with suppress(AttributeError, RuntimeError, TypeError):
-            self.dockwidget.plotWdg.scene().sigMouseClicked.disconnect(self.mouseClickedPyQtGraph)
+            scene.sigMouseClicked.disconnect(self.mouseClickedPyQtGraph)
         self.dockwidget.disconnectPlotRangechanged()
 
     def mouseMovedPyQtGraph(self, pos: QPointF) -> None:
         """Update plot cursors and the map marker from the nearest visible sample."""
-        if self.dockwidget.plotWdg is None:
+        if not isinstance(self.dockwidget.plotWdg, pg.PlotWidget):
+            return
+        pitems = cast("PlotItem | None", self.dockwidget.plotWdg.getPlotItem())
+        if pitems is None:
+            return
+        view_box = cast("pg.ViewBox | None", pitems.getViewBox())
+        if view_box is None:
             return
         # si connexion directe du signal "mouseMoved" : la fonction reçoit le point courant
         # si le point est dans la zone courante
-        if self.dockwidget.plotWdg.sceneBoundingRect().contains(pos) and self.dockwidget.showcursor:
-            view_range = self.dockwidget.plotWdg.getViewBox().viewRange()
+        if pitems.sceneBoundingRect().contains(pos) and self.dockwidget.showcursor:
+            view_range = cast("list[list[float]]", view_box.viewRange())
             # récupère le point souris à partir ViewBox
-            mousePoint = self.dockwidget.plotWdg.getViewBox().mapSceneToView(pos)
-
-            pitems = self.dockwidget.plotWdg.getPlotItem()
-            if pitems is None:
-                return
+            mousePoint = view_box.mapSceneToView(pos)
             xtoplot, ytoplot = self._nearest_plot_sample(pitems, mousePoint)
             # Draw labels and cursors only when a sample was found.
             if len(pitems.listDataItems()) > 0 and xtoplot is not None and ytoplot is not None:
-                for item in self.dockwidget.plotWdg.allChildItems():
-                    if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
+                for item in cast("list[QGraphicsItem]", pitems.allChildItems()):
+                    if isinstance(item, pg.InfiniteLine):
                         if item.name() == "cross_vertical":
                             item.show()
                             item.setPos(xtoplot)
                         elif item.name() == "cross_horizontal":
                             item.show()
                             item.setPos(ytoplot)
-                    elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
-                        if item.textItem.toPlainText()[0] == "X":
+                    elif isinstance(item, pg.TextItem):
+                        if item.textItem.toPlainText().startswith("X"):
                             item.show()
                             item.setText("X : " + str(round(xtoplot, 3)))
                             item.setPos(xtoplot, view_range[1][0])
-                        elif item.textItem.toPlainText()[0] == "Y":
+                        elif item.textItem.toPlainText().startswith("Y"):
                             item.show()
                             item.setText("Y : " + str(round(ytoplot, 3)))
                             item.setPos(view_range[0][0], ytoplot)

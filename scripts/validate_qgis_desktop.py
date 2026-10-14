@@ -405,7 +405,7 @@ try:
     run_case(
         4,
         "feet project/feet raster",
-        lambda: check_raster(feet_raster, [[3000000.5, 9999989.5], [3000019.5, 9999989.5]], 2277, 19 * 1200 / 3937),
+        lambda: check_raster(feet_raster, [[3000000.5, 9999989.5], [3000019.5, 9999989.5]], 2277, 19),
     )
     run_case(5, "NoData, outside extent, valid zero and grade gaps", nodata)
     run_case(6, "multipart selection handler and preserved selections", multipart)

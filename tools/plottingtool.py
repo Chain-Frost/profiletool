@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
-from qgis.core import QgsMapLayer, QgsProject
+from qgis.core import QgsMapLayer, QgsProject, QgsUnitTypes
 from qgis.PyQt.QtCore import QSettings, Qt
 from qgis.PyQt.QtGui import QColor, QPainter, QStandardItemModel
 from qgis.PyQt.QtSvg import QSvgGenerator
@@ -84,6 +84,15 @@ class PlottingTool:
     """
 
     @staticmethod
+    def _chainage_unit() -> str:
+        """Return the display unit from the active project's geographic status."""
+        project = QgsProject.instance()
+        if project is None:
+            msg = "Profile plots require an active QGIS project"
+            raise RuntimeError(msg)
+        return QgsUnitTypes.toAbbreviatedString(project.crs().mapUnits()) or "unknown units"
+
+    @staticmethod
     def curveName(layer: QgsMapLayer, band: int, model: QStandardItemModel) -> str:
         """Unique plot key; disambiguate layers with identical names."""
         name = layer.name()
@@ -104,7 +113,7 @@ class PlottingTool:
         """Construct the selected plotting backend and configure its axes and cursors."""
         if library == "PyQtGraph":
             plotWdg = pg.PlotWidget()
-            unit = "degrees" if QgsProject.instance().crs().isGeographic() else "m"
+            unit = self._chainage_unit()
             plotWdg.setLabel("bottom", f"Chainage ({unit})")
             plotWdg.showGrid(x=True, y=True, alpha=0.5)
             datavline = pg.InfiniteLine(0, angle=90, pen=pg.mkPen("r", width=1), name="cross_vertical")
@@ -156,7 +165,7 @@ class PlottingTool:
             rect.set_facecolor((0.9, 0.9, 0.9))
 
             self.subplot = fig.add_axes((0.05, 0.15, 0.92, 0.82))
-            unit = "degrees" if QgsProject.instance().crs().isGeographic() else "m"
+            unit = self._chainage_unit()
             self.subplot.set_xlabel(f"Chainage ({unit})")
             self.subplot.set_xbound(0, 1000)
             self.subplot.set_ybound(0, 1000)
@@ -307,7 +316,10 @@ class PlottingTool:
             if library == "PyQtGraph":
                 wdg.disconnectPlotRangechanged()
                 if auto:
-                    wdg.plotWdg.getViewBox().autoRange(items=wdg.plotWdg.getPlotItem().listDataItems())
+                    plot_item = wdg.plotWdg.getPlotItem()
+                    if plot_item is None:
+                        return
+                    wdg.plotWdg.getViewBox().autoRange(items=plot_item.listDataItems())
                     wdg.plotRangechanged()
                 else:
                     wdg.plotWdg.getViewBox().setYRange(minimumValue, maximumValue, padding=0)
@@ -406,7 +418,7 @@ class PlottingTool:
 
     def manageMatplotlibAxe(self, axe1: Axes) -> None:
         """Configure chainage units, grid lines and ticks on a Matplotlib axis."""
-        unit = "degrees" if QgsProject.instance().crs().isGeographic() else "m"
+        unit = self._chainage_unit()
         axe1.set_xlabel(f"Chainage ({unit})")
         axe1.grid()
         axe1.tick_params(

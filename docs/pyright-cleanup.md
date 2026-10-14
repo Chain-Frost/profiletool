@@ -4,14 +4,29 @@ Measured on 14 October 2026 using the configured OSGeo4W Python 3.12 / QGIS
 4.2.1 environment and matching PyQt6 type definitions.
 
 Full strict Pyright decreased from **2,259 errors at commit `84b3ed3`** to
-**298 errors in the working tree**, with zero warnings: 1,961 fewer errors.
+**216 errors in the working tree**, with zero warnings: 2,043 fewer errors.
 The first batch reduced the count to 1,857 and was committed as `1e0a667`.
 The subsequent reader, plotting, table-model, map-tool, core and UI work removes
-another 1,559 errors.
+another 1,641 errors.
 The working-tree result includes uncommitted changes and is not a hosted CI
 result. Generated reports remain local and ignored.
 
 ## Changes
+
+- Typed the dock's PyQtGraph plot-item and range-signal boundary and guarded
+  missing plot items/view boxes and Matplotlib backend calls. Replaced string
+  class checks with actual cursor/label classes in the dock and core, and made
+  empty cursor labels safe. The native regression checks visibility, range
+  reconnection and aspect locking across backend switches. All 21 isolated
+  tests and all 17 live desktop cases passed; this batch removed 54 diagnostics.
+
+- Display chainage and axis labels in the native project CRS units using QGIS's
+  unit metadata. Metre, international-foot and US-survey-foot projects passed
+  live sampling checks. Separate metre distances preserve the existing grade
+  calculation convention; elevation units are not inferred from the CRS.
+  Three headless regressions cover these linear units.
+- Typed the actual PyQtGraph scene signals and guarded missing scenes and plot
+  items. Live inspection verified that both signals are Qt bound signals.
 
 - Cleared the final Ruff findings: scoped the synthetic diagnostic-path
   exception, combined cursor visibility conditions, declared both plot-widget
@@ -119,9 +134,9 @@ remain acceptable after checking callers and compatibility.
 | --- | --- |
 | Scoped CI Ruff | Passed |
 | CI-scoped strict Pyright | Zero errors and warnings |
-| Headless CI regression suite | 16 passed |
-| Tests in isolated QGIS processes | 18 passed |
-| Full strict Pyright | 298 errors, zero warnings |
+| Headless CI regression suite | 19 passed |
+| Tests in isolated QGIS processes | 21 passed |
+| Full strict Pyright | 216 errors, zero warnings |
 | Full Ruff inventory | Zero findings with documented compatibility exemptions |
 | EM101, D101, D102, SIM108 | Zero findings |
 | Live QGIS desktop automation through MCP | All 17 cases passed |
@@ -133,7 +148,8 @@ The isolated QGIS run used `QT_QPA_PLATFORM=offscreen` and excluded
 was resumed through MCP: all 17 scripted cases passed with no Qt callback or
 cleanup errors, and layer IDs/CRS were restored. Evidence is recorded in the
 ignored `validation_artifacts/qgis-desktop/interaction-report.json` and
-`distance-report.json`. Human hardware clicks and visual export inspection
+`distance-report.json`. Native CRS unit checks are recorded in
+`native-units-report.json`. Human hardware clicks and visual export inspection
 remain manual. QGIS 3.44 compatibility has not been tested. The reader and
 plotting follow-up has not been committed or pushed; hosted CI has not been
 verified for this batch. The
@@ -143,12 +159,12 @@ separate report-sharing branch is unchanged.
 
 | Diagnostic category | Count | Typical difficulty |
 | --- | --- | --- |
-| Unknown member/argument/variable/lambda types | 251 | Moderate to hard: QGIS and plotting-library API boundaries |
-| Undeclared attributes | 19 | Moderate to hard: generated stubs and legacy plugin interfaces |
-| Possibly missing objects | 16 | Easy to moderate: lifecycle and state checks |
-| Compatibility and cleanup findings | 12 | Easy to moderate; some preserve intentional legacy APIs |
+| Unknown member/argument/variable/lambda types | 190 | Moderate to hard: QGIS and plotting-library API boundaries |
+| Undeclared attributes | 15 | Moderate to hard: generated stubs and legacy plugin interfaces |
+| Possibly missing objects | 0 | Easy to moderate: lifecycle and state checks |
+| Compatibility and cleanup findings | 11 | Easy to moderate; some preserve intentional legacy APIs |
 
-The latest reader pass typed its polyline return and interpolation collections
+The earlier reader pass typed its polyline return and interpolation collections
 and guarded progress status bars. All 18 isolated tests and 17 live desktop
 cases passed against the change.
 

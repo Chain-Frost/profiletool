@@ -6,19 +6,23 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 from types import TracebackType
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
 pytest.importorskip("qgis.core", reason="Requires the OSGeo4W QGIS environment")
 
 from qgis.core import QgsFeature, QgsGeometry, QgsProject, QgsVectorLayer
-from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtWidgets import QApplication, QGroupBox, QVBoxLayout
+from qgis.PyQt.QtCore import Qt, pyqtBoundSignal
+from qgis.PyQt.QtWidgets import QApplication, QGraphicsItem, QGroupBox, QVBoxLayout
 from qgis.testing.mocked import get_iface
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from profiletool import pyqtgraph as pg
 from profiletool.profileplugin import ProfilePlugin
+
+if TYPE_CHECKING:
+    from profiletool.tools.plot_types import PlotViewBox
 
 
 def test_unload_before_opening_dock_disconnects_map_tool_callback() -> None:
@@ -100,7 +104,37 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(monkeypatch
             for index in range(dock.cboLibrary.count()):
                 dock.cboLibrary.setCurrentIndex(index)
                 dock.refreshPlot()
-                if dock.cboLibrary.currentText() == "Matplotlib":
+                if dock.cboLibrary.currentText() == "PyQtGraph":
+                    plot = dock.plotWdg
+                    assert isinstance(plot, pg.PlotWidget)
+                    plot_item = cast("pg.PlotItem | None", plot.getPlotItem())
+                    assert plot_item is not None
+                    view_box = cast("PlotViewBox | None", plot_item.getViewBox())
+                    assert view_box is not None
+                    assert isinstance(view_box.sigRangeChanged, pyqtBoundSignal)
+                    empty_label = pg.TextItem("")
+                    plot_item.addItem(empty_label)
+                    cursor_items = [
+                        item
+                        for item in cast("list[QGraphicsItem]", plot_item.allChildItems())
+                        if isinstance(item, pg.InfiniteLine) and item.name() in ("cross_vertical", "cross_horizontal")
+                    ]
+                    assert len(cursor_items) == 2
+                    dock.showCursor(0)
+                    assert all(not item.isVisible() for item in cursor_items)
+                    dock.showCursor(2)
+                    assert all(item.isVisible() for item in cursor_items)
+                    plot_item.removeItem(empty_label)
+                    before_connections = view_box.receivers(view_box.sigRangeChanged)
+                    dock.disconnectPlotRangechanged()
+                    assert view_box.receivers(view_box.sigRangeChanged) == before_connections - 1
+                    dock.connectPlotRangechanged()
+                    assert view_box.receivers(view_box.sigRangeChanged) == before_connections
+                    dock.cbSameAxisScale.setCheckState(Qt.CheckState.Checked)
+                    assert view_box.state["aspectLocked"] == 1
+                    dock.cbSameAxisScale.setCheckState(Qt.CheckState.Unchecked)
+                    assert view_box.state["aspectLocked"] is False
+                elif dock.cboLibrary.currentText() == "Matplotlib":
                     from matplotlib.backend_bases import MouseEvent
 
                     plot = dock.plotWdg
