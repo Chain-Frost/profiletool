@@ -16,6 +16,9 @@ from typing import cast
 def _relative_file(value: str) -> str:
     """Remove local directory prefixes from paths in shareable summaries."""
     normalised = value.replace("\\", "/")
+    # Repeated slashes may appear in copied Windows/raw-string paths.
+    while "//" in normalised:
+        normalised = normalised.replace("//", "/")
     marker = "/profiletool/"
     if marker in normalised:
         return normalised.rsplit(marker, 1)[-1]
