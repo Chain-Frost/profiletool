@@ -30,7 +30,7 @@ from __future__ import annotations
 import os
 from collections.abc import Sequence
 from contextlib import suppress
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -45,7 +45,7 @@ from qgis.core import (
     QgsVectorLayer,
     QgsWkbTypes,
 )
-from qgis.gui import QgsMapTool
+from qgis.gui import QgisInterface, QgsMapTool
 from qgis.PyQt.QtCore import QSettings, QSignalBlocker, Qt
 from qgis.PyQt.QtWidgets import QWidget
 
@@ -60,9 +60,12 @@ from .ptmaptool import ProfiletoolMapToolRenderer
 from .selectlinetool import SelectLineTool
 from .tableviewtool import layer_from_model
 
+if TYPE_CHECKING:
+    from ..profileplugin import ProfilePlugin
+
 
 class ProfileToolCore(QWidget):
-    def __init__(self, iface, plugincore, parent=None) -> None:
+    def __init__(self, iface: QgisInterface, plugincore: ProfilePlugin, parent: QWidget | None = None) -> None:
         QWidget.__init__(self, parent)
         self.iface = iface
         self.plugincore = plugincore

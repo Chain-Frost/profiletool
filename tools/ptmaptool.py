@@ -26,7 +26,10 @@
 
 from __future__ import annotations
 
-from qgis.core import QgsPointXY, QgsWkbTypes
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, cast
+
+from qgis.core import QgsGeometry, QgsMapLayer, QgsPointXY, QgsVectorLayer, QgsWkbTypes
 from qgis.gui import (
     QgsMapCanvas,
     QgsMapMouseEvent,
@@ -36,18 +39,24 @@ from qgis.gui import (
 )
 from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor, QCursor
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QMainWindow
 
 from .selectlinetool import SelectLineTool
 
+if TYPE_CHECKING:
+    from .profiletool_core import ProfileToolCore
+
 
 class ProfiletoolMapToolRenderer:
-    def __init__(self, profiletool) -> None:
+    def __init__(self, profiletool: ProfileToolCore) -> None:
         self.profiletool = profiletool
         self.iface = self.profiletool.iface
         self.canvas = self.profiletool.iface.mapCanvas()
-        self.tool = ProfiletoolMapTool(self.canvas, self.profiletool.plugincore.action)  # the mouselistener
-        self.pointstoDraw = []  # Polyline being drawn in freehand mode
+        if self.canvas is None:
+            raise RuntimeError("Profile Tool requires an active map canvas")
+        # The plugin creates its action before constructing the map renderer.
+        self.tool = ProfiletoolMapTool(self.canvas, self.profiletool.plugincore.action)
+        self.pointstoDraw: list[Sequence[float]] = []  # Polyline being drawn in freehand mode
         self.dblclktemp = None  # enable disctinction between leftclick and doubleclick
         self.isPlotting = False
         self._signals_connected = False
@@ -72,32 +81,35 @@ class ProfiletoolMapToolRenderer:
 
         self.setSelectionMethod(0)
 
-    def resetRubberBand(self):
+    def resetRubberBand(self) -> None:
         self.rubberband.reset(QgsWkbTypes.GeometryType.LineGeometry)
 
-    def updateRubberBand(self):
+    def updateRubberBand(self) -> None:
         self.resetRubberBand()
         for i in range(len(self.pointstoDraw)):
             self.rubberband.addPoint(QgsPointXY(self.pointstoDraw[i][0], self.pointstoDraw[i][1]))
 
-    def moved(self, position):  # draw the polyline on the temp layer (rubberband)
+    def moved(self, position: Mapping[str, int]) -> None:  # draw the polyline on the temp layer (rubberband)
         if self.selectionmethod == 0:
             if len(self.pointstoDraw) > 0:
                 # Get mouse coords
-                mapPos = self.canvas.getCoordinateTransform().toMapCoordinates(position["x"], position["y"])
+                transform = self.canvas.getCoordinateTransform()
+                if transform is None:
+                    return
+                mapPos = transform.toMapCoordinates(position["x"], position["y"])
                 # Draw on temp layer
                 self.updateRubberBand()
                 self.rubberband.addPoint(QgsPointXY(mapPos.x(), mapPos.y()))
         if self.selectionmethod in (1, 2):
             return
 
-    def rightClicked(self, position):  # used to quit the current action
+    def rightClicked(self, position: Mapping[str, int]) -> None:  # used to quit the current action
         if self.selectionmethod == 0:
             if self.isPlotting:
                 self.updateRubberBand()
                 self.isPlotting = False
                 # launch analyses
-                self.iface.mainWindow().statusBar().showMessage(str(self.pointstoDraw))
+                cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(str(self.pointstoDraw))
                 self.profiletool.updateProfil(self.pointstoDraw)
                 # Reset
                 self.pointstoDraw = []
@@ -107,8 +119,11 @@ class ProfiletoolMapToolRenderer:
         if self.selectionmethod in (1, 2):
             return
 
-    def leftClicked(self, position):  # Add point to analyse
-        mapPos = self.canvas.getCoordinateTransform().toMapCoordinates(position["x"], position["y"])
+    def leftClicked(self, position: Mapping[str, int]) -> None:  # Add point to analyse
+        transform = self.canvas.getCoordinateTransform()
+        if transform is None:
+            return
+        mapPos = transform.toMapCoordinates(position["x"], position["y"])
         newPoints = [[mapPos.x(), mapPos.y()]]
         if self.profiletool.doTracking:
             self.rubberbandpoint.hide()
@@ -121,7 +136,7 @@ class ProfiletoolMapToolRenderer:
             self.pointstoDraw += newPoints
             if self.profiletool.liveUpdate:
                 self.profiletool.updateProfil(self.pointstoDraw)
-            self.iface.mainWindow().statusBar().showMessage(self.textquit0)
+            cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(self.textquit0)
         if self.selectionmethod in (1, 2):
             if self.selectionmethod == 1:
                 method = "feature"
@@ -134,45 +149,47 @@ class ProfiletoolMapToolRenderer:
             )
             self.profiletool.updateProfilFromFeatures(result[0], result[1])
 
-            self.iface.mainWindow().statusBar().showMessage(message)
+            cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(message)
 
-    def currentLayerChanged(self, layer):
+    def currentLayerChanged(self, layer: QgsMapLayer | None) -> None:
         if self.selectionmethod == 2:
-            if SelectLineTool.checkIsLineLayer(layer) or SelectLineTool.checkIsPointLayer(layer):
+            if isinstance(layer, QgsVectorLayer) and (
+                SelectLineTool.checkIsLineLayer(layer) or SelectLineTool.checkIsPointLayer(layer)
+            ):
                 self.profiletool.updateProfilFromFeatures(
                     layer, SelectLineTool.select_layer_features(None, layer, None)
                 )
             else:
                 self.profiletool.clearProfil()
 
-    def setSelectionMethod(self, method):
+    def setSelectionMethod(self, method: int) -> None:
         self.cleaning()
         self.selectionmethod = method
         if method == 0:
             self.tool.setCursor(Qt.CursorShape.CrossCursor)
-            self.iface.mainWindow().statusBar().showMessage(self.textquit0)
+            cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(self.textquit0)
         elif method == 1:
             self.tool.setCursor(Qt.CursorShape.PointingHandCursor)
-            self.iface.mainWindow().statusBar().showMessage(self.textquit1)
+            cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(self.textquit1)
         elif method == 2:
             self.tool.setCursor(Qt.CursorShape.PointingHandCursor)
-            self.iface.mainWindow().statusBar().showMessage(self.textquit2)
+            cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(self.textquit2)
         self.currentLayerChanged(self.iface.activeLayer())
 
-    def setBufferGeometry(self, geoms):
+    def setBufferGeometry(self, geoms: Sequence[QgsGeometry | None]) -> None:
         self.rubberbandbuf.reset()
         for geom in geoms:
             if geom is not None and not geom.isNull() and not geom.isEmpty():
                 self.rubberbandbuf.addGeometry(geom, None)
 
-    def cleaning(self):  # used on right click
+    def cleaning(self) -> None:  # used on right click
         self.pointstoDraw = []
         self.rubberbandpoint.hide()
         self.resetRubberBand()
         self.rubberbandbuf.reset()
-        self.iface.mainWindow().statusBar().showMessage("")
+        cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage("")
 
-    def connectTool(self):
+    def connectTool(self) -> None:
         if self._signals_connected:
             return
         self._signals_connected = True
@@ -182,7 +199,7 @@ class ProfiletoolMapToolRenderer:
         self.tool.desactivate.connect(self.deactivate)
         self.iface.currentLayerChanged.connect(self.currentLayerChanged)
 
-    def deactivate(self):
+    def deactivate(self) -> None:
         """Disconnect only our callbacks; let QGIS switch map tools normally."""
         self.cleaning()
         if not self._signals_connected:

@@ -4,14 +4,17 @@ Measured on 14 October 2026 using the configured OSGeo4W Python 3.12 / QGIS
 4.2.1 environment and matching PyQt6 type definitions.
 
 Full strict Pyright decreased from **2,259 errors at commit `84b3ed3`** to
-**1,349 errors in the working tree**, with zero warnings: 910 fewer errors.
+**1,205 errors in the working tree**, with zero warnings: 1,054 fewer errors.
 The first batch reduced the count to 1,857 and was committed as `1e0a667`.
-The reader, plotting and table-model follow-up removes another 508 errors.
+The reader, plotting, table-model and map-tool follow-up removes another 652 errors.
 The working-tree result includes uncommitted changes and is not a hosted CI
 result. Generated reports remain local and ignored.
 
 ## Changes
 
+- Typed the map renderer, mouse positions, drawn points and core constructor.
+  Missing canvases fail explicitly, and mouse callbacks skip unavailable
+  coordinate transforms.
 - Added a static contract for the widgets and layouts loaded from
   `ui/profiletool.ui`, with a regression test comparing it to the Designer XML.
 - Added types for sampled profiles and plot series without weakening strict
@@ -53,8 +56,8 @@ remain acceptable after checking callers and compatibility.
 | CI-scoped strict Pyright | Zero errors and warnings |
 | Headless CI regression suite | 13 passed |
 | Tests in isolated QGIS processes | 15 passed |
-| Full strict Pyright | 1,349 errors, zero warnings |
-| Full Ruff inventory | 467 findings remain after legacy naming exemptions |
+| Full strict Pyright | 1,205 errors, zero warnings |
+| Full Ruff inventory | 448 findings remain after legacy naming exemptions |
 | Formatting of changed Python files | Passed |
 
 The isolated QGIS run used `QT_QPA_PLATFORM=offscreen` and excluded
