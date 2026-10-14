@@ -64,6 +64,7 @@ if TYPE_CHECKING:
     from matplotlib.lines import Line2D
 
     from ..profileplugin import ProfilePlugin
+    from ..pyqtgraph.graphicsItems.PlotItem.PlotItem import PlotItem
 
 
 class _SceneMouseEvent(Protocol):
@@ -151,7 +152,10 @@ class ProfileToolCore(QWidget):
         self.updateProfilFromFeatures(None, [])
 
     def updateProfilFromFeatures(
-        self, layer: QgsVectorLayer | None, features: Sequence[QgsFeature], plotProfil: bool = True
+        self,
+        layer: QgsVectorLayer | None,
+        features: Sequence[QgsFeature],
+        plotProfil: bool = True,  # noqa: FBT001, FBT002 -- Preserve the legacy positional argument.
     ) -> None:
         """Read only the selected polyline part; preserve existing QGIS selection."""
         points: list[list[float]] = []
@@ -183,13 +187,13 @@ class ProfileToolCore(QWidget):
         if self.toolrenderer:
             self.toolrenderer.pointstoDraw = list(points)
             self.toolrenderer.updateRubberBand()
-        self.updateProfil(points, False, plotProfil)
+        self.updateProfil(points, removeSelection=False, plotProfil=plotProfil)
 
     def updateProfil(
         self,
         points1: Sequence[Sequence[float]],
-        removeSelection: bool = True,  # noqa: ARG002 -- Retained argument; source selections are preserved.
-        plotProfil: bool = True,
+        removeSelection: bool = True,  # noqa: ARG002, FBT001, FBT002 -- Preserve the legacy signature and selections.
+        plotProfil: bool = True,  # noqa: FBT001, FBT002 -- Preserve the legacy positional argument.
     ) -> None:
         """Sample selected, manually added layers without changing feature selections."""
         self.pointstoDraw = list(points1)
@@ -237,11 +241,11 @@ class ProfileToolCore(QWidget):
         if plotProfil:
             self.plotProfil()
 
-    def plotProfil(self, vertline: bool = True) -> None:
+    def plotProfil(self, vertline: bool = True) -> None:  # noqa: FBT001, FBT002 -- Legacy positional argument.
         """Compute the selected plot series and refresh the graph and coordinate tab."""
         self.disableMouseCoordonates()
         if self.removeClosedLayers(self.dockwidget.mdl):
-            self.updateProfil(self.pointstoDraw, False, True)
+            self.updateProfil(self.pointstoDraw, removeSelection=False, plotProfil=True)
             return
         plotting = PlottingTool()
         plotting.clearData(self.dockwidget, self.profiles, self.dockwidget.plotlibrary)
@@ -352,7 +356,7 @@ class ProfileToolCore(QWidget):
     # remove layers which were removed from QGIS
     def onLayersRemoved(self, *args: object) -> None:  # noqa: ARG002 -- QGIS supplies removed layer IDs.
         """Resample the current path after project source layers are removed."""
-        self.updateProfil(self.pointstoDraw, False, True)
+        self.updateProfil(self.pointstoDraw, removeSelection=False, plotProfil=True)
 
     def removeClosedLayers(self, model1: QStandardItemModel) -> bool:
         """Remove missing layers by stable ID, not by non-unique layer name."""
@@ -494,46 +498,51 @@ class ProfileToolCore(QWidget):
             pitems = self.dockwidget.plotWdg.getPlotItem()
             if pitems is None:
                 return
-            ytoplot = None
-            xtoplot = None
-
-            if len(pitems.listDataItems()) > 0:
-                # get data and nearest xy from cursor
-                compt = 0
-                try:
-                    for item in pitems.listDataItems():
-                        if item.isVisible():
-                            x, y = item.getData()
-                            nearestindex = np.argmin(abs(np.array(x, dtype=float) - mousePoint.x()))
-                            if compt == 0:
-                                xtoplot = np.array(x, dtype=float)[nearestindex]
-                                ytoplot = np.array(y)[nearestindex]
-                            else:
-                                if abs(np.array(y)[nearestindex] - mousePoint.y()) < abs(ytoplot - mousePoint.y()):
-                                    ytoplot = np.array(y)[nearestindex]
-                                    xtoplot = np.array(x)[nearestindex]
-                            compt += 1
-                except (IndexError, ValueError):
-                    ytoplot = None
-                    xtoplot = None
-                # plot xy label and cursor
-                if xtoplot is not None and ytoplot is not None:
-                    for item in self.dockwidget.plotWdg.allChildItems():
-                        if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
-                            if item.name() == "cross_vertical":
-                                item.show()
-                                item.setPos(xtoplot)
-                            elif item.name() == "cross_horizontal":
-                                item.show()
-                                item.setPos(ytoplot)
-                        elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
-                            if item.textItem.toPlainText()[0] == "X":
-                                item.show()
-                                item.setText("X : " + str(round(xtoplot, 3)))
-                                item.setPos(xtoplot, view_range[1][0])
-                            elif item.textItem.toPlainText()[0] == "Y":
-                                item.show()
-                                item.setText("Y : " + str(round(ytoplot, 3)))
-                                item.setPos(view_range[0][0], ytoplot)
+            xtoplot, ytoplot = self._nearest_plot_sample(pitems, mousePoint)
+            # Draw labels and cursors only when a sample was found.
+            if len(pitems.listDataItems()) > 0 and xtoplot is not None and ytoplot is not None:
+                for item in self.dockwidget.plotWdg.allChildItems():
+                    if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
+                        if item.name() == "cross_vertical":
+                            item.show()
+                            item.setPos(xtoplot)
+                        elif item.name() == "cross_horizontal":
+                            item.show()
+                            item.setPos(ytoplot)
+                    elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
+                        if item.textItem.toPlainText()[0] == "X":
+                            item.show()
+                            item.setText("X : " + str(round(xtoplot, 3)))
+                            item.setPos(xtoplot, view_range[1][0])
+                        elif item.textItem.toPlainText()[0] == "Y":
+                            item.show()
+                            item.setText("Y : " + str(round(ytoplot, 3)))
+                            item.setPos(view_range[0][0], ytoplot)
             # tracking part
             self.updateCursorOnMap(xtoplot)
+
+    def _nearest_plot_sample(self, pitems: PlotItem, mouse_point: QPointF) -> tuple[float | None, float | None]:
+        """Choose chainage and elevation from the nearest visible plot series."""
+        ytoplot = None
+        xtoplot = None
+
+        if len(pitems.listDataItems()) > 0:
+            # get data and nearest xy from cursor
+            compt = 0
+            try:
+                for item in pitems.listDataItems():
+                    if item.isVisible():
+                        x, y = item.getData()
+                        nearestindex = np.argmin(abs(np.array(x, dtype=float) - mouse_point.x()))
+                        if compt == 0 or ytoplot is None:
+                            xtoplot = np.array(x, dtype=float)[nearestindex]
+                            ytoplot = np.array(y)[nearestindex]
+                        else:
+                            if abs(np.array(y)[nearestindex] - mouse_point.y()) < abs(ytoplot - mouse_point.y()):
+                                ytoplot = np.array(y)[nearestindex]
+                                xtoplot = np.array(x)[nearestindex]
+                        compt += 1
+            except (IndexError, ValueError):
+                ytoplot = None
+                xtoplot = None
+        return (float(xtoplot) if xtoplot is not None else None, float(ytoplot) if ytoplot is not None else None)

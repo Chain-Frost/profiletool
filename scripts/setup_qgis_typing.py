@@ -1,6 +1,5 @@
 """Extract matching official PyQt definitions without installing Qt binaries."""
 
-# ruff: noqa: INP001 -- Standalone editor setup utility.
 import hashlib
 import importlib
 import json

@@ -6,7 +6,6 @@ import importlib.util
 import math
 import sys
 import types
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -43,6 +42,12 @@ class _PointGeometry:
     point: _Coordinates
 
 
+class _CRSFactory(Protocol):
+    """Construct the fixture's CRS with an explicit geographic-mode flag."""
+
+    def __call__(self, *, geographic: bool = False) -> object: ...
+
+
 def _translate(_context: str, message: str) -> str:
     """Keep translated text unchanged in the headless Qt fixture."""
     return message
@@ -59,7 +64,7 @@ def _not_profilable(_layer: object) -> bool:
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ReaderFixture = tuple[types.ModuleType, SimpleNamespace, Callable[[bool], object]]
+ReaderFixture = tuple[types.ModuleType, SimpleNamespace, _CRSFactory]
 
 
 def _load(name: str, path: Path) -> types.ModuleType:
@@ -132,7 +137,7 @@ def reader_module(monkeypatch: pytest.MonkeyPatch) -> ReaderFixture:
             return self._y
 
     class ProjectCrs:
-        def __init__(self, geographic: bool = False) -> None:
+        def __init__(self, *, geographic: bool = False) -> None:
             self.geographic = geographic
 
         def isGeographic(self) -> bool:
@@ -236,7 +241,7 @@ def test_project_crs_controls_chainage_units(reader_module: ReaderFixture) -> No
             pass
 
     for geographic, expected_end in [(True, 10.0), (False, 3.048)]:
-        project.crs = lambda geographic=geographic: crs_factory(geographic)
+        project.crs = lambda geographic=geographic: crs_factory(geographic=geographic)
         result = reader.DataReaderTool().dataRasterReaderTool(
             Interface(),
             MapTool(),
@@ -294,7 +299,7 @@ def test_vector_chainage_dedup_keeps_closest_point(reader_module: ReaderFixture)
 
 def test_geographic_chainage_dedup_tolerance(reader_module: ReaderFixture) -> None:
     reader, project, crs_factory = reader_module
-    project.crs = lambda: crs_factory(True)
+    project.crs = lambda: crs_factory(geographic=True)
     assert reader.DataReaderTool._project_chainage_tolerance() == pytest.approx(1e-8)
     array = np.array(
         [
@@ -311,7 +316,7 @@ def test_only_clicked_part_of_multipart_feature(reader_module: ReaderFixture, mo
     core = sys.modules["qgis.core"]
 
     class Geometry:
-        def __init__(self, parts: list[list[_Coordinates]], multi: bool = False) -> None:
+        def __init__(self, parts: list[list[_Coordinates]], *, multi: bool = False) -> None:
             self.parts, self.multi = parts, multi
 
         def isMultipart(self) -> bool:

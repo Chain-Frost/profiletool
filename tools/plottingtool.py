@@ -48,6 +48,7 @@ from .profilers import ProfileSeries
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as MatplotlibCanvas
     from qgis.gui import QgisInterface
 
     from ..ui.ptdockwidget import PTDockWidget
@@ -95,13 +96,17 @@ class PlottingTool:
             name += f" [{layer.id()[-8:]}]"
         return f"{name}#{band}"
 
-    def changePlotWidget(self, library: str, frame_for_plot: QWidget):  # noqa: ARG002 -- Legacy widget factory signature.
+    def changePlotWidget(
+        self,
+        library: str,
+        frame_for_plot: QWidget,  # noqa: ARG002 -- Legacy widget factory signature.
+    ) -> pg.PlotWidget | MatplotlibCanvas | None:
         """Construct the selected plotting backend and configure its axes and cursors."""
         if library == "PyQtGraph":
             plotWdg = pg.PlotWidget()
             unit = "degrees" if QgsProject.instance().crs().isGeographic() else "m"
             plotWdg.setLabel("bottom", f"Chainage ({unit})")
-            plotWdg.showGrid(True, True, 0.5)
+            plotWdg.showGrid(x=True, y=True, alpha=0.5)
             datavline = pg.InfiniteLine(0, angle=90, pen=pg.mkPen("r", width=1), name="cross_vertical")
             datahline = pg.InfiniteLine(0, angle=0, pen=pg.mkPen("r", width=1), name="cross_horizontal")
             plotWdg.addItem(datavline)
@@ -271,7 +276,11 @@ class PlottingTool:
             wdg.connectYSpinbox()
 
     def reScalePlot(
-        self, wdg: PTDockWidget, profiles: Sequence[Profile] | None, library: str | None, auto: bool = False
+        self,
+        wdg: PTDockWidget,
+        profiles: Sequence[Profile] | None,
+        library: str | None,
+        auto: bool = False,  # noqa: FBT001, FBT002 -- Preserve positional calls to the legacy API.
     ) -> None:  # called when spinbox value changed
         """Apply requested vertical bounds or automatically fit visible profile data."""
         if profiles is None or wdg.plotWdg is None:

@@ -66,6 +66,56 @@ class TableViewTool(QObject):
 
     def addLayer(self, iface: QgisInterface, mdl: QStandardItemModel, layer1: QgsMapLayer | None = None) -> int | None:
         """Select a profilable source and band or field, then append its table row."""
+        layer2 = self._select_source(iface, mdl, layer1)
+        if layer2 is None:
+            return None
+
+        choosenBand, canceled = self._select_band(iface, layer2)
+        if choosenBand is None:
+            return canceled
+
+        # Complete the tableview
+        row = mdl.rowCount()
+        mdl.insertRow(row)
+        mdl.setData(mdl.index(row, 0, QModelIndex()), True, Qt.ItemDataRole.CheckStateRole)  # noqa: FBT003 -- Qt data payload.
+        _model_item(mdl, row, 0).setFlags(Qt.ItemFlag.ItemIsSelectable)
+        lineColour = Qt.GlobalColor.red
+        # QGis2
+        if (
+            (layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "crayfish_viewer")
+            or (layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "selafin_viewer")
+            or layer2.type() == Qgis.LayerType.Mesh
+        ):
+            lineColour = Qt.GlobalColor.blue
+        mdl.setData(mdl.index(row, 1, QModelIndex()), QColor(lineColour), Qt.ItemDataRole.BackgroundRole)
+        _model_item(mdl, row, 1).setFlags(Qt.ItemFlag.NoItemFlags)
+        mdl.setData(mdl.index(row, 2, QModelIndex()), layer2.name())
+        _model_item(mdl, row, 2).setFlags(Qt.ItemFlag.NoItemFlags)
+        if layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "selafin_viewer":
+            mdl.setData(mdl.index(row, 3, QModelIndex()), choosenBand + self.bandoffset)
+        else:
+            mdl.setData(mdl.index(row, 3, QModelIndex()), choosenBand + self.bandoffset)
+            _model_item(mdl, row, 3).setFlags(Qt.ItemFlag.NoItemFlags)
+
+        if layer2.type() == Qgis.LayerType.Vector:
+            # Buffer distance is expressed in project CRS units: degrees in
+            # geographic projects, linear units in projected projects.
+            project = QgsProject.instance()
+            default_buffer = 0.001 if project is not None and project.crs().isGeographic() else 100.0
+            mdl.setData(mdl.index(row, 4, QModelIndex()), default_buffer)
+        else:
+            mdl.setData(mdl.index(row, 4, QModelIndex()), "")
+            _model_item(mdl, row, 4).setFlags(Qt.ItemFlag.NoItemFlags)
+
+        mdl.setData(mdl.index(row, 5, QModelIndex()), layer2.id())
+        _model_item(mdl, row, 5).setFlags(Qt.ItemFlag.NoItemFlags)
+        self.layerAddedOrRemoved.emit()
+        return None
+
+    def _select_source(
+        self, iface: QgisInterface, mdl: QStandardItemModel, layer1: QgsMapLayer | None
+    ) -> QgsMapLayer | None:
+        """Resolve an explicit source or prompt for a source not already listed."""
         if layer1 is None:
             canvas = iface.mapCanvas()
             if canvas is None:
@@ -120,6 +170,10 @@ class TableViewTool(QObject):
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", text)
                 return None
 
+        return layer2
+
+    def _select_band(self, iface: QgisInterface, layer2: QgsMapLayer) -> tuple[int | None, int | None]:
+        """Choose the source band/field, retaining legacy cancellation return codes."""
         # Ask the Band by a input dialog
         # First, if isProfilable, considerate the real band number (instead of band + 1 for raster)
         if (layer2.type() == Qgis.LayerType.Plugin and isProfilable(layer2)) or layer2.type() == Qgis.LayerType.Mesh:
@@ -132,7 +186,7 @@ class TableViewTool(QObject):
             self.bandoffset = 0
             typename = "field"
         else:
-            return None
+            return None, None
 
         if isinstance(layer2, QgsRasterLayer) and layer2.bandCount() != 1:
             listband = [str(i + self.bandoffset) for i in range(layer2.bandCount())]
@@ -141,18 +195,18 @@ class TableViewTool(QObject):
                 typename.capitalize() + " selector",
                 "Choose the " + typename,
                 listband,
-                False,
+                0,
             )
             if ok:
                 choosenBand = int(testqt) - self.bandoffset
             else:
-                return 2
+                return None, 2
         elif isinstance(layer2, QgsVectorLayer):
             fieldstemp = [field.name() for field in layer2.fields()]
             fields = [field.name() for field in layer2.fields() if field.isNumeric()]
             if len(fields) == 0:
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", "Active layer is not a profilable layer")
-                return None
+                return None, None
             if len(fields) == 1:
                 choosenBand = fieldstemp.index(fields[0])
 
@@ -168,7 +222,7 @@ class TableViewTool(QObject):
                 if ok:
                     choosenBand = fieldstemp.index(testqt)
                 else:
-                    return defaultfield
+                    return None, defaultfield
         elif layer2.type() == Qgis.LayerType.Plugin and isProfilable(layer2) and layer2.LAYER_TYPE == "selafin_viewer":
             listparameterband = []
             listparametername = []
@@ -186,48 +240,12 @@ class TableViewTool(QObject):
             if ok:
                 choosenBand = listparameterband[listparametername.index(testqt)]
             else:
-                return defaultparam
+                return None, defaultparam
 
         else:
             choosenBand = 0
 
-        # Complete the tableview
-        row = mdl.rowCount()
-        mdl.insertRow(row)
-        mdl.setData(mdl.index(row, 0, QModelIndex()), True, Qt.ItemDataRole.CheckStateRole)
-        _model_item(mdl, row, 0).setFlags(Qt.ItemFlag.ItemIsSelectable)
-        lineColour = Qt.GlobalColor.red
-        # QGis2
-        if (
-            (layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "crayfish_viewer")
-            or (layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "selafin_viewer")
-            or layer2.type() == Qgis.LayerType.Mesh
-        ):
-            lineColour = Qt.GlobalColor.blue
-        mdl.setData(mdl.index(row, 1, QModelIndex()), QColor(lineColour), Qt.ItemDataRole.BackgroundRole)
-        _model_item(mdl, row, 1).setFlags(Qt.ItemFlag.NoItemFlags)
-        mdl.setData(mdl.index(row, 2, QModelIndex()), layer2.name())
-        _model_item(mdl, row, 2).setFlags(Qt.ItemFlag.NoItemFlags)
-        if layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "selafin_viewer":
-            mdl.setData(mdl.index(row, 3, QModelIndex()), choosenBand + self.bandoffset)
-        else:
-            mdl.setData(mdl.index(row, 3, QModelIndex()), choosenBand + self.bandoffset)
-            _model_item(mdl, row, 3).setFlags(Qt.ItemFlag.NoItemFlags)
-
-        if layer2.type() == Qgis.LayerType.Vector:
-            # Buffer distance is expressed in project CRS units: degrees in
-            # geographic projects, linear units in projected projects.
-            project = QgsProject.instance()
-            default_buffer = 0.001 if project is not None and project.crs().isGeographic() else 100.0
-            mdl.setData(mdl.index(row, 4, QModelIndex()), default_buffer)
-        else:
-            mdl.setData(mdl.index(row, 4, QModelIndex()), "")
-            _model_item(mdl, row, 4).setFlags(Qt.ItemFlag.NoItemFlags)
-
-        mdl.setData(mdl.index(row, 5, QModelIndex()), layer2.id())
-        _model_item(mdl, row, 5).setFlags(Qt.ItemFlag.NoItemFlags)
-        self.layerAddedOrRemoved.emit()
-        return None
+        return choosenBand, None
 
     def removeLayer(self, mdl: QStandardItemModel, index: int) -> None:
         """Remove a source row and notify listeners to refresh sampled profiles."""

@@ -3,8 +3,6 @@ r"""Export OSGeo4W's initialized environment for VS Code Python tools.
 Run with C:\\OSGeo4W\\bin\\python-qgis.bat scripts\\write_qgis_env.py.
 """
 
-# ruff: noqa: INP001 -- Standalone environment setup utility.
-
 import os
 from pathlib import Path
 

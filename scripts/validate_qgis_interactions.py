@@ -6,7 +6,7 @@ through the real widgets; it does not simulate human hardware input.
 
 from __future__ import annotations
 
-# ruff: noqa: INP001, SLF001 -- Standalone integration checks inspect signal state.
+# ruff: noqa: SLF001 -- Standalone integration checks inspect signal state.
 import csv
 import hashlib
 import importlib
@@ -140,7 +140,7 @@ def plot_clicks() -> dict[str, object]:
     }
 
 
-def interact_dialogs(action: Callable[[], object], choices: list[tuple[str, str]]) -> list[dict[str, object]]:
+def interact_dialogs(action: Callable[[], object], choices: list[tuple[str, str | None]]) -> list[dict[str, object]]:
     """Use keyboard and button mouse events inside actual modal input dialogs."""
     pending = choices.copy()
     observed = []
@@ -159,6 +159,13 @@ def interact_dialogs(action: Callable[[], object], choices: list[tuple[str, str]
                 errors.append("Unexpected dialog: " + dialog.windowTitle())
                 dialog.reject()
                 timer.stop()
+                return
+            if text is None:
+                observed.append({"title": dialog.windowTitle(), "canceled": True})
+                pending.pop(0)
+                dialog.reject()
+                if not pending:
+                    timer.stop()
                 return
             combos = dialog.findChildren(QComboBox)
             require(combos, "Dialog has no choices")
@@ -221,7 +228,21 @@ def selection_dialogs() -> dict[str, object]:
         "Selected band 2 did not reach the plotted profile",
     )
     other = make_raster("interaction-removal", 28350, (400000, 6500000), 1)
+    before_rows = dock.mdl.rowCount()
+    observed.extend(interact_dialogs(lambda: dock.addLayer(layer), [("Band selector", None)]))
+    require(dock.mdl.rowCount() == before_rows, "Canceling band selection added a source")
+    QTest.qWait(100)
+    observed.extend(interact_dialogs(dock.addLayer, [("Layer selector", None)]))
+    require(dock.mdl.rowCount() == before_rows, "Canceling layer selection added a source")
+    vector = QgsVectorLayer(
+        "Point?crs=EPSG:28350&field=z:double&field=other:double", "interaction-cancel-fields", "memory"
+    )
+    project.addMapLayer(vector)
+    observed.extend(interact_dialogs(lambda: dock.addLayer(vector), [("Field selector", None)]))
+    require(dock.mdl.rowCount() == before_rows, "Canceling field selection added a source")
     dock.addLayer(other)
+    observed.extend(interact_dialogs(dock.pushButton.click, [("Layer selector", None)]))
+    require(dock.mdl.rowCount() == before_rows + 1, "Canceling removal deleted a source")
     observed.extend(interact_dialogs(dock.pushButton.click, [("Layer selector", "interaction-removal")]))
     require(
         dock.mdl.rowCount() == 1 and dock.mdl.item(0, 5).data(Qt.ItemDataRole.EditRole) == layer.id(),

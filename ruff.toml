@@ -90,6 +90,8 @@ convention = "google"
 extend-ignore-names = ["classFactory"]
 
 [lint.per-file-ignores]
+# Development/validation scripts are standalone helpers, not a plugin package.
+"scripts/**/*.py" = ["INP001"]
 # QGIS invokes the factory only after its interface is ready.
 "__init__.py" = ["PLC0415"]
 # Preserve the established names in legacy plugin modules. New code should use
@@ -118,6 +120,7 @@ extend-ignore-names = ["classFactory"]
 # These fixtures implement Qt/QGIS methods by their actual public names.
 "tests/test_profile_regressions.py" = ["N802"]
 "tests/test_qgis_layer_lifecycle.py" = ["PLC0415"] # Matplotlib is optional.
+"tests/test_pyright_triage.py" = ["S108"] # Synthetic diagnostic strings, not filesystem operations.
 
 [format]
 quote-style = "double"

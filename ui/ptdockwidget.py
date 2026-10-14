@@ -115,7 +115,7 @@ class PTDockWidget(QDockWidget, FormClass):
         hh = self.tableView.horizontalHeader()
         if hh is not None:
             hh.setStretchLastSection(True)
-        self.tableView.setColumnHidden(5, True)
+        self.tableView.setColumnHidden(5, True)  # noqa: FBT003 -- Qt positional API.
         self.mdl.setHorizontalHeaderLabels(["", "", self.tr("Layer"), self.tr("Band/Field"), self.tr("Search buffer")])
         self.tableViewTool = TableViewTool()
 
@@ -268,10 +268,10 @@ class PTDockWidget(QDockWidget, FormClass):
         """Apply the live-update checkbox state to the profile core."""
         self.profiletoolcore.liveUpdate = bool(state)
 
-    def reScalePlot(self, param: float | bool) -> None:  # called when a spinbox value changed
+    def reScalePlot(self, param: float | bool) -> None:  # noqa: FBT001 -- Numeric or boolean Qt signal payload.
         """Rescale profiles after a bound edit or the automatic-fit button."""
         if isinstance(param, bool):  # comes from button
-            PlottingTool().reScalePlot(self, self.profiletoolcore.profiles, self.cboLibrary.currentText(), True)
+            PlottingTool().reScalePlot(self, self.profiletoolcore.profiles, self.cboLibrary.currentText(), auto=True)
 
         else:  # spinboxchanged
             if self.sbMinVal.value() == self.sbMaxVal.value() == 0:
@@ -294,9 +294,11 @@ class PTDockWidget(QDockWidget, FormClass):
                     if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
                         if item.name() == "cross_vertical" or item.name() == "cross_horizontal":
                             item.show()
-                    elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
-                        if item.textItem.toPlainText()[0] == "X" or item.textItem.toPlainText()[0] == "Y":
-                            item.show()
+                    elif (
+                        str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>"
+                        and item.textItem.toPlainText()[0] in ("X", "Y")
+                    ):
+                        item.show()
             elif int1 == 0:
                 self.showcursor = False
                 self.profiletoolcore.doTracking = False
@@ -306,16 +308,18 @@ class PTDockWidget(QDockWidget, FormClass):
                     if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
                         if item.name() == "cross_vertical" or item.name() == "cross_horizontal":
                             item.hide()
-                    elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
-                        if item.textItem.toPlainText()[0] == "X" or item.textItem.toPlainText()[0] == "Y":
-                            item.hide()
+                    elif (
+                        str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>"
+                        and item.textItem.toPlainText()[0] in ("X", "Y")
+                    ):
+                        item.hide()
             self.profiletoolcore.plotProfil()
 
     # ********************************************************************************
     # tablebiew things ****************************************************************
     # ********************************************************************************
 
-    def addLayer(self, layer1: QgsMapLayer | bool | None = None) -> None:
+    def addLayer(self, layer1: QgsMapLayer | bool | None = None) -> None:  # noqa: FBT001 -- Boolean Qt click payload.
         """Add a selected source and connect its data-change refresh callback."""
         if isinstance(layer1, bool):  # comes from click
             layer1 = self.iface.activeLayer()
@@ -345,7 +349,7 @@ class PTDockWidget(QDockWidget, FormClass):
         #    redraw the plot line (rubberband)
         #
         """Resample the existing path after source or interpolation settings change."""
-        self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw, False, True)
+        self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw, removeSelection=False, plotProfil=True)
 
     def _onClick(self, index1: QModelIndex) -> None:  # action when clicking the tableview
         self.tableViewTool.onClick(self.iface, self, self.mdl, self.plotlibrary, index1)

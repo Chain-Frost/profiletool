@@ -111,6 +111,11 @@ can resolve the `profiletool` package, matching their runtime import path.
 
 ## Full Pyright diagnostic triage
 
+The `scripts/` directory contains standalone development, environment setup
+and validation helpers. The plugin does not import it during normal operation;
+the legacy deployment target also omits it. Helpers remain linted and tested,
+but do not need an `__init__.py` or Ruff's INP001 package-directory check.
+
 Legacy plugin modules retain their established function, parameter and variable
 names through explicit Ruff N802/N803/N806/N815/N816 exceptions in `ruff.toml`. Use snake_case
 for all new code, including additions to those modules. New files retain the

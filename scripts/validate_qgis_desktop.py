@@ -6,7 +6,7 @@ Generated fixtures, exports and the evidence report stay under validation_artifa
 
 from __future__ import annotations
 
-# ruff: noqa: INP001, SLF001 -- Standalone integration checks intentionally inspect callback state.
+# ruff: noqa: SLF001 -- Standalone integration checks intentionally inspect callback state.
 import hashlib
 import importlib
 import json
