@@ -41,6 +41,8 @@ from .tools.profiletool_core import ProfileToolCore
 
 
 class ProfilePlugin:
+    """Register and manage the Profile Tool plugin within QGIS."""
+
     def __init__(self, iface: QgisInterface) -> None:
         self.iface = iface
         canvas = iface.mapCanvas()
@@ -67,6 +69,7 @@ class ProfilePlugin:
 
     def initGui(self) -> None:
         # create action
+        """Register toolbar actions and plugin-menu entries."""
         self.action = QAction(
             QIcon(path.join(self.plugin_dir, "icons/profileIcon.png")),
             self.tr("Terrain profile"),
@@ -82,6 +85,7 @@ class ProfilePlugin:
         self.iface.addPluginToMenu("&Profile Tool", self.aboutAction)
 
     def unload(self) -> None:
+        """Remove plugin actions and disconnect owned canvas callbacks."""
         core = self.profiletool
         with suppress(AttributeError, RuntimeError, TypeError):
             if core is not None:
@@ -94,9 +98,11 @@ class ProfilePlugin:
         self.iface.removePluginMenu("&Profile Tool", self.aboutAction)
 
     def tr(self, message: str) -> str:
+        """Translate a plugin message using the ProfilePlugin context."""
         return QCoreApplication.translate("ProfilePlugin", message)
 
     def run(self) -> None:
+        """Open the profile dock and activate its map-selection tool."""
         core = self.profiletool
         if not self.dockOpened or core is None:
             # if self.profiletool is None:
@@ -108,6 +114,7 @@ class ProfilePlugin:
         core.activateProfileMapTool()
 
     def cleaning(self) -> None:
+        """Clear profile state and restore the previously active map tool."""
         self.dockOpened = False
         core = self.profiletool
         if core is None:
@@ -122,9 +129,10 @@ class ProfilePlugin:
             status_bar.showMessage("")
 
     def mapToolChanged(self, newtool: QgsMapTool | None, oldtool: QgsMapTool | None = None) -> None:
-        pass
+        """Retain the map-tool callback for plugin signal compatibility."""
 
     def about(self) -> None:
+        """Display the plugin information dialog."""
         from .ui.dlgabout import DlgAbout
 
         DlgAbout(self.iface.mainWindow()).exec()

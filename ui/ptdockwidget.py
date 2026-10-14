@@ -80,6 +80,8 @@ else:
 
 
 class PTDockWidget(QDockWidget, FormClass):
+    """Present profile sources, plotting controls and coordinate export actions."""
+
     TITLE = "ProfileTool"
     TYPE: str | None = None
 
@@ -145,11 +147,13 @@ class PTDockWidget(QDockWidget, FormClass):
     # ********************************************************************************
 
     def addOptionComboboxItems(self) -> None:
+        """Populate the plot-backend selector with installed libraries."""
         self.cboLibrary.addItem("PyQtGraph")
         if matplotlib_loaded:
             self.cboLibrary.addItem("Matplotlib")
 
     def selectionMethod(self, item: int) -> None:
+        """Apply the chosen map-selection mode to the active profile renderer."""
         renderer = self.profiletoolcore.toolrenderer
         canvas = self.iface.mapCanvas()
         if renderer is None or canvas is None:
@@ -163,6 +167,7 @@ class PTDockWidget(QDockWidget, FormClass):
     def changePlotLibrary(self, item: int) -> None:
         # Each library switch replaces the plot, not the tracking checkbox.
         # Remove our previous connection before connecting the new plot once.
+        """Switch plotting backends and reconnect tracking controls once."""
         with suppress(TypeError, RuntimeError):
             self.checkBox_mpl_tracking.stateChanged.disconnect(self.profiletoolcore.activateMouseTracking)
         self.plotlibrary = self.cboLibrary.itemText(item)
@@ -192,6 +197,7 @@ class PTDockWidget(QDockWidget, FormClass):
         self.cbSameAxisScale.setEnabled(self.plotlibrary == "PyQtGraph")
 
     def addPlotWidget(self, library: str) -> None:
+        """Replace the plot widget and populate its supported export options."""
         layout = self.frame_for_plot.layout()
         if layout is None:
             return
@@ -231,32 +237,39 @@ class PTDockWidget(QDockWidget, FormClass):
     # ********************************************************************************
 
     def connectYSpinbox(self) -> None:
+        """Connect vertical-bound edits to plot rescaling."""
         self.sbMinVal.valueChanged.connect(self.reScalePlot)
         self.sbMaxVal.valueChanged.connect(self.reScalePlot)
 
     def disconnectYSpinbox(self) -> None:
+        """Disconnect vertical-bound callbacks during programmatic updates."""
         with suppress(AttributeError, RuntimeError, TypeError):
             self.sbMinVal.valueChanged.disconnect(self.reScalePlot)
             self.sbMaxVal.valueChanged.disconnect(self.reScalePlot)
 
     def connectPlotRangechanged(self) -> None:
+        """Connect PyQtGraph range changes to the bound-control update."""
         if self.plotWdg is None:
             return
         self.plotWdg.getViewBox().sigRangeChanged.connect(self.plotRangechanged)
 
     def disconnectPlotRangechanged(self) -> None:
+        """Disconnect range updates while changing the plot programmatically."""
         if self.plotWdg is None:
             return
         with suppress(AttributeError, RuntimeError, TypeError):
             self.plotWdg.getViewBox().sigRangeChanged.disconnect(self.plotRangechanged)
 
     def plotRangechanged(self, param: object = None) -> None:  # called when pyqtgraph view changed
+        """Refresh vertical-bound controls after the plot view range changes."""
         PlottingTool().plotRangechanged(self, self.cboLibrary.currentText())
 
     def liveUpdateChanged(self, state: int) -> None:
+        """Apply the live-update checkbox state to the profile core."""
         self.profiletoolcore.liveUpdate = bool(state)
 
     def reScalePlot(self, param: float | bool) -> None:  # called when a spinbox value changed
+        """Rescale profiles after a bound edit or the automatic-fit button."""
         if isinstance(param, bool):  # comes from button
             PlottingTool().reScalePlot(self, self.profiletoolcore.profiles, self.cboLibrary.currentText(), True)
 
@@ -268,6 +281,7 @@ class PTDockWidget(QDockWidget, FormClass):
                 PlottingTool().reScalePlot(self, self.profiletoolcore.profiles, self.cboLibrary.currentText())
 
     def showCursor(self, int1: int) -> None:
+        """Toggle PyQtGraph cursor visibility and map-tracking controls."""
         if self.plotWdg is None:
             return
         # For pyqtgraph mode
@@ -302,6 +316,7 @@ class PTDockWidget(QDockWidget, FormClass):
     # ********************************************************************************
 
     def addLayer(self, layer1: QgsMapLayer | bool | None = None) -> None:
+        """Add a selected source and connect its data-change refresh callback."""
         if isinstance(layer1, bool):  # comes from click
             layer1 = self.iface.activeLayer()
 
@@ -313,6 +328,7 @@ class PTDockWidget(QDockWidget, FormClass):
                 selected_layer.dataChanged.connect(self.refreshPlot)
 
     def removeLayer(self, index: int | None = None) -> None:
+        """Disconnect a source callback and remove its profile-table row."""
         if isinstance(index, bool):  # come from button
             index = self.tableViewTool.chooseLayerForRemoval(self.iface, self.mdl)
 
@@ -328,6 +344,7 @@ class PTDockWidget(QDockWidget, FormClass):
         #    Refreshes/updates the plot without requiring the user to
         #    redraw the plot line (rubberband)
         #
+        """Resample the existing path after source or interpolation settings change."""
         self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw, False, True)
 
     def _onClick(self, index1: QModelIndex) -> None:  # action when clicking the tableview
@@ -358,8 +375,8 @@ class PTDockWidget(QDockWidget, FormClass):
         return groupTitle.replace(" ", "_")
 
     def updateCoordinateTab(self) -> None:
-
         # Reinitialize the coordinate tab while retaining its existing layout.
+        """Rebuild per-source sample tables and their copy and layer-export buttons."""
         self.VLayout = self.scrollAreaWidgetContents.layout()
         if self.VLayout is None:
             self.VLayout = QVBoxLayout(self.scrollAreaWidgetContents)
@@ -455,6 +472,7 @@ class PTDockWidget(QDockWidget, FormClass):
             self.tolayerPushButton[i].clicked.connect(self.createTemporaryLayer)
 
     def copyTable(self) -> None:  # Writing the table to clipboard in excel form
+        """Copy the button's source chainage and elevation samples as tab-separated text."""
         sender = self.sender()
         if sender is None:
             return
@@ -473,6 +491,7 @@ class PTDockWidget(QDockWidget, FormClass):
         self.clipboard.setText(text)
 
     def copyTableAndCoords(self) -> None:  # Writing the table with coordinates to clipboard in excel form
+        """Copy source chainage, coordinates and elevations as tab-separated text."""
         sender = self.sender()
         if sender is None:
             return
@@ -495,6 +514,7 @@ class PTDockWidget(QDockWidget, FormClass):
         self.clipboard.setText(text)
 
     def createTemporaryLayer(self) -> None:
+        """Create a point layer from the button's source coordinates and elevations."""
         sender = self.sender()
         if sender is None:
             return
@@ -540,11 +560,13 @@ class PTDockWidget(QDockWidget, FormClass):
     # ********************************************************************************
 
     def closeEvent(self, event: QCloseEvent | None) -> None:
+        """Emit the dock-close signal and clear owned profile state."""
         self.closed.emit()
         self.profiletoolcore.cleaning()
 
     # generic save as button
     def saveAs(self) -> None:
+        """Dispatch the selected graph or DXF export workflow."""
         idx = self.cbxSaveAs.currentText()
         if idx == "Graph - PDF":
             self.outPDF()
@@ -562,18 +584,23 @@ class PTDockWidget(QDockWidget, FormClass):
             print("plottingtool: invalid index " + str(idx))
 
     def outPrint(self) -> None:  # Postscript file rendering doesn't work properly yet.
+        """Delegate PostScript export to the current plotting backend."""
         PlottingTool().outPrint(self.iface, self, self.mdl, self.cboLibrary.currentText())
 
     def outPDF(self) -> None:
+        """Delegate PDF export to the current plotting backend."""
         PlottingTool().outPDF(self.iface, self, self.mdl, self.cboLibrary.currentText())
 
     def outSVG(self) -> None:
+        """Delegate SVG export to the current plotting backend."""
         PlottingTool().outSVG(self.iface, self, self.mdl, self.cboLibrary.currentText())
 
     def outPNG(self) -> None:
+        """Delegate PNG export to the current plotting backend."""
         PlottingTool().outPNG(self.iface, self, self.mdl, self.cboLibrary.currentText())
 
     def outDXF(self, type: str) -> None:
+        """Delegate the requested 2D or 3D profile export to the DXF writer."""
         PlottingTool().outDXF(
             self.iface,
             self,

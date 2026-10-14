@@ -66,7 +66,8 @@ class DataReaderTool:
         """Return the active project required for coordinate transformations."""
         project = QgsProject.instance()
         if project is None:
-            raise RuntimeError("Profile sampling requires an active QGIS project")
+            msg = "Profile sampling requires an active QGIS project"
+            raise RuntimeError(msg)
         return project
 
     def dataRasterReaderTool(
@@ -153,7 +154,7 @@ class DataReaderTool:
                 "crs": layer.crs(),
             }
         )
-        cast("QMainWindow", iface1.mainWindow()).statusBar().showMessage("")
+        self._status_message("")
         return profile1
 
     @staticmethod
@@ -200,7 +201,15 @@ class DataReaderTool:
         """
         if advancement_pct % 10 == 0:
             progress = "Creating profile: " + "|" * (advancement_pct // 10)
-            cast("QMainWindow", self.iface.mainWindow()).statusBar().showMessage(progress)
+            self._status_message(progress)
+
+    def _status_message(self, message: str) -> None:
+        """Update progress only when the desktop window and status bar exist."""
+        window = cast("QMainWindow | None", self.iface.mainWindow())
+        if window is not None:
+            status_bar = window.statusBar()
+            if status_bar is not None:
+                status_bar.showMessage(message)
 
     def _extractZValues(self, x: Sequence[float], y: Sequence[float]) -> list[float]:
         layer = self.profiles["layer"]
@@ -237,7 +246,9 @@ class DataReaderTool:
                         identifier.Type.MeshLayer,
                     )
                     if matches:
-                        value = float(matches[0].mAttributes[mesh_field])
+                        scalar = matches[0].mAttributes.get(mesh_field)
+                        if scalar is not None:
+                            value = float(scalar)
                 elif provider is not None:
                     # Single-band sampling avoids expensive multi-band identify().
                     sampled, valid = provider.sample(point, band)
@@ -358,7 +369,7 @@ class DataReaderTool:
             return projectedpoints
         ordered = sorted(projectedpoints, key=lambda p: float(p[0]))
         tolerance = self._project_chainage_tolerance()
-        retained = []
+        retained: list[NDArray[np.object_]] = []
         group = [ordered[0]]
         anchor = float(ordered[0][0])
         for point in ordered[1:]:
@@ -379,7 +390,8 @@ class DataReaderTool:
         source point, elevation, original coordinates, and source feature.
         """
         PRECISION = self._project_chainage_tolerance()
-        polyline = geom.asPolyline()
+        # SIP omits the QgsPolylineXY alias from the generated return stub.
+        polyline = cast(list[QgsPointXY], geom.asPolyline())
         projectedpoints = projectedpoints[projectedpoints[:, 0].argsort()]
 
         lenpoly = 0
@@ -424,7 +436,7 @@ class DataReaderTool:
             )
             projectedpoints = projectedpoints[projectedpoints[:, 0].argsort()]
 
-        projectedpointsinterp = []
+        projectedpointsinterp: list[list[object]] = []
 
         for i, _point in enumerate(polyline):
             if i == 0:
@@ -448,7 +460,7 @@ class DataReaderTool:
     def interpolatePoint(
         self, vertexpoint: QgsPointXY, geom: QgsGeometry, projectedpoints: NDArray[np.object_]
     ) -> list[object] | None:
-
+        """Interpolate elevation at a path vertex between neighboring source samples."""
         lenpoly = geom.lineLocatePoint(QgsGeometry.fromPointXY(vertexpoint))
 
         previouspointindex = np.max(np.where(projectedpoints[:, 0] <= lenpoly)[0])

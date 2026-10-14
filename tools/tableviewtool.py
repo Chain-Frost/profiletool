@@ -54,14 +54,18 @@ def _model_item(model: QStandardItemModel, row: int, column: int) -> QStandardIt
     """Return an item after its value has been populated in the layer table."""
     item = model.item(row, column)
     if item is None:
-        raise RuntimeError("Profile layer table item was not created")
+        msg = "Profile layer table item was not created"
+        raise RuntimeError(msg)
     return item
 
 
 class TableViewTool(QObject):
+    """Manage source-layer selection and edits in the profile table."""
+
     layerAddedOrRemoved = pyqtSignal()  # Established Qt signal API; naming exempted in ruff.toml.
 
     def addLayer(self, iface: QgisInterface, mdl: QStandardItemModel, layer1: QgsMapLayer | None = None) -> int | None:
+        """Select a profilable source and band or field, then append its table row."""
         if layer1 is None:
             canvas = iface.mapCanvas()
             if canvas is None:
@@ -101,7 +105,7 @@ class TableViewTool(QObject):
                 "Choose layer",
                 labels,
                 0,
-                False,
+                False,  # noqa: FBT003 -- Qt's getItem binding requires positional arguments.
             )
             if not ok:
                 return None
@@ -226,6 +230,7 @@ class TableViewTool(QObject):
         return None
 
     def removeLayer(self, mdl: QStandardItemModel, index: int) -> None:
+        """Remove a source row and notify listeners to refresh sampled profiles."""
         try:
             mdl.removeRow(index)
             self.layerAddedOrRemoved.emit()
@@ -233,6 +238,7 @@ class TableViewTool(QObject):
             return
 
     def chooseLayerForRemoval(self, iface: QgisInterface, mdl: QStandardItemModel) -> int | None:
+        """Return the chosen source-row index, or None when selection is canceled."""
         if mdl.rowCount() < 2:
             if mdl.rowCount() == 1:
                 return 0
@@ -245,7 +251,7 @@ class TableViewTool(QObject):
             if item is not None:
                 list1.append(f"{i + 1} : {item.data(Qt.ItemDataRole.EditRole)}")
                 rows.append(i)
-        testqt, ok = QInputDialog.getItem(iface.mainWindow(), "Layer selector", "Choose the Layer", list1, False)
+        testqt, ok = QInputDialog.getItem(iface.mainWindow(), "Layer selector", "Choose the Layer", list1, 0)
         if ok:
             return rows[list1.index(testqt)]
         return None
@@ -258,6 +264,7 @@ class TableViewTool(QObject):
         plotlibrary: str | None,
         index1: QModelIndex,
     ) -> None:  # action when clicking the tableview
+        """Apply source-table color, visibility or plugin-parameter edits."""
         layer = layer_from_model(mdl, index1.row())
         if layer is None:
             return
@@ -281,10 +288,7 @@ class TableViewTool(QObject):
                 mdl,
             )
             booltemp = temp.data(Qt.ItemDataRole.CheckStateRole)
-            if booltemp is True:
-                booltemp = False
-            else:
-                booltemp = True
+            booltemp = booltemp is not True
             mdl.setData(mdl.index(temp.row(), 0, QModelIndex()), booltemp, Qt.ItemDataRole.CheckStateRole)
             PlottingTool().changeAttachCurve(wdg, plotlibrary, booltemp, name)
         elif (
@@ -303,10 +307,7 @@ class TableViewTool(QObject):
                 listparametername,
                 previousparam,
             )
-            if ok:
-                choosenBand = listparameterband[listparametername.index(testqt)]
-            else:
-                choosenBand = previousparam
+            choosenBand = listparameterband[listparametername.index(testqt)] if ok else previousparam
             mdl.setData(mdl.index(temp.row(), 3, QModelIndex()), choosenBand)
             self.layerAddedOrRemoved.emit()
 

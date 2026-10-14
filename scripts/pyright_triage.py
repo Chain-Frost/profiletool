@@ -30,8 +30,7 @@ def _relative_file(value: str) -> str:
 def _frequency(counter: Counter[str]) -> list[dict[str, str | int]]:
     """Produce deterministic, descending-count diagnostic groups."""
     return [
-        {"name": name, "count": count}
-        for name, count in sorted(counter.items(), key=lambda item: (-item[1], item[0]))
+        {"name": name, "count": count} for name, count in sorted(counter.items(), key=lambda item: (-item[1], item[0]))
     ]
 
 
@@ -39,7 +38,8 @@ def summarise(payload: dict[str, object]) -> dict[str, object]:
     """Classify Pyright errors; retain the original full-report counts."""
     raw = payload.get("generalDiagnostics")
     if not isinstance(raw, list):
-        raise ValueError("Pyright JSON must contain a generalDiagnostics list.")
+        msg = "Pyright JSON must contain a generalDiagnostics list."
+        raise ValueError(msg)
     diagnostics = cast(list[object], raw)
 
     rules: Counter[str] = Counter()
@@ -88,7 +88,8 @@ def main() -> None:
     args = parser.parse_args()
     raw = json.loads(args.input.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
-        raise ValueError("Expected a JSON object from Pyright.")
+        msg = "Expected a JSON object from Pyright."
+        raise ValueError(msg)
     result = summarise(cast(dict[str, object], raw))
     formatted = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
     if args.output is not None:

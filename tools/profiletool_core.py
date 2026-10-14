@@ -73,13 +73,16 @@ class _SceneMouseEvent(Protocol):
 
 
 class ProfileToolCore(QWidget):
+    """Coordinate source sampling, plotting and interactive profile state."""
+
     def __init__(self, iface: QgisInterface, plugincore: ProfilePlugin, parent: QWidget | None = None) -> None:
         QWidget.__init__(self, parent)
         self.iface = iface
         self.plugincore = plugincore
         self.instance = QgsProject.instance()
         if self.instance is None:
-            raise RuntimeError("Profile Tool requires an active QGIS project")
+            msg = "Profile Tool requires an active QGIS project"
+            raise RuntimeError(msg)
         self.vline: Line2D | None = None
         self.cid: int | None = None
 
@@ -120,6 +123,7 @@ class ProfileToolCore(QWidget):
         self.dockwidget.changePlotLibrary(self.dockwidget.cboLibrary.currentIndex())
 
     def activateProfileMapTool(self) -> None:
+        """Activate the profile map tool and connect layer-removal callbacks."""
         canvas = self.iface.mapCanvas()
         if canvas is None:
             return
@@ -143,6 +147,7 @@ class ProfileToolCore(QWidget):
     # ******************************************************************************************
 
     def clearProfil(self) -> None:
+        """Clear the current path and refresh its empty profile output."""
         self.updateProfilFromFeatures(None, [])
 
     def updateProfilFromFeatures(
@@ -230,6 +235,7 @@ class ProfileToolCore(QWidget):
             self.plotProfil()
 
     def plotProfil(self, vertline: bool = True) -> None:
+        """Compute the selected plot series and refresh the graph and coordinate tab."""
         self.disableMouseCoordonates()
         if self.removeClosedLayers(self.dockwidget.mdl):
             self.updateProfil(self.pointstoDraw, False, True)
@@ -322,6 +328,7 @@ class ProfileToolCore(QWidget):
             )
 
     def updateCursorOnMap(self, x: float | None) -> None:
+        """Position the tracking marker at the requested profile chainage."""
         self.x_cursor = x
         if self.toolrenderer is None:
             return
@@ -345,6 +352,7 @@ class ProfileToolCore(QWidget):
 
     # remove layers which were removed from QGIS
     def onLayersRemoved(self, *args: object) -> None:
+        """Resample the current path after project source layers are removed."""
         self.updateProfil(self.pointstoDraw, False, True)
 
     def removeClosedLayers(self, model1: QStandardItemModel) -> bool:
@@ -361,6 +369,7 @@ class ProfileToolCore(QWidget):
         return removed
 
     def cleaning(self) -> None:
+        """Clear sampled profiles and disconnect owned project callbacks."""
         self.profiles = []
         self.pointstoDraw = []
         if self.toolrenderer:
@@ -375,6 +384,7 @@ class ProfileToolCore(QWidget):
     # ******************************************************************************************
 
     def activateMouseTracking(self, int1: int) -> None:
+        """Enable or disable map tracking for the selected plotting backend."""
         if self.dockwidget.plotWdg is None:
             return
         if self.dockwidget.TYPE == "PyQtGraph":
@@ -416,6 +426,7 @@ class ProfileToolCore(QWidget):
             self.updateCursorOnMap(xdata)
 
     def enableMouseCoordonates(self, library: str | None) -> None:
+        """Connect PyQtGraph mouse callbacks and fit the visible profile curves."""
         if self.dockwidget.plotWdg is None:
             return
         if library == "PyQtGraph":
@@ -425,6 +436,7 @@ class ProfileToolCore(QWidget):
             self.dockwidget.connectPlotRangechanged()
 
     def mouseClickedPyQtGraph(self, event: _SceneMouseEvent) -> None:
+        """Save source elevation at the nearest valid sample to a plot click."""
         if not self.dockwidget.cbAddPoint.isChecked() or self.dockwidget.plotWdg is None:
             return
         pos = event.scenePos()
@@ -461,6 +473,7 @@ class ProfileToolCore(QWidget):
             self.distancesPicked.append(x)
 
     def disableMouseCoordonates(self) -> None:
+        """Disconnect owned PyQtGraph mouse and range-change callbacks."""
         if self.dockwidget.plotWdg is None:
             return
         with suppress(AttributeError, RuntimeError, TypeError):
@@ -470,6 +483,7 @@ class ProfileToolCore(QWidget):
         self.dockwidget.disconnectPlotRangechanged()
 
     def mouseMovedPyQtGraph(self, pos: QPointF) -> None:
+        """Update plot cursors and the map marker from the nearest visible sample."""
         if self.dockwidget.plotWdg is None:
             return
         # si connexion directe du signal "mouseMoved" : la fonction reçoit le point courant

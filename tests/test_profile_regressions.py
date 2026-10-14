@@ -6,6 +6,8 @@ import importlib.util
 import math
 import sys
 import types
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Protocol, cast
@@ -34,7 +36,30 @@ class _Coordinates(Protocol):
     def y(self) -> float: ...
 
 
+@dataclass
+class _PointGeometry:
+    """Point wrapper consumed by the multipart geometry fixture."""
+
+    point: _Coordinates
+
+
+def _translate(_context: str, message: str) -> str:
+    """Keep translated text unchanged in the headless Qt fixture."""
+    return message
+
+
+def _unit_factor(source: str, _target: str) -> float:
+    """Convert the fixture's foot distances to metres."""
+    return 0.3048 if source == "feet" else 1.0
+
+
+def _not_profilable(_layer: object) -> bool:
+    """Disable plugin-layer sampling in the headless reader fixture."""
+    return False
+
+
 ROOT = Path(__file__).resolve().parents[1]
+ReaderFixture = tuple[types.ModuleType, SimpleNamespace, Callable[[bool], object]]
 
 
 def _load(name: str, path: Path) -> types.ModuleType:
@@ -79,7 +104,7 @@ def test_single_or_empty_profiles(profilers: _ProfileMath) -> None:
 
 
 @pytest.fixture
-def reader_module(monkeypatch: pytest.MonkeyPatch):
+def reader_module(monkeypatch: pytest.MonkeyPatch) -> ReaderFixture:
     # Stub the minimal PyQGIS surface required to import the sampling module.
     qgis = types.ModuleType("qgis")
     qgis.__path__ = []
@@ -87,13 +112,14 @@ def reader_module(monkeypatch: pytest.MonkeyPatch):
     qt = types.ModuleType("qgis.PyQt")
     qt.__path__ = []
     qtcore = types.ModuleType("qgis.PyQt.QtCore")
-    qtcore.QCoreApplication = SimpleNamespace(translate=lambda _context, msg: msg)
+    qtcore.__dict__["QCoreApplication"] = SimpleNamespace(translate=_translate)
 
     class Point:
         def __init__(self, x: float | _Coordinates, y: float | None = None) -> None:
             if isinstance(x, (int, float)):
                 if y is None:
-                    raise ValueError("Numeric point construction requires both coordinates")
+                    msg = "Numeric point construction requires both coordinates"
+                    raise ValueError(msg)
                 self._x, self._y = float(x), y
             else:
                 self._x, self._y = x.x(), x.y()
@@ -132,28 +158,26 @@ def reader_module(monkeypatch: pytest.MonkeyPatch):
 
     # Explicit PyQGIS imports should be importable without QGIS desktop.
     # Tests that exercise their geometry behaviour replace these stubs.
-    core.QgsCoordinateTransform = object
-    core.QgsFeatureRequest = object
-    core.QgsGeometry = object
-    core.QgsDistanceArea = DistanceArea
-    core.QgsPointXY = Point
-    core.QgsProject = SimpleNamespace(instance=lambda: project)
-    core.Qgis = SimpleNamespace(
-        DistanceUnit=SimpleNamespace(Meters="metres"),
-        LayerType=SimpleNamespace(Raster=1, Plugin=2, Mesh=3),
+    core.__dict__.update(
+        QgsCoordinateTransform=object,
+        QgsFeatureRequest=object,
+        QgsGeometry=object,
+        QgsDistanceArea=DistanceArea,
+        QgsPointXY=Point,
+        QgsProject=SimpleNamespace(instance=lambda: project),
+        Qgis=SimpleNamespace(
+            DistanceUnit=SimpleNamespace(Meters="metres"),
+            LayerType=SimpleNamespace(Raster=1, Plugin=2, Mesh=3),
+        ),
+        QgsUnitTypes=SimpleNamespace(fromUnitToUnitFactor=_unit_factor),
     )
-    core.QgsUnitTypes = SimpleNamespace(
-        fromUnitToUnitFactor=lambda source, _target: 0.3048 if source == "feet" else 1.0
-    )
-    qgis.core = core
-    qgis.gui = types.ModuleType("qgis.gui")
-    qgis.utils = SimpleNamespace(iface=None)
-    qgis.PyQt = qt
-    qt.QtCore = qtcore
+    gui = types.ModuleType("qgis.gui")
+    qgis.__dict__.update(core=core, gui=gui, utils=SimpleNamespace(iface=None), PyQt=qt)
+    qt.__dict__["QtCore"] = qtcore
     for name, value in [
         ("qgis", qgis),
         ("qgis.core", core),
-        ("qgis.gui", qgis.gui),
+        ("qgis.gui", gui),
         ("qgis.PyQt", qt),
         ("qgis.PyQt.QtCore", qtcore),
     ]:
@@ -162,18 +186,18 @@ def reader_module(monkeypatch: pytest.MonkeyPatch):
     package = types.ModuleType("_profile_tool_test")
     package.__path__ = [str(ROOT / "tools")]
     utils = types.ModuleType("_profile_tool_test.utils")
-    utils.isProfilable = lambda _layer: False
+    utils.__dict__["isProfilable"] = _not_profilable
     monkeypatch.setitem(sys.modules, package.__name__, package)
     monkeypatch.setitem(sys.modules, utils.__name__, utils)
     module = _load("_profile_tool_test.dataReaderTool", ROOT / "tools" / "dataReaderTool.py")
     return module, project, ProjectCrs
 
 
-def test_project_crs_controls_chainage_units(reader_module):
+def test_project_crs_controls_chainage_units(reader_module: ReaderFixture) -> None:
     reader, project, Crs = reader_module
 
     class Provider:
-        def sample(self, pt, band):
+        def sample(self, pt: _Coordinates, band: int) -> tuple[float, bool]:
             return float(pt.x()), True
 
     class Layer:
@@ -181,33 +205,33 @@ def test_project_crs_controls_chainage_units(reader_module):
         PluginLayer = 2
         MeshLayer = 3
 
-        def type(self):
+        def type(self) -> int:
             return self.RasterLayer
 
-        def rasterUnitsPerPixelX(self):
+        def rasterUnitsPerPixelX(self) -> int:
             return 2
 
-        def rasterUnitsPerPixelY(self):
+        def rasterUnitsPerPixelY(self) -> int:
             return 2
 
-        def dataProvider(self):
+        def dataProvider(self) -> Provider:
             return Provider()
 
-        def crs(self):
+        def crs(self) -> str:
             return "source-layer-crs"
 
     class MapTool:
-        def toLayerCoordinates(self, layer, point):
+        def toLayerCoordinates(self, layer: object, point: _Coordinates) -> _Coordinates:
             return reader.QgsPointXY(point.x() * 2, point.y() * 2)
 
     class Interface:
-        def mainWindow(self):
+        def mainWindow(self) -> Interface:
             return self
 
-        def statusBar(self):
+        def statusBar(self) -> Interface:
             return self
 
-        def showMessage(self, value):
+        def showMessage(self, value: str) -> None:
             pass
 
     for geographic, expected_end in [(True, 10.0), (False, 3.048)]:
@@ -226,11 +250,11 @@ def test_project_crs_controls_chainage_units(reader_module):
         assert result["l_slope"][-1] == pytest.approx(1_110_000 if geographic else 3.048)
 
 
-def test_valid_zero_is_distinct_from_missing_sample(reader_module):
+def test_valid_zero_is_distinct_from_missing_sample(reader_module: ReaderFixture) -> None:
     reader, _, _ = reader_module
 
     class Provider:
-        def sample(self, point, band):
+        def sample(self, point: _Coordinates, band: int) -> tuple[float, bool]:
             return (0.0, True) if point.x() == 0 else (0.0, False)
 
     class Layer:
@@ -238,10 +262,10 @@ def test_valid_zero_is_distinct_from_missing_sample(reader_module):
         PluginLayer = 2
         MeshLayer = 3
 
-        def type(self):
+        def type(self) -> int:
             return self.RasterLayer
 
-        def dataProvider(self):
+        def dataProvider(self) -> Provider:
             return Provider()
 
     tool = reader.DataReaderTool()
@@ -252,7 +276,7 @@ def test_valid_zero_is_distinct_from_missing_sample(reader_module):
     assert math.isnan(values[1])
 
 
-def test_vector_chainage_dedup_keeps_closest_point(reader_module):
+def test_vector_chainage_dedup_keeps_closest_point(reader_module: ReaderFixture) -> None:
     reader, _, _ = reader_module
     array = np.array(
         [
@@ -267,7 +291,7 @@ def test_vector_chainage_dedup_keeps_closest_point(reader_module):
     assert list(deduped[:, 5]) == [20, 30]
 
 
-def test_geographic_chainage_dedup_tolerance(reader_module):
+def test_geographic_chainage_dedup_tolerance(reader_module: ReaderFixture) -> None:
     reader, project, Crs = reader_module
     project.crs = lambda: Crs(True)
     assert reader.DataReaderTool._project_chainage_tolerance() == pytest.approx(1e-8)
@@ -281,43 +305,42 @@ def test_geographic_chainage_dedup_tolerance(reader_module):
     assert len(reader.DataReaderTool().removeDuplicateLenght(array)) == 2
 
 
-def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch: pytest.MonkeyPatch):
+def test_only_clicked_part_of_multipart_feature(reader_module: ReaderFixture, monkeypatch: pytest.MonkeyPatch) -> None:
     reader, _, _ = reader_module
     core = sys.modules["qgis.core"]
 
     class Geometry:
-        def __init__(self, parts, multi=False) -> None:
+        def __init__(self, parts: list[list[_Coordinates]], multi: bool = False) -> None:
             self.parts, self.multi = parts, multi
 
-        def isMultipart(self):
+        def isMultipart(self) -> bool:
             return self.multi
 
-        def asMultiPolyline(self):
+        def asMultiPolyline(self) -> list[list[_Coordinates]]:
             return self.parts
 
         @staticmethod
-        def fromPointXY(point) -> SimpleNamespace:
-            return SimpleNamespace(point=point)
+        def fromPointXY(point: _Coordinates) -> _PointGeometry:
+            return _PointGeometry(point)
 
         @staticmethod
-        def fromPolylineXY(part) -> Geometry:
+        def fromPolylineXY(part: list[_Coordinates]) -> Geometry:
             return Geometry([part])
 
-        def distance(self, point_geom):
+        def distance(self, point_geom: _PointGeometry) -> float:
             return min(math.hypot(p.x() - point_geom.point.x(), p.y() - point_geom.point.y()) for p in self.parts[0])
 
     class Feature:
-        def __init__(self, original=None) -> None:
+        def __init__(self, original: Feature | None = None) -> None:
             self.geom = original.geometry() if original else None
 
-        def geometry(self):
+        def geometry(self) -> Geometry | None:
             return self.geom
 
-        def setGeometry(self, geometry):
+        def setGeometry(self, geometry: Geometry) -> None:
             self.geom = geometry
 
-    core.QgsFeature = Feature
-    core.QgsGeometry = Geometry
+    core.__dict__.update(QgsFeature=Feature, QgsGeometry=Geometry)
     for name in (
         "QgsFeatureRequest",
         "QgsMapLayer",
@@ -328,9 +351,9 @@ def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch: pyte
     ):
         setattr(core, name, object)
     widgets = types.ModuleType("qgis.PyQt.QtWidgets")
-    widgets.QMessageBox = object
+    widgets.__dict__["QMessageBox"] = object
     monkeypatch.setitem(sys.modules, widgets.__name__, widgets)
-    sys.modules["qgis.PyQt"].QtWidgets = widgets
+    sys.modules["qgis.PyQt"].__dict__["QtWidgets"] = widgets
     selected = _load("_profile_tool_test.selectlinetool", ROOT / "tools" / "selectlinetool.py")
     p = reader.QgsPointXY
     feature = Feature()
@@ -346,7 +369,9 @@ def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch: pyte
     result = selected.SelectLineTool.select_closest_part(feature, p(0, 9.9))
     assert result is not feature
     assert result.geometry().parts[0][0].y() == 10
-    assert feature.geometry().isMultipart()
+    original_geometry = feature.geometry()
+    assert original_geometry is not None
+    assert original_geometry.isMultipart()
 
 
 def test_geographic_grade_uses_metre_distance_without_changing_degree_axis(profilers: _ProfileMath) -> None:
@@ -360,7 +385,10 @@ def test_geographic_grade_uses_metre_distance_without_changing_degree_axis(profi
     np.testing.assert_allclose(grades, [1, 1])
 
 
-def test_mesh_sampling_uses_the_supplied_interface(reader_module, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("scalar", ["12.5", None, "invalid"])
+def test_mesh_sampling_uses_the_supplied_interface(
+    reader_module: ReaderFixture, monkeypatch: pytest.MonkeyPatch, scalar: str | None
+) -> None:
     """Mesh identify must use the reader's canvas rather than global iface state."""
     reader, _project, _crs = reader_module
     canvas = object()
@@ -374,7 +402,7 @@ def test_mesh_sampling_uses_the_supplied_interface(reader_module, monkeypatch: p
             received_canvases.append(selected_canvas)
 
         def identify(self, *_args: object) -> list[SimpleNamespace]:
-            return [SimpleNamespace(mAttributes={"Scalar Value": "12.5"})]
+            return [SimpleNamespace(mAttributes={"Scalar Value": scalar})]
 
     monkeypatch.setattr(sys.modules["qgis.gui"], "QgsMapToolIdentify", Identifier, raising=False)
     monkeypatch.setattr(reader, "QgsGeometry", SimpleNamespace(fromPointXY=lambda point: point))
@@ -382,5 +410,10 @@ def test_mesh_sampling_uses_the_supplied_interface(reader_module, monkeypatch: p
     tool.profiles = {"layer": SimpleNamespace(type=lambda: 3), "band": 0}
     tool.iface = SimpleNamespace(mapCanvas=lambda: canvas)
     tool._status_update = lambda _percentage: None
-    assert tool._extractZValues([1.0], [2.0]) == [12.5]
+    values = tool._extractZValues([1.0], [2.0])
+    if scalar == "12.5":
+        assert values == [12.5]
+    else:
+        assert len(values) == 1
+        assert math.isnan(values[0])
     assert received_canvases == [canvas]

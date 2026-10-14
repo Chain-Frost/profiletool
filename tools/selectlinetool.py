@@ -46,6 +46,8 @@ if TYPE_CHECKING:
 
 
 class SelectLineTool:
+    """Select profile source features without changing the user's layer selection."""
+
     def __init__(self, selectionMethod: str = "feature") -> None:
         """Selection mode can be feature or layer."""
         self.selectionMethod = selectionMethod
@@ -53,6 +55,7 @@ class SelectLineTool:
     def getPointTableFromSelectedLine(
         self, iface: QgisInterface, tool: QgsMapTool, newPoints: Sequence[Sequence[float]]
     ) -> tuple[QgsVectorLayer | None, list[QgsFeature]]:
+        """Return the active line layer and features for the requested selection mode."""
         closestFeatures: list[QgsFeature] = []
         layer = iface.activeLayer()
         if not isinstance(layer, QgsVectorLayer) or not self.checkIsLineLayer(layer):
@@ -90,10 +93,12 @@ class SelectLineTool:
 
     @staticmethod
     def checkIsLineLayer(layer: QgsMapLayer | None) -> bool:
+        """Return whether the source is a vector layer with line geometry."""
         return isinstance(layer, QgsVectorLayer) and layer.geometryType() == Qgis.GeometryType.Line
 
     @staticmethod
     def checkIsPointLayer(layer: QgsMapLayer | None) -> bool:
+        """Return whether the source is a vector layer with point geometry."""
         return isinstance(layer, QgsVectorLayer) and layer.geometryType() == Qgis.GeometryType.Point
 
     @staticmethod
@@ -127,17 +132,11 @@ class SelectLineTool:
 
             dist_pX_rXmax = abs(point.x() - rect.xMaximum())
             dist_pX_rXmin = abs(point.x() - rect.xMinimum())
-            if dist_pX_rXmax > dist_pX_rXmin:
-                width = dist_pX_rXmax
-            else:
-                width = dist_pX_rXmin
+            width = max(dist_pX_rXmin, dist_pX_rXmax)
 
             dist_pY_rYmax = abs(point.y() - rect.yMaximum())
             dist_pY_rYmin = abs(point.y() - rect.yMinimum())
-            if dist_pY_rYmax > dist_pY_rYmin:
-                height = dist_pY_rYmax
-            else:
-                height = dist_pY_rYmin
+            height = max(dist_pY_rYmin, dist_pY_rYmax)
 
             # create the search rectangle
             rect = QgsRectangle()

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 from types import TracebackType
+from typing import cast
 
 import pytest
 
@@ -89,7 +91,8 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(monkeypatch
         assert isinstance(temporary_layer, QgsVectorLayer)
         assert temporary_layer.featureCount() == len(profile["z"])
         assert temporary_layer.crs() == profile["crs"]
-        assert [feature["Value"] for feature in temporary_layer.getFeatures()] == list(profile["z"])
+        exported_features = cast(Iterable[QgsFeature], temporary_layer.getFeatures())
+        assert [feature["Value"] for feature in exported_features] == list(profile["z"])
         project.removeMapLayer(temporary_layer.id())
         assert not callback_errors
         tracking_connections = dock.checkBox_mpl_tracking.receivers(dock.checkBox_mpl_tracking.stateChanged)

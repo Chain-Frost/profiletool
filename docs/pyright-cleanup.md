@@ -4,15 +4,33 @@ Measured on 14 October 2026 using the configured OSGeo4W Python 3.12 / QGIS
 4.2.1 environment and matching PyQt6 type definitions.
 
 Full strict Pyright decreased from **2,259 errors at commit `84b3ed3`** to
-**511 errors in the working tree**, with zero warnings: 1,748 fewer errors.
+**324 errors in the working tree**, with zero warnings: 1,935 fewer errors.
 The first batch reduced the count to 1,857 and was committed as `1e0a667`.
 The subsequent reader, plotting, table-model, map-tool, core and UI work removes
-another 1,346 errors.
+another 1,533 errors.
 The working-tree result includes uncommitted changes and is not a hosted CI
 result. Generated reports remain local and ignored.
 
 ## Changes
 
+- Cleared EM101, D101, D102 and SIM108 findings: seven exception-message
+  extractions, 93 descriptive public API docstrings, and three reviewed
+  conditional-assignment simplifications. The docstring pass preserved the
+  executable AST. Applied the subsequent safe max-expression and no-op cleanup.
+- Live dialog validation caught unsupported `getItem(parent=...)` calls.
+  Restored positional Qt arguments, retained a focused FBT003 compatibility
+  exception and verified all 17 desktop cases pass again.
+- Added explicit missing/invalid mesh-scalar handling and parameterized
+  regression coverage. Typed the shared fixture tuple and documented feature
+  iteration in the real-QGIS export check. Repeated all 17 live desktop cases
+  successfully against this reader change.
+- Added a safe map-tool status-message helper and typed the console-only
+  distance script's live interface, canvas and project requirements. The
+  console script was also executed successfully through the live QGIS MCP
+  connection with a temporary EPSG:28350 layer in an EPSG:4326 project.
+- Typed headless provider and multipart-geometry fixtures, and registered
+  dynamically constructed module attributes through their dictionaries.
+  Fixture geometry wrappers now have concrete typed coordinate fields.
 - Typed vector candidate rows, DXF vertex runs and headless coordinate fixtures.
   Documented QGIS's iterable feature-iterator contract despite its optional
   `__iter__` stub, updated map-tool enum access and guarded missing plot widgets.
@@ -78,20 +96,38 @@ remain acceptable after checking callers and compatibility.
 | --- | --- |
 | Scoped CI Ruff | Passed |
 | CI-scoped strict Pyright | Zero errors and warnings |
-| Headless CI regression suite | 14 passed |
-| Tests in isolated QGIS processes | 16 passed |
-| Full strict Pyright | 511 errors, zero warnings |
-| Full Ruff inventory | 296 findings remain after legacy naming exemptions |
+| Headless CI regression suite | 16 passed |
+| Tests in isolated QGIS processes | 18 passed |
+| Full strict Pyright | 324 errors, zero warnings |
+| Full Ruff inventory | 139 findings remain after legacy naming exemptions |
+| EM101, D101, D102, SIM108 | Zero findings |
+| Live QGIS desktop automation through MCP | All 17 cases passed |
+| Live console distance script | Passed; temporary layer removed |
 | Formatting of changed Python files | Passed |
 
 The isolated QGIS run used `QT_QPA_PLATFORM=offscreen` and excluded
 `tests/test_dist.py`, which requires a live desktop `iface`. Desktop validation
-remains paused. QGIS 3.44 compatibility has not been tested. The reader and
+was resumed through MCP: all 17 scripted cases passed with no Qt callback or
+cleanup errors, and layer IDs/CRS were restored. Evidence is recorded in the
+ignored `validation_artifacts/qgis-desktop/interaction-report.json` and
+`distance-report.json`. Human hardware clicks and visual export inspection
+remain manual. QGIS 3.44 compatibility has not been tested. The reader and
 plotting follow-up has not been committed or pushed; hosted CI has not been
 verified for this batch. The
 separate report-sharing branch is unchanged.
 
 ## Remaining work
+
+| Diagnostic category | Count | Typical difficulty |
+| --- | --- | --- |
+| Unknown member/argument/variable/lambda types | 268 | Moderate to hard: QGIS and plotting-library API boundaries |
+| Undeclared attributes | 25 | Moderate to hard: generated stubs and legacy plugin interfaces |
+| Possibly missing objects | 16 | Easy to moderate: lifecycle and state checks |
+| Compatibility and cleanup findings | 15 | Easy to moderate; some preserve intentional legacy APIs |
+
+The latest reader pass typed its polyline return and interpolation collections
+and guarded progress status bars. All 18 isolated tests and 17 live desktop
+cases passed against the change.
 
 The largest remaining diagnostic groups are in `tools/plottingtool.py`,
 `tools/dataReaderTool.py`, `tools/profiletool_core.py`, and

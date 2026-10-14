@@ -138,6 +138,12 @@ each result, actual dialog choices, export-menu contents, source checksums,
 callback errors and restoration checks. Its adjacent files include the PDF,
 PDF preview, plot-click screenshot, clipboard TSVs and raster fixtures.
 
+The suite was repeated through MCP on 14 October 2026 against the current
+checkout in QGIS 4.2.1. All 17 cases passed with no callback or cleanup errors;
+the empty project's layers and EPSG:4326 CRS were restored. The console-only
+distance script also ran successfully with a temporary EPSG:28350 layer;
+`distance-report.json` records its output and source checksum.
+
 QGIS 3.44 is unavailable on this machine and remains untested. Human mouse and
 dialog confirmation also remains separate from the automated widget tests.
 The broader cases remain synthetic fixtures, not a representative real-data

@@ -94,7 +94,7 @@ class PlottingTool:
         return f"{name}#{band}"
 
     def changePlotWidget(self, library: str, frame_for_plot: QWidget):
-
+        """Construct the selected plotting backend and configure its axes and cursors."""
         if library == "PyQtGraph":
             plotWdg = pg.PlotWidget()
             unit = "degrees" if QgsProject.instance().crs().isGeographic() else "m"
@@ -163,6 +163,7 @@ class PlottingTool:
         return None
 
     def drawVertLine(self, wdg: PTDockWidget, pointstoDraw: Sequence[Sequence[float]], library: str | None) -> None:
+        """Mark internal path vertices on the Matplotlib chainage axis."""
         if wdg.plotWdg is None:
             return
         if library == "PyQtGraph":
@@ -183,6 +184,7 @@ class PlottingTool:
     def attachCurves(
         self, wdg: PTDockWidget, profiles: Sequence[Profile], model1: QStandardItemModel, library: str | None
     ) -> None:
+        """Draw profile series with their source-table colors and visibility settings."""
         if wdg.plotWdg is None:
             return
 
@@ -249,12 +251,15 @@ class PlottingTool:
             wdg.plotWdg.draw()
 
     def findMin(self, values: ProfileSeries) -> float:
+        """Return the smallest finite value from a nonempty sample series."""
         return min(float(z) for z in values if z is not None and np.isfinite(z))
 
     def findMax(self, values: ProfileSeries) -> float:
+        """Return the largest finite value from a nonempty sample series."""
         return max(float(z) for z in values if z is not None and np.isfinite(z))
 
     def plotRangechanged(self, wdg: PTDockWidget, library: str | None) -> None:
+        """Synchronize vertical bounds with the PyQtGraph view range."""
         if wdg.plotWdg is None:
             return
 
@@ -268,6 +273,7 @@ class PlottingTool:
     def reScalePlot(
         self, wdg: PTDockWidget, profiles: Sequence[Profile] | None, library: str | None, auto: bool = False
     ) -> None:  # called when spinbox value changed
+        """Apply requested vertical bounds or automatically fit visible profile data."""
         if profiles is None or wdg.plotWdg is None:
             return
         minimumValue = wdg.sbMinVal.value()
@@ -308,6 +314,7 @@ class PlottingTool:
                     wdg.plotWdg.draw()
 
     def clearData(self, wdg: PTDockWidget, profiles: Sequence[Profile] | None, library: str | None) -> None:
+        """Remove plotted curves and reset the vertical-bound controls."""
         if not profiles or wdg.plotWdg is None:
             return
 
@@ -329,6 +336,7 @@ class PlottingTool:
         wdg.sbMinVal.setValue(0)
 
     def changeColor(self, wdg: PTDockWidget, library: str | None, color1: QColor, name: str) -> None:
+        """Apply a source-table color to the curve identified by its plot key."""
         if wdg.plotWdg is None:
             return
 
@@ -358,6 +366,7 @@ class PlottingTool:
                     break
 
     def changeAttachCurve(self, wdg: PTDockWidget, library: str | None, bool: int | Qt.CheckState, name: str) -> None:
+        """Update a named curve's visibility from its source-table check state."""
         if wdg.plotWdg is None:
             return
 
@@ -387,6 +396,7 @@ class PlottingTool:
                     break
 
     def manageMatplotlibAxe(self, axe1: Axes) -> None:
+        """Configure chainage units, grid lines and ticks on a Matplotlib axis."""
         unit = "degrees" if QgsProject.instance().crs().isGeographic() else "m"
         axe1.set_xlabel(f"Chainage ({unit})")
         axe1.grid()
@@ -415,6 +425,7 @@ class PlottingTool:
         )
 
     def outPrint(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+        """Save the Matplotlib plot as PostScript after selecting an output path."""
         if wdg.plotWdg is None:
             return
         name = "Profile"
@@ -432,6 +443,7 @@ class PlottingTool:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
     def outPDF(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+        """Save the Matplotlib plot as PDF after selecting an output path."""
         if wdg.plotWdg is None:
             return
         name = "Profile"
@@ -452,6 +464,7 @@ class PlottingTool:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
     def outSVG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+        """Export the current plot as SVG using the selected backend."""
         if wdg.plotWdg is None:
             return
         fileName = getSaveFileName(
@@ -485,6 +498,7 @@ class PlottingTool:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
     def outPNG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+        """Export the current plot as PNG using the selected backend."""
         if wdg.plotWdg is None:
             return
         fileName = getSaveFileName(
@@ -513,6 +527,7 @@ class PlottingTool:
         profiles: Sequence[Profile],
         type: str = "3D",
     ) -> None:
+        """Export 2D or source-coordinate 3D polylines, splitting at missing elevations."""
         fileName = getSaveFileName(
             parent=iface.mainWindow(),
             caption="Save As",

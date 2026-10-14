@@ -1,16 +1,30 @@
+"""Inspect layer/project distance conversions from a running QGIS console."""
+
+from typing import cast
+
 from qgis.core import QgsDistanceArea, QgsProject
+from qgis.gui import QgisInterface
 from qgis.utils import iface
 
-vl = iface.activeLayer()
+if iface is None:
+    message = "Run this script from the QGIS desktop Python console"
+    raise RuntimeError(message)
+desktop_iface = cast(QgisInterface, iface)
+vl = desktop_iface.activeLayer()
+canvas = desktop_iface.mapCanvas()
+project = QgsProject.instance()
+if vl is None or canvas is None or project is None:
+    message = "Distance inspection requires an active layer, canvas and project"
+    raise RuntimeError(message)
 
 crs1 = vl.crs()
-crs2 = iface.mapCanvas().mapSettings().destinationCrs()
+crs2 = canvas.mapSettings().destinationCrs()
 
 dist = QgsDistanceArea()
-dist.setSourceCrs(crs2, QgsProject.instance().transformContext())
+dist.setSourceCrs(crs2, project.transformContext())
 
 dist2 = QgsDistanceArea()
-dist2.setSourceCrs(crs1, QgsProject.instance().transformContext())
+dist2.setSourceCrs(crs1, project.transformContext())
 
 print(dist.convertLengthMeasurement(1.0, crs1.mapUnits()))
 print(dist2.convertLengthMeasurement(1.0, crs2.mapUnits()))

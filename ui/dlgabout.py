@@ -51,6 +51,8 @@ else:
 
 
 class DlgAbout(QDialog, FormClass):
+    """Display the Profile Tool information and version dialog."""
+
     def __init__(self, parent: QWidget | None = None) -> None:
         QDialog.__init__(self, parent)
         self.setupUi(self)

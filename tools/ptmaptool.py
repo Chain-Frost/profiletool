@@ -48,12 +48,16 @@ if TYPE_CHECKING:
 
 
 class ProfiletoolMapToolRenderer:
+    """Manage map-selection events and temporary profile geometry overlays."""
+
     def __init__(self, profiletool: ProfileToolCore) -> None:
         self.profiletool = profiletool
         self.iface = self.profiletool.iface
-        self.canvas = self.profiletool.iface.mapCanvas()
-        if self.canvas is None:
-            raise RuntimeError("Profile Tool requires an active map canvas")
+        canvas = self.profiletool.iface.mapCanvas()
+        if canvas is None:
+            msg = "Profile Tool requires an active map canvas"
+            raise RuntimeError(msg)
+        self.canvas = canvas
         # The plugin creates its action before constructing the map renderer.
         self.tool = ProfiletoolMapTool(self.canvas, self.profiletool.plugincore.action)
         self.pointstoDraw: list[Sequence[float]] = []  # Polyline being drawn in freehand mode
@@ -82,14 +86,25 @@ class ProfiletoolMapToolRenderer:
         self.setSelectionMethod(0)
 
     def resetRubberBand(self) -> None:
+        """Clear the temporary line overlay while retaining its geometry type."""
         self.rubberband.reset(Qgis.GeometryType.Line)
 
+    def _status_message(self, message: str) -> None:
+        """Display map-tool instructions when the desktop status bar exists."""
+        window = cast(QMainWindow | None, self.iface.mainWindow())
+        if window is not None:
+            status_bar = window.statusBar()
+            if status_bar is not None:
+                status_bar.showMessage(message)
+
     def updateRubberBand(self) -> None:
+        """Redraw the temporary line from the currently collected path points."""
         self.resetRubberBand()
         for i in range(len(self.pointstoDraw)):
             self.rubberband.addPoint(QgsPointXY(self.pointstoDraw[i][0], self.pointstoDraw[i][1]))
 
     def moved(self, position: Mapping[str, int]) -> None:  # draw the polyline on the temp layer (rubberband)
+        """Extend the freehand preview to the mouse's current map position."""
         if self.selectionmethod == 0:
             if len(self.pointstoDraw) > 0:
                 # Get mouse coords
@@ -104,12 +119,13 @@ class ProfiletoolMapToolRenderer:
             return
 
     def rightClicked(self, position: Mapping[str, int]) -> None:  # used to quit the current action
+        """Finish a drawn profile or clear an idle freehand selection."""
         if self.selectionmethod == 0:
             if self.isPlotting:
                 self.updateRubberBand()
                 self.isPlotting = False
                 # launch analyses
-                cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(str(self.pointstoDraw))
+                self._status_message(str(self.pointstoDraw))
                 self.profiletool.updateProfil(self.pointstoDraw)
                 # Reset
                 self.pointstoDraw = []
@@ -120,6 +136,7 @@ class ProfiletoolMapToolRenderer:
             return
 
     def leftClicked(self, position: Mapping[str, int]) -> None:  # Add point to analyse
+        """Collect a freehand vertex or select source features at the clicked position."""
         transform = self.canvas.getCoordinateTransform()
         if transform is None:
             return
@@ -136,7 +153,7 @@ class ProfiletoolMapToolRenderer:
             self.pointstoDraw += newPoints
             if self.profiletool.liveUpdate:
                 self.profiletool.updateProfil(self.pointstoDraw)
-            cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(self.textquit0)
+            self._status_message(self.textquit0)
         if self.selectionmethod in (1, 2):
             if self.selectionmethod == 1:
                 method = "feature"
@@ -149,9 +166,10 @@ class ProfiletoolMapToolRenderer:
             )
             self.profiletool.updateProfilFromFeatures(result[0], result[1])
 
-            cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(message)
+            self._status_message(message)
 
     def currentLayerChanged(self, layer: QgsMapLayer | None) -> None:
+        """Refresh whole-layer selection when the active source layer changes."""
         if self.selectionmethod == 2:
             if isinstance(layer, QgsVectorLayer) and (
                 SelectLineTool.checkIsLineLayer(layer) or SelectLineTool.checkIsPointLayer(layer)
@@ -163,33 +181,37 @@ class ProfiletoolMapToolRenderer:
                 self.profiletool.clearProfil()
 
     def setSelectionMethod(self, method: int) -> None:
+        """Set freehand, feature or whole-layer selection and update instructions."""
         self.cleaning()
         self.selectionmethod = method
         if method == 0:
             self.tool.setCursor(Qt.CursorShape.CrossCursor)
-            cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(self.textquit0)
+            self._status_message(self.textquit0)
         elif method == 1:
             self.tool.setCursor(Qt.CursorShape.PointingHandCursor)
-            cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(self.textquit1)
+            self._status_message(self.textquit1)
         elif method == 2:
             self.tool.setCursor(Qt.CursorShape.PointingHandCursor)
-            cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage(self.textquit2)
+            self._status_message(self.textquit2)
         self.currentLayerChanged(self.iface.activeLayer())
 
     def setBufferGeometry(self, geoms: Sequence[QgsGeometry | None]) -> None:
+        """Draw the valid buffer geometries used for point-source sampling."""
         self.rubberbandbuf.reset()
         for geom in geoms:
             if geom is not None and not geom.isNull() and not geom.isEmpty():
                 self.rubberbandbuf.addGeometry(geom, None)
 
     def cleaning(self) -> None:  # used on right click
+        """Clear temporary path geometry and map-selection instructions."""
         self.pointstoDraw = []
         self.rubberbandpoint.hide()
         self.resetRubberBand()
         self.rubberbandbuf.reset()
-        cast(QMainWindow, self.iface.mainWindow()).statusBar().showMessage("")
+        self._status_message("")
 
     def connectTool(self) -> None:
+        """Connect the renderer's map and layer callbacks once."""
         if self._signals_connected:
             return
         self._signals_connected = True
@@ -213,6 +235,8 @@ class ProfiletoolMapToolRenderer:
 
 
 class ProfiletoolMapTool(QgsMapTool):
+    """Emit profile-selection signals from QGIS canvas mouse events."""
+
     moved = pyqtSignal(dict)
     rightClicked = pyqtSignal(dict)
     leftClicked = pyqtSignal(dict)
@@ -226,10 +250,12 @@ class ProfiletoolMapTool(QgsMapTool):
         self._action = button
 
     def canvasMoveEvent(self, event: QgsMapMouseEvent | None) -> None:
+        """Emit the current viewport position when a mouse event is available."""
         if event is not None:
             self.moved.emit({"x": event.pos().x(), "y": event.pos().y()})
 
     def canvasReleaseEvent(self, event: QgsMapMouseEvent | None) -> None:
+        """Emit a left- or right-click position from the released mouse button."""
         if event is None:
             return
         if event.button() == Qt.MouseButton.RightButton:
@@ -238,22 +264,27 @@ class ProfiletoolMapTool(QgsMapTool):
             self.leftClicked.emit({"x": event.pos().x(), "y": event.pos().y()})
 
     def canvasDoubleClickEvent(self, event: QgsMapMouseEvent | None) -> None:
+        """Emit the viewport position of a double-click event."""
         if event is not None:
             self.doubleClicked.emit({"x": event.pos().x(), "y": event.pos().y()})
 
     def activate(self) -> None:
+        """Activate the canvas cursor and check the plugin toolbar action."""
         QgsMapTool.activate(self)
         self._canvas.setCursor(self.cursor)
         self._action.setCheckable(True)
         self._action.setChecked(True)
 
     def deactivate(self) -> None:
+        """Notify the renderer and release the checked toolbar action."""
         self.desactivate.emit()
         self._action.setCheckable(False)
         QgsMapTool.deactivate(self)
 
     def isZoomTool(self) -> bool:
+        """Report that this tool selects profile paths rather than changing zoom."""
         return False
 
     def setCursor(self, cursor: QCursor | Qt.CursorShape) -> None:
+        """Store the cursor to apply when the profile map tool is activated."""
         self.cursor = QCursor(cursor)
