@@ -20,19 +20,15 @@ jobs:
           ruff check --isolated --target-version py39 --select E,F,I,UP,B --ignore E501 \
             __init__.py profileplugin.py \
             tools/profilers.py tools/dataReaderTool.py tools/selectlinetool.py tools/utils.py \
-            tools/ptmaptool.py tools/tableviewtool.py ui/dlgabout.py \
+            tools/ptmaptool.py tools/tableviewtool.py tools/plottingtool.py \
+            ui/dlgabout.py ui/ptdockwidget.py \
             scripts/write_qgis_env.py scripts/qgis_dev.py scripts/setup_qgis_typing.py \
-            tests/test_qgis_layer_lifecycle.py
+            scripts/pyright_triage.py tests/test_pyright_triage.py tests/test_qgis_layer_lifecycle.py
       - name: Full Ruff inventory (informational)
         continue-on-error: true
         run: |
           ruff check . --statistics || true
           ruff check . --select D100,D104,D415,ANN204,ANN205,ARG005,ERA001 --output-format concise
-      - name: Additional GUI import lint (informational)
-        continue-on-error: true
-        run: |
-          ruff check --isolated --target-version py39 --select E,F,I,UP,B --ignore E501 \
-            tools/plottingtool.py ui/ptdockwidget.py
       - name: Pyright baseline (QGIS-independent modules)
         run: pyright --project pyright-ci.json
       - name: Compile plugin sources

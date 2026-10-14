@@ -7,3 +7,7 @@ __pycache__
 .vscode/qgis-tools/
 validation_artifacts/
 .vscode/qgis-type-stubs/
+
+# Local Pyright full-analysis output; paths and diagnostics are machine-specific.
+pyright-full.json
+pyright-summary.json
