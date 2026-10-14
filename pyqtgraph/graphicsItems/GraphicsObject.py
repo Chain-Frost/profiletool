@@ -17,20 +17,18 @@ class GraphicsObject(GraphicsItem, QtWidgets.QGraphicsObject):
         GraphicsItem.__init__(self)
         
     def itemChange(self, change, value):
+        # QGIS 3.44/PyQt5 may pass a wrapped QVariant instead of the underlying
+        # Python value. Passing the wrapper through Qt's callback raises a
+        # QVariant conversion TypeError. Do not change the PyQt6 path.
+        if QT_LIB == 'PyQt5' and isinstance(value, QtCore.QVariant):
+            value = value.value()
         try:
             ret = super().itemChange(change, value)
         except TypeError as exc:
-            # Some PyQt5 builds cannot convert the default Qt QVariant return
-            # from QGraphicsObject.itemChange back into a Python object.
-            # Qt's default implementation returns the supplied value; the
-            # base C++ method has already run before its conversion fails.
             if QT_LIB != 'PyQt5' or 'unable to convert a QVariant back to a Python object' not in str(exc):
                 raise
+            # Qt's default itemChange implementation returns its input value.
             ret = value
-            if getattr(GraphicsObject, "_qt5_itemchange_diagnostics", 0) < 6:
-                import sys
-                GraphicsObject._qt5_itemchange_diagnostics = getattr(GraphicsObject, "_qt5_itemchange_diagnostics", 0) + 1
-                print("PYQT5_ITEMCHANGE", repr(change), type(value), repr(value), file=sys.stderr)
         # Restore pyqtgraph's original PyQt5 SIP parent-item workaround.
         # SIP needs a base QGraphicsItem wrapper when Qt changes a parent.
         if QT_LIB == 'PyQt5' and change == self.GraphicsItemChange.ItemParentChange and isinstance(ret, QtWidgets.QGraphicsItem):
