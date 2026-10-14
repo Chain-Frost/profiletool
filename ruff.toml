@@ -85,7 +85,25 @@ max-complexity = 15
 [lint.pydocstyle]
 convention = "google"
 
+[lint.pep8-naming]
+# QGIS discovers this entry point by its exact name.
+extend-ignore-names = ["classFactory"]
+
 [lint.per-file-ignores]
+# Preserve the established names in legacy plugin modules. New code should use
+# snake_case, including additions to these files; Ruff still checks new modules.
+# Keep this list explicit so new files do not inherit the compatibility exception.
+"profileplugin.py" = ["N802", "N806"]
+"tools/dataReaderTool.py" = ["N802", "N806"]
+"tools/plottingtool.py" = ["N802", "N806"]
+"tools/profiletool_core.py" = ["N802", "N806"]
+"tools/ptmaptool.py" = ["N802", "N806"]
+"tools/selectlinetool.py" = ["N802", "N806"]
+"tools/tableviewtool.py" = ["N802", "N806"]
+"tools/utils.py" = ["N802", "N806"]
+"ui/dlgabout.py" = ["N802", "N806"]
+"ui/ptdockwidget.py" = ["N802", "N806"]
+
 "tests/**/*.py" = [
     "D",      # Test and QGIS-console scripts do not require production docstrings.
     "INP001", # Tests are not an importable package.

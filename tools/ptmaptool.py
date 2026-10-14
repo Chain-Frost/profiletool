@@ -208,21 +208,21 @@ class ProfiletoolMapTool(QgsMapTool):
         self.cursor = QCursor(Qt.CursorShape.CrossCursor)
         self._action = button
 
-    def canvasMoveEvent(self, e: QgsMapMouseEvent | None) -> None:
-        if e is not None:
-            self.moved.emit({"x": e.pos().x(), "y": e.pos().y()})
+    def canvasMoveEvent(self, event: QgsMapMouseEvent | None) -> None:
+        if event is not None:
+            self.moved.emit({"x": event.pos().x(), "y": event.pos().y()})
 
-    def canvasReleaseEvent(self, e: QgsMapMouseEvent | None) -> None:
-        if e is None:
+    def canvasReleaseEvent(self, event: QgsMapMouseEvent | None) -> None:
+        if event is None:
             return
-        if e.button() == Qt.MouseButton.RightButton:
-            self.rightClicked.emit({"x": e.pos().x(), "y": e.pos().y()})
+        if event.button() == Qt.MouseButton.RightButton:
+            self.rightClicked.emit({"x": event.pos().x(), "y": event.pos().y()})
         else:
-            self.leftClicked.emit({"x": e.pos().x(), "y": e.pos().y()})
+            self.leftClicked.emit({"x": event.pos().x(), "y": event.pos().y()})
 
-    def canvasDoubleClickEvent(self, e: QgsMapMouseEvent | None) -> None:
-        if e is not None:
-            self.doubleClicked.emit({"x": e.pos().x(), "y": e.pos().y()})
+    def canvasDoubleClickEvent(self, event: QgsMapMouseEvent | None) -> None:
+        if event is not None:
+            self.doubleClicked.emit({"x": event.pos().x(), "y": event.pos().y()})
 
     def activate(self) -> None:
         QgsMapTool.activate(self)

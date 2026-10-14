@@ -111,6 +111,12 @@ can resolve the `profiletool` package, matching their runtime import path.
 
 ## Full Pyright diagnostic triage
 
+Legacy plugin modules retain their established function and local-variable
+names through explicit Ruff N802/N806 exceptions in `ruff.toml`. Use snake_case
+for all new code, including additions to those modules. New files retain the
+naming checks; review must enforce the convention for additions within exempt
+legacy files. Do not rename existing public functions solely to satisfy lint.
+
 The latest local typing cleanup and validation results are recorded in
 [the cleanup report](docs/pyright-cleanup.md).
 

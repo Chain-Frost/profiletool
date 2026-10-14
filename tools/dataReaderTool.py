@@ -24,6 +24,10 @@
 # ---------------------------------------------------------------------
 """Sample raster and vector elevations along profile paths."""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
+
 import numpy as np
 import qgis
 from qgis.core import (
@@ -56,7 +60,10 @@ class DataReaderTool:
         self.pointstoDraw = pointstoDraw1
         self.iface = iface1
 
-        lengths, sample_x, sample_y, project_samples = [], [], [], []
+        lengths: list[float] = []
+        sample_x: list[float] = []
+        sample_y: list[float] = []
+        project_samples: list[QgsPointXY] = []
         previous_length = 0.0
         project_scale = self._project_distance_scale()
         first_segment = True
@@ -129,7 +136,7 @@ class DataReaderTool:
         return QgsUnitTypes.fromUnitToUnitFactor(project_crs.mapUnits(), Qgis.DistanceUnit.Meters)
 
     @staticmethod
-    def _slope_distances(project_points, chainages) -> list[float]:
+    def _slope_distances(project_points: Sequence[QgsPointXY], chainages: list[float]) -> list[float]:
         """Slope distance in metres, even when displayed chainage is degrees.
 
         A geographic project's displayed chainage remains angular. Geodesic
@@ -157,7 +164,7 @@ class DataReaderTool:
             return 1e-8  # Avoid treating separate locations as duplicates.
         return 0.01 / DataReaderTool._project_distance_scale()
 
-    def _status_update(self, advancement_pct):
+    def _status_update(self, advancement_pct: int) -> None:
         """Send a progress message to status bar.
 
         advancement_pct is the advancemente in percentage (from 0 to 100).
@@ -166,10 +173,10 @@ class DataReaderTool:
             progress = "Creating profile: " + "|" * (advancement_pct // 10)
             self.iface.mainWindow().statusBar().showMessage(progress)
 
-    def _extractZValues(self, x, y):
+    def _extractZValues(self, x: Sequence[float], y: Sequence[float]) -> list[float]:
         layer = self.profiles["layer"]
         band = self.profiles["band"]
-        values = []
+        values: list[float] = []
         if not x:
             return values
 

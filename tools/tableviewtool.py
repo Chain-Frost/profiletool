@@ -25,10 +25,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from qgis.core import QgsMapLayer, QgsProject
 from qgis.PyQt.QtCore import QModelIndex, QObject, Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor, QStandardItemModel
 from qgis.PyQt.QtWidgets import QColorDialog, QInputDialog, QMessageBox
+
+if TYPE_CHECKING:
+    from qgis.gui import QgisInterface
+
+    from ..ui.ptdockwidget import PTDockWidget
 
 # plugin import
 from .plottingtool import PlottingTool
@@ -200,39 +207,50 @@ class TableViewTool(QObject):
         self.layerAddedOrRemoved.emit()
         return None
 
-    def removeLayer(self, mdl, index):
+    def removeLayer(self, mdl: QStandardItemModel, index: int) -> None:
         try:
             mdl.removeRow(index)
             self.layerAddedOrRemoved.emit()
         except Exception:
             return
 
-    def chooseLayerForRemoval(self, iface, mdl):
+    def chooseLayerForRemoval(self, iface: QgisInterface, mdl: QStandardItemModel) -> int | None:
         if mdl.rowCount() < 2:
             if mdl.rowCount() == 1:
                 return 0
             return None
 
-        list1 = [
-            str(i + 1) + " : " + mdl.item(i, 2).data(Qt.ItemDataRole.EditRole)
-            for i in range(mdl.rowCount())
-        ]
+        list1 = []
+        rows: list[int] = []
+        for i in range(mdl.rowCount()):
+            item = mdl.item(i, 2)
+            if item is not None:
+                list1.append(f"{i + 1} : {item.data(Qt.ItemDataRole.EditRole)}")
+                rows.append(i)
         testqt, ok = QInputDialog.getItem(iface.mainWindow(), "Layer selector", "Choose the Layer", list1, False)
         if ok:
-            for i in range(mdl.rowCount()):
-                if testqt == (str(i + 1) + " : " + mdl.item(i, 2).data(Qt.ItemDataRole.EditRole)):
-                    return i
+            return rows[list1.index(testqt)]
         return None
 
-    def onClick(self, iface, wdg, mdl, plotlibrary, index1):  # action when clicking the tableview
+    def onClick(
+        self,
+        iface: QgisInterface,
+        wdg: PTDockWidget,
+        mdl: QStandardItemModel,
+        plotlibrary: str | None,
+        index1: QModelIndex,
+    ) -> None:  # action when clicking the tableview
         layer = layer_from_model(mdl, index1.row())
         if layer is None:
             return
         temp = mdl.itemFromIndex(index1)
+        band_item = mdl.item(index1.row(), 3)
+        if temp is None or band_item is None:
+            return
         if index1.column() == 1:  # modifying color
             name = PlottingTool.curveName(
                 layer,
-                mdl.item(index1.row(), 3).data(Qt.ItemDataRole.EditRole),
+                band_item.data(Qt.ItemDataRole.EditRole),
                 mdl,
             )
             color = QColorDialog().getColor(temp.data(Qt.ItemDataRole.BackgroundRole))
@@ -241,7 +259,7 @@ class TableViewTool(QObject):
         elif index1.column() == 0:  # modifying checkbox
             name = PlottingTool.curveName(
                 layer,
-                mdl.item(index1.row(), 3).data(Qt.ItemDataRole.EditRole),
+                band_item.data(Qt.ItemDataRole.EditRole),
                 mdl,
             )
             booltemp = temp.data(Qt.ItemDataRole.CheckStateRole)
@@ -259,7 +277,7 @@ class TableViewTool(QObject):
             for i in range(layer.bandCount()):
                 listparameterband.append(layer.hydrauparser.parametres[i][0])
                 listparametername.append(layer.hydrauparser.parametres[i][1])
-            previousparam = int(mdl.item(index1.row(), 3).data(Qt.ItemDataRole.EditRole))
+            previousparam = int(band_item.data(Qt.ItemDataRole.EditRole))
             testqt, ok = QInputDialog.getItem(
                 iface.mainWindow(),
                 "Parameter selector",

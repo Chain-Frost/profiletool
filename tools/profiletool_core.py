@@ -35,7 +35,16 @@ from typing import cast
 import numpy as np
 
 # qgis import
-from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsMapLayer, QgsPointXY, QgsProject, QgsVectorLayer, QgsWkbTypes
+from qgis.core import (
+    Qgis,
+    QgsFeature,
+    QgsGeometry,
+    QgsMapLayer,
+    QgsPointXY,
+    QgsProject,
+    QgsVectorLayer,
+    QgsWkbTypes,
+)
 from qgis.gui import QgsMapTool
 from qgis.PyQt.QtCore import QSettings, QSignalBlocker, Qt
 from qgis.PyQt.QtWidgets import QWidget
@@ -225,8 +234,9 @@ class ProfileToolCore(QWidget):
         self.updateCursorOnMap(self.x_cursor)
         self.enableMouseCoordonates(self.dockwidget.plotlibrary)
 
-    def setPointOnMap(self, x, elevation):
+    def setPointOnMap(self, x, y):
         """Store the actual sampled elevation, even on a slope-profile plot."""
+        elevation = y  # Preserve the legacy keyword argument while naming its meaning locally.
         self.x_cursor = x
         if not self.pointstoDraw or not self.doTracking or x is None:
             return

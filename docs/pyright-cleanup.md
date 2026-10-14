@@ -4,7 +4,9 @@ Measured on 14 October 2026 using the configured OSGeo4W Python 3.12 / QGIS
 4.2.1 environment and matching PyQt6 type definitions.
 
 Full strict Pyright decreased from **2,259 errors at commit `84b3ed3`** to
-**1,857 errors in the working tree**, with zero warnings: 402 fewer errors.
+**1,558 errors in the working tree**, with zero warnings: 701 fewer errors.
+The first batch reduced the count to 1,857 and was committed as `1e0a667`.
+The reader, plotting and table-model follow-up removes another 299 errors.
 The working-tree result includes uncommitted changes and is not a hosted CI
 result. Generated reports remain local and ignored.
 
@@ -18,6 +20,24 @@ result. Generated reports remain local and ignored.
   coordinate-tab collections separate names. The QGIS lifecycle test checks
   these fields retain their widget types.
 - Included the new files and form-contract test in the existing CI checks.
+- Typed plotting profile collections, table models and numeric reader helpers.
+  Plotting now safely skips missing widgets or incomplete model rows.
+- Typed table removal/click handlers and guarded missing model items.
+
+## Legacy name audit
+
+An AST comparison against the branch base `ca522398` checked 115 function and
+method definitions in the retained legacy plugin files. No function or method
+names were removed or renamed. Four earlier parameter renames were restored:
+`setPointOnMap(..., y)` and the three canvas callbacks' `event` parameters.
+All audited parameter names now match the base. Established methods such as
+`changePlotWidget` retain their names. Obsolete QGIS 2 files removed earlier
+are outside this retained-file audit.
+
+The restored canvas parameter names produce three Pyright override diagnostics
+because QGIS's stubs use `e`. These are retained to preserve existing keyword
+calls; no diagnostics were suppressed. Targeted renames of misleading names
+remain acceptable after checking callers and compatibility.
 
 ## Local validation
 
@@ -27,14 +47,15 @@ result. Generated reports remain local and ignored.
 | CI-scoped strict Pyright | Zero errors and warnings |
 | Headless CI regression suite | 13 passed |
 | Tests in isolated QGIS processes | 15 passed |
-| Full strict Pyright | 1,857 errors, zero warnings |
-| Full Ruff inventory | 682 findings remain |
+| Full strict Pyright | 1,558 errors, zero warnings |
+| Full Ruff inventory | 483 findings remain after legacy naming exemptions |
 | Formatting of changed Python files | Passed |
 
 The isolated QGIS run used `QT_QPA_PLATFORM=offscreen` and excluded
 `tests/test_dist.py`, which requires a live desktop `iface`. Desktop validation
-remains paused. QGIS 3.44 compatibility has not been tested. These changes have
-not been committed or pushed, so hosted CI has not run for this batch. The
+remains paused. QGIS 3.44 compatibility has not been tested. The reader and
+plotting follow-up has not been committed or pushed; hosted CI has not been
+verified for this batch. The
 separate report-sharing branch is unchanged.
 
 ## Remaining work

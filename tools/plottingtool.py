@@ -23,37 +23,47 @@
 # ---------------------------------------------------------------------
 """Render and export Profile Tool plots."""
 
+from __future__ import annotations
+
 import os
+from collections.abc import Sequence
 from contextlib import suppress
 from math import sqrt
+from typing import TYPE_CHECKING
 
 import numpy as np
-from qgis.core import QgsProject
+from qgis.core import QgsMapLayer, QgsProject
 from qgis.PyQt.QtCore import QSettings, Qt
-from qgis.PyQt.QtGui import QPainter
+from qgis.PyQt.QtGui import QPainter, QStandardItemModel
 from qgis.PyQt.QtSvg import QSvgGenerator
-from qgis.PyQt.QtWidgets import QFileDialog, QSizePolicy
+from qgis.PyQt.QtWidgets import QFileDialog, QSizePolicy, QWidget
 
 from .. import pyqtgraph as pg
 from ..dxfwrite import DXFEngine as dxf
 from ..pyqtgraph import exporters
 from .dataReaderTool import DataReaderTool
+from .profile_types import Profile
+from .profilers import ProfileSeries
+
+if TYPE_CHECKING:
+    from ..ui.ptdockwidget import PTDockWidget
 
 pg.setConfigOption("background", "w")
 
 
 try:
     import matplotlib as mpl
+
     has_mpl = bool(mpl.__version__)
 except ImportError:
     has_mpl = False
 
 
-def getSaveFileName(parent, caption, directory, filter):
+def getSaveFileName(parent: QWidget | None, caption: str, directory: str, filter: str) -> str:
     """Return the selected output path from the Qt file dialog."""
-    fileName = QFileDialog.getSaveFileName(parent=parent, caption=caption, directory=directory, filter=filter)
-    if isinstance(fileName, tuple):  # pyqt5 case
-        fileName = fileName[0]
+    fileName, _selected_filter = QFileDialog.getSaveFileName(
+        parent=parent, caption=caption, directory=directory, filter=filter
+    )
     return fileName
 
 
@@ -69,10 +79,14 @@ class PlottingTool:
     """
 
     @staticmethod
-    def curveName(layer, band, model) -> str:
+    def curveName(layer: QgsMapLayer, band: int, model: QStandardItemModel) -> str:
         """Unique plot key; disambiguate layers with identical names."""
         name = layer.name()
-        same_name = sum(model.item(i, 2).data(Qt.ItemDataRole.EditRole) == name for i in range(model.rowCount()))
+        same_name = sum(
+            item.data(Qt.ItemDataRole.EditRole) == name
+            for i in range(model.rowCount())
+            if (item := model.item(i, 2)) is not None
+        )
         if same_name > 1:
             name += f" [{layer.id()[-8:]}]"
         return f"{name}#{band}"
@@ -162,11 +176,22 @@ class PlottingTool:
                 )
             profileLen = 0
 
-    def attachCurves(self, wdg, profiles, model1, library):
+    def attachCurves(
+        self, wdg: PTDockWidget, profiles: Sequence[Profile], model1: QStandardItemModel, library: str | None
+    ) -> None:
+        if wdg.plotWdg is None:
+            return
 
         if library == "PyQtGraph":
+            plot_item = wdg.plotWdg.getPlotItem()
+            if plot_item is None:
+                return
             # cretae graph
             for i, profile in enumerate(profiles):
+                color_item = model1.item(i, 1)
+                visibility_item = model1.item(i, 0)
+                if color_item is None or visibility_item is None:
+                    continue
                 tmp_name = self.curveName(profile["layer"], profile["band"], model1)
                 # case line outside the raster
                 y = np.array(profile["plot_y"], dtype=float)  # replace None value by np.nan
@@ -174,18 +199,22 @@ class PlottingTool:
                 wdg.plotWdg.plot(
                     x,
                     y,
-                    pen=pg.mkPen(model1.item(i, 1).data(Qt.ItemDataRole.BackgroundRole), width=2),
+                    pen=pg.mkPen(color_item.data(Qt.ItemDataRole.BackgroundRole), width=2),
                     name=tmp_name,
                 )
                 # set it visible or not
-                for item in wdg.plotWdg.getPlotItem().listDataItems():
+                for item in plot_item.listDataItems():
                     if item.name() == tmp_name:
-                        item.setVisible(model1.item(i, 0).data(Qt.ItemDataRole.CheckStateRole))
+                        item.setVisible(visibility_item.data(Qt.ItemDataRole.CheckStateRole))
 
         elif library == "Matplotlib" and has_mpl:
             for i, profile in enumerate(profiles):
+                color_item = model1.item(i, 1)
+                visibility_item = model1.item(i, 0)
+                if color_item is None or visibility_item is None:
+                    continue
                 tmp_name = self.curveName(profile["layer"], profile["band"], model1)
-                if model1.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
+                if visibility_item.data(Qt.ItemDataRole.CheckStateRole):
                     wdg.plotWdg.figure.get_axes()[0].plot(
                         profile["plot_x"],
                         profile["plot_y"],
@@ -204,7 +233,7 @@ class PlottingTool:
                 self.changeColor(
                     wdg,
                     "Matplotlib",
-                    model1.item(i, 1).data(Qt.ItemDataRole.BackgroundRole),
+                    color_item.data(Qt.ItemDataRole.BackgroundRole),
                     tmp_name,
                 )
             try:
@@ -215,10 +244,10 @@ class PlottingTool:
             wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
             wdg.plotWdg.draw()
 
-    def findMin(self, values):
+    def findMin(self, values: ProfileSeries) -> float:
         return min(float(z) for z in values if z is not None and np.isfinite(z))
 
-    def findMax(self, values):
+    def findMax(self, values: ProfileSeries) -> float:
         return max(float(z) for z in values if z is not None and np.isfinite(z))
 
     def plotRangechanged(self, wdg, library):
@@ -230,8 +259,10 @@ class PlottingTool:
             wdg.sbMinVal.setValue(range[1][0])
             wdg.connectYSpinbox()
 
-    def reScalePlot(self, wdg, profiles, library, auto=False):  # called when spinbox value changed
-        if profiles is None:
+    def reScalePlot(
+        self, wdg: PTDockWidget, profiles: Sequence[Profile] | None, library: str | None, auto: bool = False
+    ) -> None:  # called when spinbox value changed
+        if profiles is None or wdg.plotWdg is None:
             return
         minimumValue = wdg.sbMinVal.value()
         maximumValue = wdg.sbMaxVal.value()
@@ -270,12 +301,15 @@ class PlottingTool:
                     wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
                     wdg.plotWdg.draw()
 
-    def clearData(self, wdg, profiles, library):  # erase one of profiles
-        if not profiles:
+    def clearData(self, wdg: PTDockWidget, profiles: Sequence[Profile] | None, library: str | None) -> None:
+        if not profiles or wdg.plotWdg is None:
             return
 
         if library == "PyQtGraph":
-            pitems = wdg.plotWdg.getPlotItem().listDataItems()
+            plot_item = wdg.plotWdg.getPlotItem()
+            if plot_item is None:
+                return
+            pitems = plot_item.listDataItems()
             for item in pitems:
                 wdg.plotWdg.removeItem(item)
             with suppress(Exception):  # Signal may not be connected to this instance.
@@ -445,7 +479,7 @@ class PlottingTool:
             elif library == "Matplotlib" and has_mpl:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
-    def outDXF(self, iface, wdg, mdl, library, profiles, type="3D"):
+    def outDXF(self, iface, wdg, mdl, library: str, profiles: Sequence[Profile], type: str = "3D") -> None:
         fileName = getSaveFileName(
             parent=iface.mainWindow(),
             caption="Save As",
