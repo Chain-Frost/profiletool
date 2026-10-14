@@ -27,7 +27,7 @@ jobs:
         continue-on-error: true
         run: |
           ruff check . --statistics || true
-          ruff check . --select UP009,F401,B007,SIM223,RET503,RET504,PLW0108,ICN001,PERF401,SIM105 --output-format concise
+          ruff check . --select D100,D104,D415,ANN204,ANN205,ARG005,ERA001 --output-format concise
       - name: Pyright baseline (QGIS-independent modules)
         run: pyright --project pyright-ci.json
       - name: Compile plugin sources
