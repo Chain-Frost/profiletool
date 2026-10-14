@@ -45,6 +45,9 @@ from qgis.PyQt.QtCore import QCoreApplication
 from .utils import isProfilable
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from typing import Protocol
+
     from numpy.typing import NDArray
     from qgis.core import (
         QgsFeature,
@@ -56,6 +59,13 @@ if TYPE_CHECKING:
     from qgis.PyQt.QtWidgets import QMainWindow
 
     from .profile_types import ReaderProfile
+
+    class _PluginIdentifier(Protocol):
+        """Optional third-party QGIS plugin-layer identification interface."""
+
+        def identify(self, point: QgsPointXY) -> tuple[object, Mapping[str, float | str]]:
+            """Return source-band values for the requested coordinate."""
+            ...
 
 
 class DataReaderTool:
@@ -239,7 +249,9 @@ class DataReaderTool:
             value = np.nan
             try:
                 if is_plugin:
-                    result = layer.identify(point)
+                    # Only plugin layers provide identify(); it is not on QgsMapLayer.
+                    plugin_source = cast("_PluginIdentifier", layer)
+                    result = plugin_source.identify(point)
                     value = float(list(result[1].values())[band])
                 elif is_mesh and identifier is not None:
                     matches = identifier.identify(

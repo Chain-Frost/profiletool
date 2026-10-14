@@ -63,6 +63,15 @@ def _not_profilable(_layer: object) -> bool:
     return False
 
 
+def _ignore_progress(_percentage: int) -> None:
+    """Discard progress callbacks in headless sampling tests."""
+
+
+def _same_point(point: object) -> object:
+    """Model QgsGeometry.fromPointXY as an identity mapping for tests."""
+    return point
+
+
 ROOT = Path(__file__).resolve().parents[1]
 ReaderFixture = tuple[types.ModuleType, SimpleNamespace, _CRSFactory]
 
@@ -276,7 +285,7 @@ def test_valid_zero_is_distinct_from_missing_sample(reader_module: ReaderFixture
 
     tool = reader.DataReaderTool()
     tool.profiles = {"layer": Layer(), "band": 1}
-    tool._status_update = lambda _pct: None
+    tool._status_update = _ignore_progress
     values = tool._extractZValues([0, 1], [0, 0])
     assert values[0] == 0.0
     assert math.isnan(values[1])
@@ -424,11 +433,11 @@ def test_mesh_sampling_uses_the_supplied_interface(
             return [SimpleNamespace(mAttributes={"Scalar Value": scalar})]
 
     monkeypatch.setattr(sys.modules["qgis.gui"], "QgsMapToolIdentify", Identifier, raising=False)
-    monkeypatch.setattr(reader, "QgsGeometry", SimpleNamespace(fromPointXY=lambda point: point))
+    monkeypatch.setattr(reader, "QgsGeometry", SimpleNamespace(fromPointXY=_same_point))
     tool = reader.DataReaderTool()
     tool.profiles = {"layer": SimpleNamespace(type=lambda: 3), "band": 0}
     tool.iface = SimpleNamespace(mapCanvas=lambda: canvas)
-    tool._status_update = lambda _percentage: None
+    tool._status_update = _ignore_progress
     values = tool._extractZValues([1.0], [2.0])
     if scalar == "12.5":
         assert values == [12.5]

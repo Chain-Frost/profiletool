@@ -6,10 +6,10 @@ from qgis.core import QgsDistanceArea, QgsProject
 from qgis.gui import QgisInterface
 from qgis.utils import iface
 
-if iface is None:
+desktop_iface = cast("QgisInterface | None", iface)
+if desktop_iface is None:
     message = "Run this script from the QGIS desktop Python console"
     raise RuntimeError(message)
-desktop_iface = cast(QgisInterface, iface)
 vl = desktop_iface.activeLayer()
 canvas = desktop_iface.mapCanvas()
 project = QgsProject.instance()
