@@ -1,0 +1,26 @@
+name: QGIS 3.44 compatibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["fix/profile-correctness-reliability"]
+    paths:
+      - ".github/workflows/qgis-3.44.yml"
+
+jobs:
+  qgis-344-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run actual PyQGIS lifecycle regressions in QGIS 3.44
+        run: |
+          docker run --rm --entrypoint /bin/bash \
+            -e QT_QPA_PLATFORM=offscreen \
+            -e QGIS_PREFIX_PATH=/usr \
+            -e PYTHONPATH=/tests_directory:/usr/share/qgis/python \
+            -v "${GITHUB_WORKSPACE}:/tests_directory/profiletool" \
+            qgis/qgis:3.44.15-noble -euc '
+              python3 -c "from qgis.core import Qgis; print(Qgis.QGIS_VERSION)"
+              python3 -m pytest -q /tests_directory/profiletool/tests/test_qgis_layer_lifecycle.py
+            '
