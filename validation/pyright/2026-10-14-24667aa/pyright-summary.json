@@ -1,0 +1,120 @@
+{
+  "reported_errors": 2291,
+  "collected_errors": 2291,
+  "by_severity": [
+    {
+      "name": "error",
+      "count": 2291
+    }
+  ],
+  "by_rule": [
+    {
+      "name": "reportUnknownMemberType",
+      "count": 1230
+    },
+    {
+      "name": "reportUnknownArgumentType",
+      "count": 350
+    },
+    {
+      "name": "reportUnknownVariableType",
+      "count": 204
+    },
+    {
+      "name": "reportUnknownParameterType",
+      "count": 173
+    },
+    {
+      "name": "reportMissingParameterType",
+      "count": 170
+    },
+    {
+      "name": "reportOptionalMemberAccess",
+      "count": 78
+    },
+    {
+      "name": "reportAttributeAccessIssue",
+      "count": 55
+    },
+    {
+      "name": "reportUnknownLambdaType",
+      "count": 13
+    },
+    {
+      "name": "reportArgumentType",
+      "count": 6
+    },
+    {
+      "name": "reportPrivateUsage",
+      "count": 3
+    },
+    {
+      "name": "reportConstantRedefinition",
+      "count": 2
+    },
+    {
+      "name": "reportOptionalIterable",
+      "count": 2
+    },
+    {
+      "name": "reportPossiblyUnboundVariable",
+      "count": 2
+    },
+    {
+      "name": "reportPrivateImportUsage",
+      "count": 1
+    },
+    {
+      "name": "reportUnnecessaryIsInstance",
+      "count": 1
+    },
+    {
+      "name": "reportUntypedBaseClass",
+      "count": 1
+    }
+  ],
+  "by_file": [
+    {
+      "name": "ui/ptdockwidget.py",
+      "count": 520
+    },
+    {
+      "name": "tools/plottingtool.py",
+      "count": 471
+    },
+    {
+      "name": "tools/profiletool_core.py",
+      "count": 355
+    },
+    {
+      "name": "tools/dataReaderTool.py",
+      "count": 293
+    },
+    {
+      "name": "tools/tableviewtool.py",
+      "count": 251
+    },
+    {
+      "name": "tests/test_profile_regressions.py",
+      "count": 204
+    },
+    {
+      "name": "tools/ptmaptool.py",
+      "count": 152
+    },
+    {
+      "name": "tests/test_qgis_layer_lifecycle.py",
+      "count": 24
+    },
+    {
+      "name": "tests/test_dist.py",
+      "count": 18
+    },
+    {
+      "name": "tools/selectlinetool.py",
+      "count": 3
+    }
+  ],
+  "unresolved_imports_by_file": [],
+  "note": "Collected diagnostics only. No QGIS types are simulated or warnings suppressed."
+}
