@@ -56,10 +56,10 @@ from ..tools.plottingtool import PlottingTool
 from ..tools.tableviewtool import TableViewTool, layer_from_model
 
 try:
-    import matplotlib
-    from matplotlib import *
+    import matplotlib as mpl
 
-    matplotlib_loaded = True
+    # The dock needs only availability, not a star import into its namespace.
+    matplotlib_loaded = bool(mpl.__version__)
 except ImportError:
     matplotlib_loaded = False
 

@@ -43,7 +43,7 @@ pg.setConfigOption("background", "w")
 
 
 try:
-    import matplotlib
+    import matplotlib as mpl
     from matplotlib import rc
 
     has_mpl = True
@@ -124,7 +124,7 @@ class PlottingTool:
             fig = Figure(
                 (1.0, 1.0),
                 linewidth=0.0,
-                subplotpars=matplotlib.figure.SubplotParams(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0),
+                subplotpars=mpl.figure.SubplotParams(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0),
             )
 
             font = {"family": "arial", "weight": "normal", "size": 12}
