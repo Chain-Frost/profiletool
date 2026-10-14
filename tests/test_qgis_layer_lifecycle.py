@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Iterable
+from traceback import format_exception
 from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, cast
@@ -98,7 +99,9 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(monkeypatch
         exported_features = cast(Iterable[QgsFeature], temporary_layer.getFeatures())
         assert [feature["Value"] for feature in exported_features] == list(profile["z"])
         project.removeMapLayer(temporary_layer.id())
-        assert not callback_errors
+        assert not callback_errors, [
+            "".join(format_exception(kind, value, traceback)) for kind, value, traceback in callback_errors
+        ]
         tracking_connections = dock.checkBox_mpl_tracking.receivers(dock.checkBox_mpl_tracking.stateChanged)
         for _ in range(2):
             for index in range(dock.cboLibrary.count()):

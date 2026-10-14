@@ -6,6 +6,7 @@ on:
     branches: ["fix/profile-correctness-reliability"]
     paths:
       - ".github/workflows/qgis-3.44.yml"
+      - "tests/test_qgis_layer_lifecycle.py"
 
 jobs:
   qgis-344-regression:
