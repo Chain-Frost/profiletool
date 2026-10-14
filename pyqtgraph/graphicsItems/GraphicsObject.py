@@ -17,21 +17,7 @@ class GraphicsObject(GraphicsItem, QtWidgets.QGraphicsObject):
         GraphicsItem.__init__(self)
         
     def itemChange(self, change, value):
-        # QGIS 3.44's PyQt5 SIP bindings sometimes pass an opaque QVariant
-        # for the already-completed parent/scene notifications. Their return
-        # value is ignored by Qt; passing the QVariant through SIP again raises
-        # a conversion error, including when calling QVariant.value().
-        if (QT_LIB == 'PyQt5' and isinstance(value, QtCore.QVariant)
-                and change in [self.GraphicsItemChange.ItemParentHasChanged,
-                               self.GraphicsItemChange.ItemSceneHasChanged]):
-            ret = None
-        else:
-            ret = super().itemChange(change, value)
-        # Restore pyqtgraph's original PyQt5 SIP parent-item workaround.
-        # SIP needs a base QGraphicsItem wrapper when Qt changes a parent.
-        if QT_LIB == 'PyQt5' and change == self.GraphicsItemChange.ItemParentChange and isinstance(ret, QtWidgets.QGraphicsItem):
-            from ..Qt import sip
-            ret = sip.cast(ret, QtWidgets.QGraphicsItem)
+        ret = super().itemChange(change, value)
         if change in [self.GraphicsItemChange.ItemParentHasChanged, self.GraphicsItemChange.ItemSceneHasChanged]:
             if self.__class__.__dict__.get('parentChanged') is not None:
                 # user's GraphicsObject subclass has a parentChanged() method
