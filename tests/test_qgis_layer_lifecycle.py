@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Iterable
-from traceback import format_exception
 from pathlib import Path
+from traceback import format_exception
 from types import TracebackType
 from typing import TYPE_CHECKING, cast
 
@@ -46,6 +46,8 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(monkeypatch
         kind: type[BaseException], value: BaseException, traceback: TracebackType | None
     ) -> None:
         callback_errors.append((kind, value, traceback))
+        # Expose native Qt callback failures in headless QGIS CI logs.
+        print("QGIS callback exception:\\n" + "".join(format_exception(kind, value, traceback)), file=sys.stderr)
 
     monkeypatch.setattr(sys, "excepthook", capture_callback_error)
     iface = get_iface()

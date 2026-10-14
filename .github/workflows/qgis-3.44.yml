@@ -23,5 +23,5 @@ jobs:
             -v "${GITHUB_WORKSPACE}:/tests_directory/profiletool" \
             qgis/qgis:3.44.15-noble -euc '
               python3 -c "from qgis.core import Qgis; print(Qgis.QGIS_VERSION)"
-              python3 -m pytest -q /tests_directory/profiletool/tests/test_qgis_layer_lifecycle.py
+              python3 -m pytest -s -q /tests_directory/profiletool/tests/test_qgis_layer_lifecycle.py
             '
