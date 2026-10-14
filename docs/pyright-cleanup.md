@@ -158,7 +158,7 @@ cleanup errors, and layer IDs/CRS were restored. Evidence is recorded in the
 ignored `validation_artifacts/qgis-desktop/interaction-report.json` and
 `distance-report.json`. Native CRS unit checks are recorded in
 `native-units-report.json`. Human hardware clicks and visual export inspection
-remain manual. QGIS 3.44 compatibility has not been tested. The reader and
+remain manual. QGIS 3.44 was subsequently smoke-tested using the official Linux Docker image. One QGIS lifecycle test passes; the other **fails** due to PyQt5 QVariant conversion during vendored PyQtGraph graphics-item changes. See [the QGIS 3.44 compatibility blocker](qgis-3.44-compatibility.md). Full QGIS 3.44 desktop scenarios remain unverified. The reader and
 plotting follow-up has not been committed or pushed; hosted CI has not been
 verified for this batch. The
 separate report-sharing branch is unchanged.
@@ -184,3 +184,12 @@ findings. Typing the reader and plotting boundaries is the next useful step.
 See the [full Pyright reproduction commands](../README.md#full-pyright-diagnostic-triage)
 and the [desktop validation checklist](validation-matrix.md) for separate
 validation workflows.
+
+
+## Committed-head Pyright follow-on and QGIS 3.44 compatibility
+
+The uploaded strict Pyright JSON, summary and metadata independently verify **167 errors, zero warnings** at clean committed `c540dd12` under QGIS **4.2.3**, Python **3.12.15**, and Pyright **1.1.414**. This report supersedes the earlier working-tree-only count and does not imply that the latest head has been recounted.
+
+The follow-on commits after `c540dd12` have typed the optional plugin-layer `identify` boundary, QGIS geometry polyline-return contracts and Qt plot-selection callback. They also replaced untyped headless-test lambdas. Both GitHub quality runs pass (19 headless tests and zero headless strict Pyright errors); **full local strict Pyright has not been rerun at this later head**.
+
+A new independently running QGIS **3.44.15/PyQt5** container test exposed an actual graphics callback error in bundled PyQtGraph. It remains a **failed compatibility gate**, not a successful QGIS 3.44 validation. Unverified vendor modifications were reverted; documentation and reproduction instructions are in [qgis-3.44-compatibility.md](qgis-3.44-compatibility.md).
