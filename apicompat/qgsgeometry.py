@@ -1,3 +1,5 @@
+"""Historical geometry API compatibility definitions."""
+
 import qgis.core
 
 # fromPoint() was renamed to fromPointXY() in QGis3

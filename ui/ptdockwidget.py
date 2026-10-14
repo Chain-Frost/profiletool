@@ -22,6 +22,8 @@
 #
 # ---------------------------------------------------------------------
 
+"""Implement the interactive Profile Tool dock widget."""
+
 import os
 from contextlib import suppress
 

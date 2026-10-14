@@ -1,4 +1,6 @@
 
+"""Historical map-layer API compatibility definitions."""
+
 import qgis.core
 
 

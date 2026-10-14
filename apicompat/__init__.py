@@ -1,3 +1,5 @@
+"""Legacy compatibility imports for older QGIS APIs."""
+
 import qgis.utils
 
 # Based on qgis2compat plugin from opengis.ch

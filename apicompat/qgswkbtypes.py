@@ -1,4 +1,6 @@
 
+"""Historical geometry-type compatibility definitions."""
+
 import qgis.core
 
 

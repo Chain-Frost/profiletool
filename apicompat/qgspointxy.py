@@ -1,4 +1,6 @@
 
+"""Historical point API compatibility definitions."""
+
 import qgis.core
 
 # log('Monkeypatching QgsPointXY')
