@@ -4,15 +4,31 @@ Measured on 14 October 2026 using the configured OSGeo4W Python 3.12 / QGIS
 4.2.1 environment and matching PyQt6 type definitions.
 
 Full strict Pyright decreased from **2,259 errors at commit `84b3ed3`** to
-**808 errors in the working tree**, with zero warnings: 1,451 fewer errors.
+**511 errors in the working tree**, with zero warnings: 1,748 fewer errors.
 The first batch reduced the count to 1,857 and was committed as `1e0a667`.
 The subsequent reader, plotting, table-model, map-tool, core and UI work removes
-another 1,049 errors.
+another 1,346 errors.
 The working-tree result includes uncommitted changes and is not a hosted CI
 result. Generated reports remain local and ignored.
 
 ## Changes
 
+- Typed vector candidate rows, DXF vertex runs and headless coordinate fixtures.
+  Documented QGIS's iterable feature-iterator contract despite its optional
+  `__iter__` stub, updated map-tool enum access and guarded missing plot widgets.
+- Guarded incomplete source-table items and missing layer providers/message
+  bars. Typed the dynamically loaded math-test module with its actual profiler
+  signatures rather than leaving the fixture's calls unknown.
+- Fixed Matplotlib cursor tracking at zero chainage and replaced removed
+  `axes.lines.remove` usage with the artist's `remove()` method. An isolated
+  QGIS regression checks cursor replacement and tracking-disable cleanup.
+- Guarded missing plot objects during export and cursor callbacks. Typed the
+  mouse-click scene-coordinate contract, and removed an ineffective attempt
+  to disconnect a callback on the plotting helper rather than its owning core.
+- Typed object-dtype interpolation arrays and geometry inputs, and centralized
+  the reader's required project lookup. Mesh identification uses the supplied
+  interface's canvas and explicit imports; a headless regression checks this
+  while global `iface` is unset.
 - Typed dock-widget handlers and plotting/export inputs, preserving established
   names. Guarded missing layout items, headers, signal senders and clipboards.
 - Fixed temporary-layer export's Qt 6 field enum (`QMetaType.Type.Double`).
@@ -62,10 +78,10 @@ remain acceptable after checking callers and compatibility.
 | --- | --- |
 | Scoped CI Ruff | Passed |
 | CI-scoped strict Pyright | Zero errors and warnings |
-| Headless CI regression suite | 13 passed |
-| Tests in isolated QGIS processes | 15 passed |
-| Full strict Pyright | 808 errors, zero warnings |
-| Full Ruff inventory | 340 findings remain after legacy naming exemptions |
+| Headless CI regression suite | 14 passed |
+| Tests in isolated QGIS processes | 16 passed |
+| Full strict Pyright | 511 errors, zero warnings |
+| Full Ruff inventory | 296 findings remain after legacy naming exemptions |
 | Formatting of changed Python files | Passed |
 
 The isolated QGIS run used `QT_QPA_PLATFORM=offscreen` and excluded

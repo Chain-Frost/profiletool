@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import Sequence
-from contextlib import suppress
 from math import sqrt
 from typing import TYPE_CHECKING
 
@@ -164,6 +163,8 @@ class PlottingTool:
         return None
 
     def drawVertLine(self, wdg: PTDockWidget, pointstoDraw: Sequence[Sequence[float]], library: str | None) -> None:
+        if wdg.plotWdg is None:
+            return
         if library == "PyQtGraph":
             pass
         elif library == "Matplotlib" and has_mpl:
@@ -254,6 +255,8 @@ class PlottingTool:
         return max(float(z) for z in values if z is not None and np.isfinite(z))
 
     def plotRangechanged(self, wdg: PTDockWidget, library: str | None) -> None:
+        if wdg.plotWdg is None:
+            return
 
         if library == "PyQtGraph":
             range = wdg.plotWdg.getViewBox().viewRange()
@@ -315,8 +318,7 @@ class PlottingTool:
             pitems = plot_item.listDataItems()
             for item in pitems:
                 wdg.plotWdg.removeItem(item)
-            with suppress(Exception):  # Signal may not be connected to this instance.
-                wdg.plotWdg.scene().sigMouseMoved.disconnect(self.mouseMoved)
+            # Mouse callbacks belong to ProfileToolCore, which manages them.
 
         elif library == "Matplotlib" and has_mpl:
             wdg.plotWdg.figure.get_axes()[0].cla()
@@ -413,11 +415,15 @@ class PlottingTool:
         )
 
     def outPrint(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+        if wdg.plotWdg is None:
+            return
         name = "Profile"
         # Postscript file rendering doesn't work properly yet.
         for i in range(mdl.rowCount()):
-            if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
-                name = str(mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
+            checked_item = mdl.item(i, 0)
+            name_item = mdl.item(i, 2)
+            if checked_item is not None and name_item is not None and checked_item.data(Qt.ItemDataRole.CheckStateRole):
+                name = str(name_item.data(Qt.ItemDataRole.EditRole))
         fileName = getSaveFileName(
             iface.mainWindow(), "Save As", "Profile of " + name + ".ps", "PostScript Format (*.ps)"
         )
@@ -426,10 +432,14 @@ class PlottingTool:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
     def outPDF(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+        if wdg.plotWdg is None:
+            return
         name = "Profile"
         for i in range(mdl.rowCount()):
-            if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
-                name = str(mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
+            checked_item = mdl.item(i, 0)
+            name_item = mdl.item(i, 2)
+            if checked_item is not None and name_item is not None and checked_item.data(Qt.ItemDataRole.CheckStateRole):
+                name = str(name_item.data(Qt.ItemDataRole.EditRole))
                 break
         fileName = getSaveFileName(
             iface.mainWindow(),
@@ -442,6 +452,8 @@ class PlottingTool:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
     def outSVG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+        if wdg.plotWdg is None:
+            return
         fileName = getSaveFileName(
             parent=iface.mainWindow(),
             caption="Save As",
@@ -473,6 +485,8 @@ class PlottingTool:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
     def outPNG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+        if wdg.plotWdg is None:
+            return
         fileName = getSaveFileName(
             parent=iface.mainWindow(),
             caption="Save As",
@@ -524,7 +538,7 @@ class PlottingTool:
                     for x, y, elevation in zip(profile["x"], profile["y"], profile["z"])
                 ]
             # NoData gaps must not become fictitious connecting lines.
-            part = []
+            part: list[tuple[float, float, float]] = []
             for vertex in vertices + [None]:
                 if vertex is None:
                     if len(part) >= 2:

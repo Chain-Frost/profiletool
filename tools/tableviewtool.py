@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING
 
 from qgis.core import Qgis, QgsMapLayer, QgsProject, QgsRasterLayer, QgsVectorLayer
 from qgis.PyQt.QtCore import QModelIndex, QObject, Qt, pyqtSignal
-from qgis.PyQt.QtGui import QColor, QStandardItemModel
+from qgis.PyQt.QtGui import QColor, QStandardItem, QStandardItemModel
 from qgis.PyQt.QtWidgets import QColorDialog, QInputDialog, QMessageBox
 
 if TYPE_CHECKING:
@@ -46,20 +46,32 @@ def layer_from_model(model: QStandardItemModel, row: int) -> QgsMapLayer | None:
     """Resolve a source ID through the project, avoiding deleted Qt wrappers."""
     item = model.item(row, 5)
     layer_id = item.data(Qt.ItemDataRole.EditRole) if item else None
-    return QgsProject.instance().mapLayer(layer_id) if isinstance(layer_id, str) else None
+    project = QgsProject.instance()
+    return project.mapLayer(layer_id) if project is not None and isinstance(layer_id, str) else None
+
+
+def _model_item(model: QStandardItemModel, row: int, column: int) -> QStandardItem:
+    """Return an item after its value has been populated in the layer table."""
+    item = model.item(row, column)
+    if item is None:
+        raise RuntimeError("Profile layer table item was not created")
+    return item
 
 
 class TableViewTool(QObject):
-    layerAddedOrRemoved = pyqtSignal()  # Emitted when a new layer is added
+    layerAddedOrRemoved = pyqtSignal()  # Established Qt signal API; naming exempted in ruff.toml.
 
     def addLayer(self, iface: QgisInterface, mdl: QStandardItemModel, layer1: QgsMapLayer | None = None) -> int | None:
         if layer1 is None:
+            canvas = iface.mapCanvas()
+            if canvas is None:
+                return None
             templist: list[tuple[QgsMapLayer, str]] = []
             j = 0
             # Ask the layer by a input dialog
-            for i in range(iface.mapCanvas().layerCount()):
+            for i in range(canvas.layerCount()):
                 donothing = False
-                layer = iface.mapCanvas().layer(i)
+                layer = canvas.layer(i)
                 if layer is None:
                     continue
                 if isProfilable(layer):
@@ -179,7 +191,7 @@ class TableViewTool(QObject):
         row = mdl.rowCount()
         mdl.insertRow(row)
         mdl.setData(mdl.index(row, 0, QModelIndex()), True, Qt.ItemDataRole.CheckStateRole)
-        mdl.item(row, 0).setFlags(Qt.ItemFlag.ItemIsSelectable)
+        _model_item(mdl, row, 0).setFlags(Qt.ItemFlag.ItemIsSelectable)
         lineColour = Qt.GlobalColor.red
         # QGis2
         if (
@@ -189,26 +201,27 @@ class TableViewTool(QObject):
         ):
             lineColour = Qt.GlobalColor.blue
         mdl.setData(mdl.index(row, 1, QModelIndex()), QColor(lineColour), Qt.ItemDataRole.BackgroundRole)
-        mdl.item(row, 1).setFlags(Qt.ItemFlag.NoItemFlags)
+        _model_item(mdl, row, 1).setFlags(Qt.ItemFlag.NoItemFlags)
         mdl.setData(mdl.index(row, 2, QModelIndex()), layer2.name())
-        mdl.item(row, 2).setFlags(Qt.ItemFlag.NoItemFlags)
+        _model_item(mdl, row, 2).setFlags(Qt.ItemFlag.NoItemFlags)
         if layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "selafin_viewer":
             mdl.setData(mdl.index(row, 3, QModelIndex()), choosenBand + self.bandoffset)
         else:
             mdl.setData(mdl.index(row, 3, QModelIndex()), choosenBand + self.bandoffset)
-            mdl.item(row, 3).setFlags(Qt.ItemFlag.NoItemFlags)
+            _model_item(mdl, row, 3).setFlags(Qt.ItemFlag.NoItemFlags)
 
         if layer2.type() == Qgis.LayerType.Vector:
             # Buffer distance is expressed in project CRS units: degrees in
             # geographic projects, linear units in projected projects.
-            default_buffer = 0.001 if QgsProject.instance().crs().isGeographic() else 100.0
+            project = QgsProject.instance()
+            default_buffer = 0.001 if project is not None and project.crs().isGeographic() else 100.0
             mdl.setData(mdl.index(row, 4, QModelIndex()), default_buffer)
         else:
             mdl.setData(mdl.index(row, 4, QModelIndex()), "")
-            mdl.item(row, 4).setFlags(Qt.ItemFlag.NoItemFlags)
+            _model_item(mdl, row, 4).setFlags(Qt.ItemFlag.NoItemFlags)
 
         mdl.setData(mdl.index(row, 5, QModelIndex()), layer2.id())
-        mdl.item(row, 5).setFlags(Qt.ItemFlag.NoItemFlags)
+        _model_item(mdl, row, 5).setFlags(Qt.ItemFlag.NoItemFlags)
         self.layerAddedOrRemoved.emit()
         return None
 

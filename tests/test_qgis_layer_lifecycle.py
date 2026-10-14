@@ -97,6 +97,25 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(monkeypatch
             for index in range(dock.cboLibrary.count()):
                 dock.cboLibrary.setCurrentIndex(index)
                 dock.refreshPlot()
+                if dock.cboLibrary.currentText() == "Matplotlib":
+                    from matplotlib.backend_bases import MouseEvent
+
+                    plot = dock.plotWdg
+                    assert plot is not None
+                    axes = plot.figure.get_axes()[0]
+                    before_lines = len(axes.lines)
+                    event = MouseEvent("motion_notify_event", plot, 0, 0)
+                    event.xdata = 0.0
+                    core.mouseevent_mpl(event)
+                    assert core.x_cursor == 0.0
+                    assert len(axes.lines) == before_lines + 1
+                    event.xdata = 1.0
+                    core.mouseevent_mpl(event)
+                    assert len(axes.lines) == before_lines + 1
+                    core.activateMouseTracking(0)
+                    assert core.vline is None
+                    assert len(axes.lines) == before_lines
+                    core.activateMouseTracking(2)
         assert dock.checkBox_mpl_tracking.receivers(dock.checkBox_mpl_tracking.stateChanged) == tracking_connections
         ids = [layer.id() for layer in layers]
         first_source = dock.mdl.item(0, 5)

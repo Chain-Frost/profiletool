@@ -29,7 +29,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, cast
 
-from qgis.core import QgsGeometry, QgsMapLayer, QgsPointXY, QgsVectorLayer, QgsWkbTypes
+from qgis.core import Qgis, QgsGeometry, QgsMapLayer, QgsPointXY, QgsVectorLayer
 from qgis.gui import (
     QgsMapCanvas,
     QgsMapMouseEvent,
@@ -61,14 +61,14 @@ class ProfiletoolMapToolRenderer:
         self.isPlotting = False
         self._signals_connected = False
         # the rubberband
-        self.rubberband = QgsRubberBand(self.iface.mapCanvas(), QgsWkbTypes.GeometryType.LineGeometry)
+        self.rubberband = QgsRubberBand(self.canvas, Qgis.GeometryType.Line)
         self.rubberband.setWidth(2)
         self.rubberband.setColor(QColor(Qt.GlobalColor.red))
 
         self.rubberbandpoint = QgsVertexMarker(self.iface.mapCanvas())
         self.rubberbandpoint.setColor(QColor(Qt.GlobalColor.red))
         self.rubberbandpoint.setIconSize(5)
-        self.rubberbandpoint.setIconType(QgsVertexMarker.ICON_BOX)  # or ICON_CROSS, ICON_X
+        self.rubberbandpoint.setIconType(QgsVertexMarker.IconType.ICON_BOX)
         self.rubberbandpoint.setPenWidth(3)
 
         self.rubberbandbuf = QgsRubberBand(self.iface.mapCanvas())
@@ -82,7 +82,7 @@ class ProfiletoolMapToolRenderer:
         self.setSelectionMethod(0)
 
     def resetRubberBand(self) -> None:
-        self.rubberband.reset(QgsWkbTypes.GeometryType.LineGeometry)
+        self.rubberband.reset(Qgis.GeometryType.Line)
 
     def updateRubberBand(self) -> None:
         self.resetRubberBand()

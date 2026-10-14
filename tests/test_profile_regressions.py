@@ -8,14 +8,36 @@ import sys
 import types
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, Protocol, cast
 
 import numpy as np
 import pytest
 
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+    from profiletool.tools.profilers import ProfileData, ProfileSeries
+
+
+class _ProfileMath(Protocol):
+    """Math functions exposed by the dynamically loaded regression module."""
+
+    def slopes_pct(self, p: ProfileData) -> tuple[ProfileSeries, NDArray[np.float64]]: ...
+
+    def slopes_deg(self, p: ProfileData) -> tuple[ProfileSeries, NDArray[np.float64]]: ...
+
+
+class _Coordinates(Protocol):
+    """Coordinate access used when copying points in the headless fixture."""
+
+    def x(self) -> float: ...
+
+    def y(self) -> float: ...
+
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _load(name: str, path: Path):
+def _load(name: str, path: Path) -> types.ModuleType:
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -24,31 +46,31 @@ def _load(name: str, path: Path):
 
 
 @pytest.fixture
-def profilers():
-    return _load("_profile_math_regression", ROOT / "tools" / "profilers.py")
+def profilers() -> _ProfileMath:
+    return cast(_ProfileMath, _load("_profile_math_regression", ROOT / "tools" / "profilers.py"))
 
 
-def test_grade_two_points(profilers):
+def test_grade_two_points(profilers: _ProfileMath) -> None:
     x, grade = profilers.slopes_pct({"l": [0, 10], "z": [2, 3]})
     np.testing.assert_allclose(x, [0, 10])
     np.testing.assert_allclose(grade, [10, 10])
 
 
-def test_missing_elevations_are_not_fabricated_zero_slopes(profilers):
+def test_missing_elevations_are_not_fabricated_zero_slopes(profilers: _ProfileMath) -> None:
     _, grade = profilers.slopes_pct({"l": [0, 1, 2, 3, 4], "z": [2, 3, np.nan, 6, 7]})
     assert np.isfinite(grade[0])
     assert np.isnan(grade[1:4]).all()
     assert np.isfinite(grade[4])
 
 
-def test_duplicate_chainage_is_not_assigned_zero_slope(profilers):
+def test_duplicate_chainage_is_not_assigned_zero_slope(profilers: _ProfileMath) -> None:
     _, grade = profilers.slopes_pct({"l": [0, 1, 1, 2], "z": [0, 2, 2, 4]})
     assert np.isnan(grade[1:3]).all()
     assert grade[0] == pytest.approx(200)
     assert grade[3] == pytest.approx(200)
 
 
-def test_single_or_empty_profiles(profilers):
+def test_single_or_empty_profiles(profilers: _ProfileMath) -> None:
     for samples in ([], [0]):
         x, grades = profilers.slopes_pct({"l": samples, "z": samples})
         assert len(x) == len(grades)
@@ -57,7 +79,7 @@ def test_single_or_empty_profiles(profilers):
 
 
 @pytest.fixture
-def reader_module(monkeypatch):
+def reader_module(monkeypatch: pytest.MonkeyPatch):
     # Stub the minimal PyQGIS surface required to import the sampling module.
     qgis = types.ModuleType("qgis")
     qgis.__path__ = []
@@ -68,23 +90,28 @@ def reader_module(monkeypatch):
     qtcore.QCoreApplication = SimpleNamespace(translate=lambda _context, msg: msg)
 
     class Point:
-        def __init__(self, x, y=None) -> None:
-            self._x, self._y = (x.x(), x.y()) if y is None else (x, y)
+        def __init__(self, x: float | _Coordinates, y: float | None = None) -> None:
+            if isinstance(x, (int, float)):
+                if y is None:
+                    raise ValueError("Numeric point construction requires both coordinates")
+                self._x, self._y = float(x), y
+            else:
+                self._x, self._y = x.x(), x.y()
 
-        def x(self):
+        def x(self) -> float:
             return self._x
 
-        def y(self):
+        def y(self) -> float:
             return self._y
 
     class ProjectCrs:
-        def __init__(self, geographic=False) -> None:
+        def __init__(self, geographic: bool = False) -> None:
             self.geographic = geographic
 
-        def isGeographic(self):
+        def isGeographic(self) -> bool:
             return self.geographic
 
-        def mapUnits(self):
+        def mapUnits(self) -> str:
             return "feet" if not self.geographic else "degrees"
 
     project = SimpleNamespace(
@@ -94,13 +121,13 @@ def reader_module(monkeypatch):
     )
 
     class DistanceArea:
-        def setSourceCrs(self, crs, context):
+        def setSourceCrs(self, crs: object, context: object) -> None:
             pass
 
-        def setEllipsoid(self, ellipsoid):
+        def setEllipsoid(self, ellipsoid: str) -> None:
             pass
 
-        def measureLine(self, start, end):
+        def measureLine(self, start: _Coordinates, end: _Coordinates) -> float:
             return math.hypot(end.x() - start.x(), end.y() - start.y()) * 111_000.0
 
     # Explicit PyQGIS imports should be importable without QGIS desktop.
@@ -111,8 +138,13 @@ def reader_module(monkeypatch):
     core.QgsDistanceArea = DistanceArea
     core.QgsPointXY = Point
     core.QgsProject = SimpleNamespace(instance=lambda: project)
-    core.Qgis = SimpleNamespace(DistanceUnit=SimpleNamespace(Meters="metres"))
-    core.QgsUnitTypes = SimpleNamespace(fromUnitToUnitFactor=lambda source, _target: 0.3048 if source == "feet" else 1.0)
+    core.Qgis = SimpleNamespace(
+        DistanceUnit=SimpleNamespace(Meters="metres"),
+        LayerType=SimpleNamespace(Raster=1, Plugin=2, Mesh=3),
+    )
+    core.QgsUnitTypes = SimpleNamespace(
+        fromUnitToUnitFactor=lambda source, _target: 0.3048 if source == "feet" else 1.0
+    )
     qgis.core = core
     qgis.gui = types.ModuleType("qgis.gui")
     qgis.utils = SimpleNamespace(iface=None)
@@ -249,7 +281,7 @@ def test_geographic_chainage_dedup_tolerance(reader_module):
     assert len(reader.DataReaderTool().removeDuplicateLenght(array)) == 2
 
 
-def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch):
+def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch: pytest.MonkeyPatch):
     reader, _, _ = reader_module
     core = sys.modules["qgis.core"]
 
@@ -317,8 +349,8 @@ def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch):
     assert feature.geometry().isMultipart()
 
 
-def test_geographic_grade_uses_metre_distance_without_changing_degree_axis(profilers):
-    profile = {
+def test_geographic_grade_uses_metre_distance_without_changing_degree_axis(profilers: _ProfileMath) -> None:
+    profile: ProfileData = {
         "l": [0, 0.01],
         "l_slope": [0, 1000],
         "z": [10, 20],
@@ -326,3 +358,29 @@ def test_geographic_grade_uses_metre_distance_without_changing_degree_axis(profi
     x, grades = profilers.slopes_pct(profile)
     np.testing.assert_allclose(x, [0, 0.01])
     np.testing.assert_allclose(grades, [1, 1])
+
+
+def test_mesh_sampling_uses_the_supplied_interface(reader_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mesh identify must use the reader's canvas rather than global iface state."""
+    reader, _project, _crs = reader_module
+    canvas = object()
+    received_canvases: list[object] = []
+
+    class Identifier:
+        IdentifyMode = SimpleNamespace(DefaultQgsSetting=0)
+        Type = SimpleNamespace(MeshLayer=3)
+
+        def __init__(self, selected_canvas: object) -> None:
+            received_canvases.append(selected_canvas)
+
+        def identify(self, *_args: object) -> list[SimpleNamespace]:
+            return [SimpleNamespace(mAttributes={"Scalar Value": "12.5"})]
+
+    monkeypatch.setattr(sys.modules["qgis.gui"], "QgsMapToolIdentify", Identifier, raising=False)
+    monkeypatch.setattr(reader, "QgsGeometry", SimpleNamespace(fromPointXY=lambda point: point))
+    tool = reader.DataReaderTool()
+    tool.profiles = {"layer": SimpleNamespace(type=lambda: 3), "band": 0}
+    tool.iface = SimpleNamespace(mapCanvas=lambda: canvas)
+    tool._status_update = lambda _percentage: None
+    assert tool._extractZValues([1.0], [2.0]) == [12.5]
+    assert received_canvases == [canvas]

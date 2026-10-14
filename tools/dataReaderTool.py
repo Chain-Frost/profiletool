@@ -26,11 +26,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
-import qgis
 from qgis.core import (
     Qgis,
     QgsCoordinateTransform,
@@ -46,7 +45,13 @@ from qgis.PyQt.QtCore import QCoreApplication
 from .utils import isProfilable
 
 if TYPE_CHECKING:
-    from qgis.core import QgsRasterDataProvider, QgsRasterLayer, QgsVectorLayer
+    from numpy.typing import NDArray
+    from qgis.core import (
+        QgsFeature,
+        QgsRasterDataProvider,
+        QgsRasterLayer,
+        QgsVectorLayer,
+    )
     from qgis.gui import QgisInterface, QgsMapTool
     from qgis.PyQt.QtWidgets import QMainWindow
 
@@ -55,6 +60,14 @@ if TYPE_CHECKING:
 
 class DataReaderTool:
     """Read elevations and construct source-aware profile arrays."""
+
+    @staticmethod
+    def _project() -> QgsProject:
+        """Return the active project required for coordinate transformations."""
+        project = QgsProject.instance()
+        if project is None:
+            raise RuntimeError("Profile sampling requires an active QGIS project")
+        return project
 
     def dataRasterReaderTool(
         self,
@@ -93,7 +106,7 @@ class DataReaderTool:
 
             if resolution_mode == "samples":
                 steps = 1
-            elif layer.type() == layer.RasterLayer:
+            elif layer.type() == Qgis.LayerType.Raster:
                 raster_layer = cast("QgsRasterLayer", layer)
                 pixel_x = abs(raster_layer.rasterUnitsPerPixelX())
                 pixel_y = abs(raster_layer.rasterUnitsPerPixelY())
@@ -146,7 +159,7 @@ class DataReaderTool:
     @staticmethod
     def _project_distance_scale() -> float:
         """Conversion from project map units to plotted chainage units."""
-        project_crs = QgsProject.instance().crs()
+        project_crs = DataReaderTool._project().crs()
         if project_crs.isGeographic():
             return 1.0  # degrees, matching the geographic project CRS
         return QgsUnitTypes.fromUnitToUnitFactor(project_crs.mapUnits(), Qgis.DistanceUnit.Meters)
@@ -160,7 +173,7 @@ class DataReaderTool:
         """
         if not project_points:
             return []
-        project = QgsProject.instance()
+        project = DataReaderTool._project()
         if not project.crs().isGeographic():
             return chainages
         distance = QgsDistanceArea()
@@ -175,7 +188,7 @@ class DataReaderTool:
     @staticmethod
     def _project_chainage_tolerance() -> float:
         """Tolerance in native project map units (not always metres)."""
-        project_crs = QgsProject.instance().crs()
+        project_crs = DataReaderTool._project().crs()
         if project_crs.isGeographic():
             return 1e-8  # Avoid treating separate locations as duplicates.
         return 0.01 / DataReaderTool._project_distance_scale()
@@ -196,9 +209,15 @@ class DataReaderTool:
         if not x:
             return values
 
-        is_plugin = layer.type() == layer.PluginLayer and isProfilable(layer)
-        is_mesh = layer.type() == layer.MeshLayer
-        identifier = qgis.gui.QgsMapToolIdentify(qgis.utils.iface.mapCanvas()) if is_mesh else None
+        is_plugin = layer.type() == Qgis.LayerType.Plugin and isProfilable(layer)
+        is_mesh = layer.type() == Qgis.LayerType.Mesh
+        identifier = None
+        if is_mesh:
+            from qgis.gui import QgsMapToolIdentify
+
+            canvas = self.iface.mapCanvas()
+            if canvas is not None:
+                identifier = QgsMapToolIdentify(canvas)
         mesh_field = QCoreApplication.translate("QgsMapToolIdentify", "Scalar Value")
         # Non-plugin/non-mesh sources reach this method through the raster path.
         provider = cast("QgsRasterDataProvider | None", layer.dataProvider()) if not (is_plugin or is_mesh) else None
@@ -210,12 +229,12 @@ class DataReaderTool:
                 if is_plugin:
                     result = layer.identify(point)
                     value = float(list(result[1].values())[band])
-                elif is_mesh:
+                elif is_mesh and identifier is not None:
                     matches = identifier.identify(
                         QgsGeometry.fromPointXY(point),
-                        qgis.gui.QgsMapToolIdentify.DefaultQgsSetting,
+                        identifier.IdentifyMode.DefaultQgsSetting,
                         [layer],
-                        qgis.gui.QgsMapToolIdentify.MeshLayer,
+                        identifier.Type.MeshLayer,
                     )
                     if matches:
                         value = float(matches[0].mAttributes[mesh_field])
@@ -252,7 +271,7 @@ class DataReaderTool:
             "z": [],
             "x": [],
             "y": [],
-            "crs": QgsProject.instance().crs(),
+            "crs": DataReaderTool._project().crs(),
         }
         if len(pointstoDraw1) < 2:
             return profile, None, None
@@ -263,15 +282,19 @@ class DataReaderTool:
 
         buffer_distance = max(0.0, float(valbuf1))
         buffer_geom = geom.buffer(buffer_distance, 12)
-        project_crs = QgsProject.instance().crs()
+        project_crs = DataReaderTool._project().crs()
         layer_crs = layer.crs()
-        to_layer = QgsCoordinateTransform(project_crs, layer_crs, QgsProject.instance())
-        to_project = QgsCoordinateTransform(layer_crs, project_crs, QgsProject.instance())
+        to_layer = QgsCoordinateTransform(project_crs, layer_crs, DataReaderTool._project())
+        to_project = QgsCoordinateTransform(layer_crs, project_crs, DataReaderTool._project())
         search_geom = QgsGeometry(buffer_geom)
         search_geom.transform(to_layer)
-        candidates = layer.getFeatures(QgsFeatureRequest().setFilterRect(search_geom.boundingBox()))
+        # QGIS's feature iterator is iterable at runtime; its bundled stub marks
+        # __iter__ as optional, so document the actual iteration contract here.
+        candidates = cast(
+            "Iterable[QgsFeature]", layer.getFeatures(QgsFeatureRequest().setFilterRect(search_geom.boundingBox()))
+        )
 
-        projected = []
+        projected_rows: list[list[float | QgsFeature]] = []
         for feature in candidates:
             point_geom = QgsGeometry(feature.geometry())
             if point_geom.isNull() or point_geom.isEmpty():
@@ -289,7 +312,7 @@ class DataReaderTool:
             if not np.isfinite(elevation):
                 continue
             original = point_geom.asPoint()
-            projected.append(
+            projected_rows.append(
                 [
                     distance_along,
                     projected_point.x(),
@@ -303,9 +326,9 @@ class DataReaderTool:
                 ]
             )
 
-        if not projected:
+        if not projected_rows:
             return profile, buffer_geom, QgsGeometry.fromMultiPolylineXY([])
-        projected = np.array(projected, dtype=object)
+        projected: NDArray[np.object_] = np.array(projected_rows, dtype=object)
         projected = self.removeDuplicateLenght(projected)
         projected = self.interpolateNodeofPolyline(geom, projected)
 
@@ -326,7 +349,7 @@ class DataReaderTool:
         multipoly = QgsGeometry.fromMultiPolylineXY(guides)
         return profile, buffer_geom, multipoly
 
-    def removeDuplicateLenght(self, projectedpoints):
+    def removeDuplicateLenght(self, projectedpoints: NDArray[np.object_]) -> NDArray[np.object_]:
         """Keep the point closest to the line for each 0.01-unit chainage group.
 
         Sort and group once, rather than scanning the full array for each point.
@@ -349,7 +372,7 @@ class DataReaderTool:
         return np.array(retained, dtype=object)
 
     # def interpolateNodeofPolyline(self,geom):
-    def interpolateNodeofPolyline(self, geom, projectedpoints):
+    def interpolateNodeofPolyline(self, geom: QgsGeometry, projectedpoints: NDArray[np.object_]) -> NDArray[np.object_]:
         """Interpolate source elevations at unsampled path vertices.
 
         Records include chainage, projected coordinates, distance from the
@@ -409,7 +432,7 @@ class DataReaderTool:
             if i == len(polyline) - 1:
                 break
             vertexpoint_xy = QgsPointXY(geom.vertexAt(i))
-            lenpoly = geom.lineLocatePoint(qgis.core.QgsGeometry.fromPointXY(vertexpoint_xy))
+            lenpoly = geom.lineLocatePoint(QgsGeometry.fromPointXY(vertexpoint_xy))
 
             if min(abs(projectedpoints[:, 0] - lenpoly)) < PRECISION:
                 continue
@@ -422,9 +445,11 @@ class DataReaderTool:
 
         return projectedpoints[projectedpoints[:, 0].argsort()]
 
-    def interpolatePoint(self, vertexpoint, geom, projectedpoints):
+    def interpolatePoint(
+        self, vertexpoint: QgsPointXY, geom: QgsGeometry, projectedpoints: NDArray[np.object_]
+    ) -> list[object] | None:
 
-        lenpoly = geom.lineLocatePoint(qgis.core.QgsGeometry.fromPointXY(vertexpoint))
+        lenpoly = geom.lineLocatePoint(QgsGeometry.fromPointXY(vertexpoint))
 
         previouspointindex = np.max(np.where(projectedpoints[:, 0] <= lenpoly)[0])
         nextpointindex = np.min(np.where(projectedpoints[:, 0] >= lenpoly)[0])

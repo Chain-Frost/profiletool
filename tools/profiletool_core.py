@@ -30,7 +30,7 @@ from __future__ import annotations
 import os
 from collections.abc import Sequence
 from contextlib import suppress
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 import numpy as np
 
@@ -39,14 +39,12 @@ from qgis.core import (
     Qgis,
     QgsFeature,
     QgsGeometry,
-    QgsMapLayer,
     QgsPointXY,
     QgsProject,
     QgsVectorLayer,
-    QgsWkbTypes,
 )
 from qgis.gui import QgisInterface, QgsMapTool
-from qgis.PyQt.QtCore import QSettings, QSignalBlocker, Qt
+from qgis.PyQt.QtCore import QPointF, QSettings, QSignalBlocker, Qt
 from qgis.PyQt.QtGui import QStandardItemModel
 from qgis.PyQt.QtWidgets import QWidget
 
@@ -63,8 +61,15 @@ from .tableviewtool import layer_from_model
 
 if TYPE_CHECKING:
     from matplotlib.backend_bases import MouseEvent
+    from matplotlib.lines import Line2D
 
     from ..profileplugin import ProfilePlugin
+
+
+class _SceneMouseEvent(Protocol):
+    """Scene-coordinate interface supplied by plot mouse-click events."""
+
+    def scenePos(self) -> QPointF: ...  # Match the Qt event API.
 
 
 class ProfileToolCore(QWidget):
@@ -73,6 +78,10 @@ class ProfileToolCore(QWidget):
         self.iface = iface
         self.plugincore = plugincore
         self.instance = QgsProject.instance()
+        if self.instance is None:
+            raise RuntimeError("Profile Tool requires an active QGIS project")
+        self.vline: Line2D | None = None
+        self.cid: int | None = None
 
         # remimber repository for saving
         if QSettings().value("profiletool/lastdirectory") != "":
@@ -141,7 +150,7 @@ class ProfileToolCore(QWidget):
     ) -> None:
         """Read only the selected polyline part; preserve existing QGIS selection."""
         points: list[list[float]] = []
-        if layer and features and self.toolrenderer is not None:
+        if layer is not None and features and self.toolrenderer is not None:
             if SelectLineTool.checkIsPointLayer(layer):
                 for feature in features:
                     geom = feature.geometry()
@@ -167,7 +176,7 @@ class ProfileToolCore(QWidget):
                         break
                     points.extend(converted if not points else converted[1:])
         if self.toolrenderer:
-            self.toolrenderer.pointstoDraw = points.copy()
+            self.toolrenderer.pointstoDraw = list(points)
             self.toolrenderer.updateRubberBand()
         self.updateProfil(points, False, plotProfil)
 
@@ -182,17 +191,21 @@ class ProfileToolCore(QWidget):
 
         for i in range(self.dockwidget.mdl.rowCount()):
             layer = layer_from_model(self.dockwidget.mdl, i)
-            if layer is None:
+            band_item = self.dockwidget.mdl.item(i, 3)
+            if layer is None or band_item is None or self.toolrenderer is None:
                 continue
-            band = self.dockwidget.mdl.item(i, 3).data(Qt.ItemDataRole.EditRole)
+            band = band_item.data(Qt.ItemDataRole.EditRole)
             profile: ReaderProfile = {"layer": layer, "band": band}
-            if layer.type() == QgsMapLayer.VectorLayer:
+            if layer.type() == Qgis.LayerType.Vector:
+                buffer_item = self.dockwidget.mdl.item(i, 4)
+                if buffer_item is None:
+                    continue
                 profile, buffer_geom, guide_geom = DataReaderTool().dataVectorReaderTool(
                     self.iface,
                     self.toolrenderer.tool,
                     profile,
                     self.pointstoDraw,
-                    float(self.dockwidget.mdl.item(i, 4).data(Qt.ItemDataRole.EditRole)),
+                    float(buffer_item.data(Qt.ItemDataRole.EditRole)),
                 )
                 profile["_buffer_geometry"] = buffer_geom
                 profile["_guide_geometry"] = guide_geom
@@ -262,27 +275,27 @@ class ProfileToolCore(QWidget):
         if not np.isfinite(elevation):
             return
 
-        if self.pointLayer is None or not QgsProject.instance().mapLayer(self.pointLayer.id()):
+        if self.pointLayer is None or not self.instance.mapLayer(self.pointLayer.id()):
             self.pointLayer = None
-            for layer in QgsProject.instance().mapLayersByName("profile_points"):
+            for layer in self.instance.mapLayersByName("profile_points"):
                 if not isinstance(layer, QgsVectorLayer):
                     continue
                 fields = {field.name() for field in layer.fields()}
                 if (
-                    layer.geometryType() == QgsWkbTypes.PointGeometry
+                    layer.geometryType() == Qgis.GeometryType.Point
                     and {"d", "z"} <= fields
-                    and layer.crs() == QgsProject.instance().crs()
+                    and layer.crs() == self.instance.crs()
                 ):
                     self.pointLayer = layer
                     break
 
         if self.pointLayer is None:
             self.pointLayer = QgsVectorLayer(
-                "Point?field=z:double&field=d:double&index=yes&crs=" + QgsProject.instance().crs().authid(),
+                "Point?field=z:double&field=d:double&index=yes&crs=" + self.instance.crs().authid(),
                 "profile_points",
                 "memory",
             )
-            QgsProject.instance().addMapLayer(self.pointLayer)
+            self.instance.addMapLayer(self.pointLayer)
             qml_path = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),
                 "profile_points",
@@ -294,14 +307,19 @@ class ProfileToolCore(QWidget):
         feature.setGeometry(QgsGeometry.fromPointXY(point_projected))
         feature["d"] = float(x)
         feature["z"] = float(elevation)
-        self.pointLayer.dataProvider().addFeatures([feature])
+        provider = self.pointLayer.dataProvider()
+        if provider is None:
+            return
+        provider.addFeatures([feature])
         self.pointLayer.updateExtents()
         self.pointLayer.triggerRepaint()
-        self.iface.messageBar().pushMessage(
-            "Profile Tool",
-            'Point added to layer "profile_points"',
-            level=Qgis.Info,
-        )
+        message_bar = self.iface.messageBar()
+        if message_bar is not None:
+            message_bar.pushMessage(
+                "Profile Tool",
+                'Point added to layer "profile_points"',
+                level=Qgis.MessageLevel.Info,
+            )
 
     def updateCursorOnMap(self, x: float | None) -> None:
         self.x_cursor = x
@@ -326,7 +344,7 @@ class ProfileToolCore(QWidget):
             self.toolrenderer.rubberbandpoint.hide()
 
     # remove layers which were removed from QGIS
-    def onLayersRemoved(self, *args):
+    def onLayersRemoved(self, *args: object) -> None:
         self.updateProfil(self.pointstoDraw, False, True)
 
     def removeClosedLayers(self, model1: QStandardItemModel) -> bool:
@@ -357,6 +375,8 @@ class ProfileToolCore(QWidget):
     # ******************************************************************************************
 
     def activateMouseTracking(self, int1: int) -> None:
+        if self.dockwidget.plotWdg is None:
+            return
         if self.dockwidget.TYPE == "PyQtGraph":
             if int1 == 2:
                 self.doTracking = True
@@ -370,20 +390,24 @@ class ProfileToolCore(QWidget):
             elif int1 == 0:
                 self.doTracking = False
                 with suppress(AttributeError, RuntimeError, TypeError):
-                    self.dockwidget.plotWdg.mpl_disconnect(self.cid)
+                    if self.cid is not None:
+                        self.dockwidget.plotWdg.mpl_disconnect(self.cid)
+                        self.cid = None
                 try:
-                    if self.vline:
-                        self.dockwidget.plotWdg.figure.get_axes()[0].lines.remove(self.vline)
+                    if self.vline is not None:
+                        self.vline.remove()
+                        self.vline = None
                         self.dockwidget.plotWdg.draw()
                 except Exception as e:
                     print(str(e))
 
     def mouseevent_mpl(self, event: MouseEvent) -> None:
         """Handle interactive mouse movement in the Matplotlib view."""
-        if event.xdata:
+        if event.xdata is not None and self.dockwidget.plotWdg is not None:
             try:
-                if self.vline:
-                    self.dockwidget.plotWdg.figure.get_axes()[0].lines.remove(self.vline)
+                if self.vline is not None:
+                    self.vline.remove()
+                    self.vline = None
             except Exception:
                 pass
             xdata = float(event.xdata)
@@ -392,21 +416,26 @@ class ProfileToolCore(QWidget):
             self.updateCursorOnMap(xdata)
 
     def enableMouseCoordonates(self, library: str | None) -> None:
+        if self.dockwidget.plotWdg is None:
+            return
         if library == "PyQtGraph":
             self.dockwidget.plotWdg.scene().sigMouseMoved.connect(self.mouseMovedPyQtGraph)
             self.dockwidget.plotWdg.scene().sigMouseClicked.connect(self.mouseClickedPyQtGraph)
             self.dockwidget.plotWdg.getViewBox().autoRange(items=self.dockwidget.plotWdg.getPlotItem().listDataItems())
             self.dockwidget.connectPlotRangechanged()
 
-    def mouseClickedPyQtGraph(self, event):
-        if not self.dockwidget.cbAddPoint.isChecked():
+    def mouseClickedPyQtGraph(self, event: _SceneMouseEvent) -> None:
+        if not self.dockwidget.cbAddPoint.isChecked() or self.dockwidget.plotWdg is None:
             return
         pos = event.scenePos()
         if not self.dockwidget.showcursor or not self.dockwidget.plotWdg.sceneBoundingRect().contains(pos):
             return
         mouse = self.dockwidget.plotWdg.getViewBox().mapSceneToView(pos)
-        best = None
-        for profile, item in zip(self.profiles, self.dockwidget.plotWdg.getPlotItem().listDataItems()):
+        best: tuple[float, float, float] | None = None
+        plot_item = self.dockwidget.plotWdg.getPlotItem()
+        if plot_item is None:
+            return
+        for profile, item in zip(self.profiles, plot_item.listDataItems()):
             if not item.isVisible():
                 continue
             x, y = item.getData()
@@ -423,7 +452,7 @@ class ProfileToolCore(QWidget):
             if best is None or score < best[0]:
                 # Store source z, never the plotted slope percentage or degrees.
                 source_z = profile["z"][index]
-                best = (score, float(x_values[index]), float(source_z))
+                best = (float(score), float(x_values[index]), float(source_z))
         if best is None or not np.isfinite(best[2]):
             return
         x, z = best[1:]
@@ -432,13 +461,17 @@ class ProfileToolCore(QWidget):
             self.distancesPicked.append(x)
 
     def disableMouseCoordonates(self) -> None:
+        if self.dockwidget.plotWdg is None:
+            return
         with suppress(AttributeError, RuntimeError, TypeError):
             self.dockwidget.plotWdg.scene().sigMouseMoved.disconnect(self.mouseMovedPyQtGraph)
         with suppress(AttributeError, RuntimeError, TypeError):
             self.dockwidget.plotWdg.scene().sigMouseClicked.disconnect(self.mouseClickedPyQtGraph)
         self.dockwidget.disconnectPlotRangechanged()
 
-    def mouseMovedPyQtGraph(self, pos):
+    def mouseMovedPyQtGraph(self, pos: QPointF) -> None:
+        if self.dockwidget.plotWdg is None:
+            return
         # si connexion directe du signal "mouseMoved" : la fonction reçoit le point courant
         # si le point est dans la zone courante
         if self.dockwidget.plotWdg.sceneBoundingRect().contains(pos) and self.dockwidget.showcursor:
@@ -447,6 +480,8 @@ class ProfileToolCore(QWidget):
             mousePoint = self.dockwidget.plotWdg.getViewBox().mapSceneToView(pos)
 
             pitems = self.dockwidget.plotWdg.getPlotItem()
+            if pitems is None:
+                return
             ytoplot = None
             xtoplot = None
 

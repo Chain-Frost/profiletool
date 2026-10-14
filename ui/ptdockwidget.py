@@ -240,9 +240,13 @@ class PTDockWidget(QDockWidget, FormClass):
             self.sbMaxVal.valueChanged.disconnect(self.reScalePlot)
 
     def connectPlotRangechanged(self) -> None:
+        if self.plotWdg is None:
+            return
         self.plotWdg.getViewBox().sigRangeChanged.connect(self.plotRangechanged)
 
     def disconnectPlotRangechanged(self) -> None:
+        if self.plotWdg is None:
+            return
         with suppress(AttributeError, RuntimeError, TypeError):
             self.plotWdg.getViewBox().sigRangeChanged.disconnect(self.plotRangechanged)
 
@@ -264,6 +268,8 @@ class PTDockWidget(QDockWidget, FormClass):
                 PlottingTool().reScalePlot(self, self.profiletoolcore.profiles, self.cboLibrary.currentText())
 
     def showCursor(self, int1: int) -> None:
+        if self.plotWdg is None:
+            return
         # For pyqtgraph mode
         if self.plotlibrary == "PyQtGraph":
             if int1 == 2:
@@ -337,7 +343,7 @@ class PTDockWidget(QDockWidget, FormClass):
 
         Aspect-ratio locking is supported only by PyQtGraph.
         """
-        if self.plotlibrary == "PyQtGraph":
+        if self.plotlibrary == "PyQtGraph" and self.plotWdg is not None:
             self.plotWdg.getViewBox().setAspectLocked(state == Qt.CheckState.Checked)
 
     # ********************************************************************************
