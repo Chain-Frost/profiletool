@@ -4,14 +4,22 @@ Measured on 14 October 2026 using the configured OSGeo4W Python 3.12 / QGIS
 4.2.1 environment and matching PyQt6 type definitions.
 
 Full strict Pyright decreased from **2,259 errors at commit `84b3ed3`** to
-**216 errors in the working tree**, with zero warnings: 2,043 fewer errors.
+**167 errors in the working tree**, with zero warnings: 2,092 fewer errors.
 The first batch reduced the count to 1,857 and was committed as `1e0a667`.
 The subsequent reader, plotting, table-model, map-tool, core and UI work removes
-another 1,641 errors.
+another 1,690 errors.
 The working-tree result includes uncommitted changes and is not a hosted CI
 result. Generated reports remain local and ignored.
 
 ## Changes
+
+- Cleared all 49 table-selection diagnostics. Documented the optional Selafin
+  parser boundary, shared its band-ID/name lookup and typed removal labels.
+  Existing IDs, label values, extra row metadata and dialog cancellation codes
+  remain unchanged. A native QGIS plugin-layer contract fixture verified sparse
+  IDs 7/42 through selection, editing and cancellation. The actual external
+  Selafin plugin remains untested. All 21 isolated tests and 17 desktop cases
+  passed again.
 
 - Typed the dock's PyQtGraph plot-item and range-signal boundary and guarded
   missing plot items/view boxes and Matplotlib backend calls. Replaced string
@@ -136,7 +144,7 @@ remain acceptable after checking callers and compatibility.
 | CI-scoped strict Pyright | Zero errors and warnings |
 | Headless CI regression suite | 19 passed |
 | Tests in isolated QGIS processes | 21 passed |
-| Full strict Pyright | 216 errors, zero warnings |
+| Full strict Pyright | 167 errors, zero warnings |
 | Full Ruff inventory | Zero findings with documented compatibility exemptions |
 | EM101, D101, D102, SIM108 | Zero findings |
 | Live QGIS desktop automation through MCP | All 17 cases passed |
@@ -159,8 +167,8 @@ separate report-sharing branch is unchanged.
 
 | Diagnostic category | Count | Typical difficulty |
 | --- | --- | --- |
-| Unknown member/argument/variable/lambda types | 190 | Moderate to hard: QGIS and plotting-library API boundaries |
-| Undeclared attributes | 15 | Moderate to hard: generated stubs and legacy plugin interfaces |
+| Unknown member/argument/variable/lambda types | 155 | Moderate to hard: QGIS and plotting-library API boundaries |
+| Undeclared attributes | 1 | Moderate to hard: generated stubs and legacy plugin interfaces |
 | Possibly missing objects | 0 | Easy to moderate: lifecycle and state checks |
 | Compatibility and cleanup findings | 11 | Easy to moderate; some preserve intentional legacy APIs |
 

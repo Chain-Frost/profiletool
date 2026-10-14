@@ -25,7 +25,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from qgis.core import Qgis, QgsMapLayer, QgsProject, QgsRasterLayer, QgsVectorLayer
 from qgis.PyQt.QtCore import QModelIndex, QObject, Qt, pyqtSignal
@@ -33,9 +33,27 @@ from qgis.PyQt.QtGui import QColor, QStandardItem, QStandardItemModel
 from qgis.PyQt.QtWidgets import QColorDialog, QInputDialog, QMessageBox
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Protocol
+
     from qgis.gui import QgisInterface
 
     from ..ui.ptdockwidget import PTDockWidget
+
+    class _SelafinParser(Protocol):
+        """External parser rows whose first two values are band ID and name."""
+
+        parametres: Sequence[Sequence[object]]
+
+    class _SelafinSource(Protocol):
+        """Additional source API consumed by the legacy Selafin selector."""
+
+        hydrauparser: _SelafinParser
+
+        def bandCount(self) -> int:
+            """Return the number of selectable parser parameters."""
+            ...
+
 
 # plugin import
 from .plottingtool import PlottingTool
@@ -57,6 +75,20 @@ def _model_item(model: QStandardItemModel, row: int, column: int) -> QStandardIt
         msg = "Profile layer table item was not created"
         raise RuntimeError(msg)
     return item
+
+
+def _selafin_parameters(layer: QgsMapLayer) -> tuple[list[int], list[str]]:
+    """Read the band IDs and names required by the existing Selafin dialogs."""
+    source = cast("_SelafinSource", layer)
+    bands: list[int] = []
+    names: list[str] = []
+    for index in range(source.bandCount()):
+        parameter = source.hydrauparser.parametres[index]
+        # These are the same ID and label positions passed to the model and Qt
+        # dialogs before typing this external plugin boundary. Retain their values.
+        bands.append(cast("int", parameter[0]))
+        names.append(cast("str", parameter[1]))
+    return bands, names
 
 
 class TableViewTool(QObject):
@@ -82,8 +114,8 @@ class TableViewTool(QObject):
         lineColour = Qt.GlobalColor.red
         # QGis2
         if (
-            (layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "crayfish_viewer")
-            or (layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "selafin_viewer")
+            (layer2.type() == Qgis.LayerType.Plugin and getattr(layer2, "LAYER_TYPE", None) == "crayfish_viewer")
+            or (layer2.type() == Qgis.LayerType.Plugin and getattr(layer2, "LAYER_TYPE", None) == "selafin_viewer")
             or layer2.type() == Qgis.LayerType.Mesh
         ):
             lineColour = Qt.GlobalColor.blue
@@ -91,7 +123,7 @@ class TableViewTool(QObject):
         _model_item(mdl, row, 1).setFlags(Qt.ItemFlag.NoItemFlags)
         mdl.setData(mdl.index(row, 2, QModelIndex()), layer2.name())
         _model_item(mdl, row, 2).setFlags(Qt.ItemFlag.NoItemFlags)
-        if layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "selafin_viewer":
+        if layer2.type() == Qgis.LayerType.Plugin and getattr(layer2, "LAYER_TYPE", None) == "selafin_viewer":
             mdl.setData(mdl.index(row, 3, QModelIndex()), choosenBand + self.bandoffset)
         else:
             mdl.setData(mdl.index(row, 3, QModelIndex()), choosenBand + self.bandoffset)
@@ -223,12 +255,8 @@ class TableViewTool(QObject):
                     choosenBand = fieldstemp.index(testqt)
                 else:
                     return None, defaultfield
-        elif layer2.type() == Qgis.LayerType.Plugin and isProfilable(layer2) and layer2.LAYER_TYPE == "selafin_viewer":
-            listparameterband = []
-            listparametername = []
-            for i in range(layer2.bandCount()):
-                listparameterband.append(layer2.hydrauparser.parametres[i][0])
-                listparametername.append(layer2.hydrauparser.parametres[i][1])
+        elif layer2.type() == Qgis.LayerType.Plugin and isProfilable(layer2):
+            listparameterband, listparametername = _selafin_parameters(layer2)
             defaultparam = 3
             testqt, ok = QInputDialog.getItem(
                 iface.mainWindow(),
@@ -262,7 +290,7 @@ class TableViewTool(QObject):
                 return 0
             return None
 
-        list1 = []
+        list1: list[str] = []
         rows: list[int] = []
         for i in range(mdl.rowCount()):
             item = mdl.item(i, 2)
@@ -310,13 +338,11 @@ class TableViewTool(QObject):
             mdl.setData(mdl.index(temp.row(), 0, QModelIndex()), booltemp, Qt.ItemDataRole.CheckStateRole)
             PlottingTool().changeAttachCurve(wdg, plotlibrary, booltemp, name)
         elif (
-            index1.column() == 3 and layer.type() == Qgis.LayerType.Plugin and layer.LAYER_TYPE == "selafin_viewer"
+            index1.column() == 3
+            and layer.type() == Qgis.LayerType.Plugin
+            and getattr(layer, "LAYER_TYPE", None) == "selafin_viewer"
         ):  # modifying selafin_viewer parameter
-            listparameterband = []
-            listparametername = []
-            for i in range(layer.bandCount()):
-                listparameterband.append(layer.hydrauparser.parametres[i][0])
-                listparametername.append(layer.hydrauparser.parametres[i][1])
+            listparameterband, listparametername = _selafin_parameters(layer)
             previousparam = int(band_item.data(Qt.ItemDataRole.EditRole))
             testqt, ok = QInputDialog.getItem(
                 iface.mainWindow(),
