@@ -23,6 +23,11 @@ jobs:
             tools/ptmaptool.py tools/tableviewtool.py ui/dlgabout.py \
             scripts/write_qgis_env.py scripts/qgis_dev.py scripts/setup_qgis_typing.py \
             tests/test_qgis_layer_lifecycle.py
+      - name: Full Ruff inventory (informational)
+        continue-on-error: true
+        run: |
+          ruff check . --statistics
+          ruff check . --output-format concise
       - name: Pyright baseline (QGIS-independent modules)
         run: pyright --project pyright-ci.json
       - name: Compile plugin sources
