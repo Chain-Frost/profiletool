@@ -23,6 +23,8 @@
 #
 # ---------------------------------------------------------------------
 
+"""QGIS plugin lifecycle, actions and dock-widget integration."""
+
 from __future__ import annotations
 
 from contextlib import suppress

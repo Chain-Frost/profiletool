@@ -22,6 +22,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
+"""Sample raster and vector elevations along profile paths."""
+
 import numpy as np
 import qgis
 from qgis.core import (

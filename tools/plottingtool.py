@@ -21,6 +21,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
+"""Render and export Profile Tool plots."""
+
 import os
 from contextlib import suppress
 from math import sqrt

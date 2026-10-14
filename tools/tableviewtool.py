@@ -21,6 +21,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
+"""Manage manually selected source layers in the profile table."""
+
 from __future__ import annotations
 
 from qgis.core import QgsMapLayer, QgsProject

@@ -22,6 +22,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
+"""Render and manage interactive profile selection on the map canvas."""
+
 from __future__ import annotations
 
 from qgis.core import QgsPointXY, QgsWkbTypes

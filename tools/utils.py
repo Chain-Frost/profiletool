@@ -22,6 +22,8 @@
 #
 # ---------------------------------------------------------------------
 
+"""Check whether QGIS layers support profile sampling."""
+
 from qgis.core import Qgis, QgsMapLayer, QgsVectorLayer
 
 

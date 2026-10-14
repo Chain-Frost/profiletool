@@ -24,6 +24,8 @@
 # ---------------------------------------------------------------------
 # QGIS 2 compatibility shims are obsolete; supported versions start at QGIS 3.40.
 
+"""QGIS Profile Tool plugin package and entry-point factory."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

@@ -21,6 +21,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
+"""Select line features and clicked multipart geometry components."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
