@@ -36,7 +36,6 @@ from qgis.core import (
     QgsProject,
     QgsVectorLayer,
 )
-
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import QModelIndex, Qt, QVariant, pyqtSignal
 from qgis.PyQt.QtGui import QStandardItemModel
