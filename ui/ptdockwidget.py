@@ -76,7 +76,7 @@ class PTDockWidget(QDockWidget, FormClass):
 
     closed = pyqtSignal()
 
-    def __init__(self, iface1, profiletoolcore, parent=None):
+    def __init__(self, iface1, profiletoolcore, parent=None) -> None:
         QDockWidget.__init__(self, parent)
         self.setupUi(self)
         self.profiletoolcore = profiletoolcore
@@ -317,10 +317,9 @@ class PTDockWidget(QDockWidget, FormClass):
             self.refreshPlot()
 
     def _onSameAxisScaleStateChanged(self, state):
-        """Called whenever the checkbox button for same scale axis status has changed
-        if checked, plot will always keep same scale on both axis (aspect ratio of 1)
+        """Keep both plot axes at the same scale when requested.
 
-        Only supported with PyQtGraph
+        Aspect-ratio locking is supported only by PyQtGraph.
         """
         if self.plotlibrary == "PyQtGraph":
             self.plotWdg.getViewBox().setAspectLocked(state == Qt.CheckState.Checked)
@@ -329,7 +328,7 @@ class PTDockWidget(QDockWidget, FormClass):
     # coordinate tab ****************************************************************
     # ********************************************************************************
     @staticmethod
-    def _profile_name(profile):
+    def _profile_name(profile) -> str:
         groupTitle = profile["layer"].name()
         band = profile["band"]
         if band is not None and band > -1:

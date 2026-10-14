@@ -42,9 +42,7 @@ from .utils import isProfilable
 
 
 class DataReaderTool:
-    """def __init__(self):
-    self.profiles = None
-    """
+    """Read elevations and construct source-aware profile arrays."""
 
     def dataRasterReaderTool(self, iface1, tool1, profile1, pointstoDraw1, resolution_mode):
         """Sample a raster/mesh along a line drawn in the project CRS.
@@ -123,7 +121,7 @@ class DataReaderTool:
         return profile1
 
     @staticmethod
-    def _project_distance_scale():
+    def _project_distance_scale() -> float:
         """Conversion from project map units to plotted chainage units."""
         project_crs = QgsProject.instance().crs()
         if project_crs.isGeographic():
@@ -131,7 +129,7 @@ class DataReaderTool:
         return QgsUnitTypes.fromUnitToUnitFactor(project_crs.mapUnits(), Qgis.DistanceUnit.Meters)
 
     @staticmethod
-    def _slope_distances(project_points, chainages):
+    def _slope_distances(project_points, chainages) -> list[float]:
         """Slope distance in metres, even when displayed chainage is degrees.
 
         A geographic project's displayed chainage remains angular. Geodesic
@@ -152,7 +150,7 @@ class DataReaderTool:
         return result
 
     @staticmethod
-    def _project_chainage_tolerance():
+    def _project_chainage_tolerance() -> float:
         """Tolerance in native project map units (not always metres)."""
         project_crs = QgsProject.instance().crs()
         if project_crs.isGeographic():
@@ -320,7 +318,11 @@ class DataReaderTool:
 
     # def interpolateNodeofPolyline(self,geom):
     def interpolateNodeofPolyline(self, geom, projectedpoints):
-        """Projectedpoints : array [[lenght, xprojected ,yprojected ,dist from origignal point, segment of polyline on witch it's projected, atribute (z), xoriginal point, yoriginal point ,original point feature], ... ]"""
+        """Interpolate source elevations at unsampled path vertices.
+
+        Records include chainage, projected coordinates, distance from the
+        source point, elevation, original coordinates, and source feature.
+        """
         PRECISION = self._project_chainage_tolerance()
         polyline = geom.asPolyline()
         projectedpoints = projectedpoints[projectedpoints[:, 0].argsort()]

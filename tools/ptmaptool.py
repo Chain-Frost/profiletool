@@ -42,7 +42,7 @@ from .selectlinetool import SelectLineTool
 
 
 class ProfiletoolMapToolRenderer:
-    def __init__(self, profiletool):
+    def __init__(self, profiletool) -> None:
         self.profiletool = profiletool
         self.iface = self.profiletool.iface
         self.canvas = self.profiletool.iface.mapCanvas()

@@ -52,7 +52,7 @@ except ImportError:
 
 
 def getSaveFileName(parent, caption, directory, filter):
-    """Qt4/Qt5 compatible getSaveFileName"""
+    """Return the selected output path from the Qt file dialog."""
     fileName = QFileDialog.getSaveFileName(parent=parent, caption=caption, directory=directory, filter=filter)
     if isinstance(fileName, tuple):  # pyqt5 case
         fileName = fileName[0]
@@ -71,7 +71,7 @@ class PlottingTool:
     """
 
     @staticmethod
-    def curveName(layer, band, model):
+    def curveName(layer, band, model) -> str:
         """Unique plot key; disambiguate layers with identical names."""
         name = layer.name()
         same_name = sum(model.item(i, 2).data(Qt.ItemDataRole.EditRole) == name for i in range(model.rowCount()))

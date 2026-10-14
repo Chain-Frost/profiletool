@@ -55,7 +55,7 @@ from .tableviewtool import layer_from_model
 
 
 class ProfileToolCore(QWidget):
-    def __init__(self, iface, plugincore, parent=None):
+    def __init__(self, iface, plugincore, parent=None) -> None:
         QWidget.__init__(self, parent)
         self.iface = iface
         self.plugincore = plugincore
@@ -93,7 +93,7 @@ class ProfileToolCore(QWidget):
         for profile in sorted(profilers.PLOT_PROFILERS):
             self.dockwidget.plotComboBox.addItem(profile)
         self.dockwidget.plotComboBox.setCurrentIndex(0)
-        self.dockwidget.plotComboBox.currentIndexChanged.connect(lambda index: self.plotProfil())
+        self.dockwidget.plotComboBox.currentIndexChanged.connect(lambda _index: self.plotProfil())
         # dockwidget graph zone
         self.dockwidget.changePlotLibrary(self.dockwidget.cboLibrary.currentIndex())
 
@@ -354,7 +354,7 @@ class ProfileToolCore(QWidget):
                     print(str(e))
 
     def mouseevent_mpl(self, event):
-        """Case matplotlib library"""
+        """Handle interactive mouse movement in the Matplotlib view."""
         if event.xdata:
             try:
                 if self.vline:

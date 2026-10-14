@@ -68,7 +68,7 @@ def reader_module(monkeypatch):
     qtcore.QCoreApplication = SimpleNamespace(translate=lambda _context, msg: msg)
 
     class Point:
-        def __init__(self, x, y=None):
+        def __init__(self, x, y=None) -> None:
             self._x, self._y = (x.x(), x.y()) if y is None else (x, y)
 
         def x(self):
@@ -78,7 +78,7 @@ def reader_module(monkeypatch):
             return self._y
 
     class ProjectCrs:
-        def __init__(self, geographic=False):
+        def __init__(self, geographic=False) -> None:
             self.geographic = geographic
 
         def isGeographic(self):
@@ -112,7 +112,7 @@ def reader_module(monkeypatch):
     core.QgsPointXY = Point
     core.QgsProject = SimpleNamespace(instance=lambda: project)
     core.Qgis = SimpleNamespace(DistanceUnit=SimpleNamespace(Meters="metres"))
-    core.QgsUnitTypes = SimpleNamespace(fromUnitToUnitFactor=lambda source, target: 0.3048 if source == "feet" else 1.0)
+    core.QgsUnitTypes = SimpleNamespace(fromUnitToUnitFactor=lambda source, _target: 0.3048 if source == "feet" else 1.0)
     qgis.core = core
     qgis.gui = types.ModuleType("qgis.gui")
     qgis.utils = SimpleNamespace(iface=None)
@@ -130,7 +130,7 @@ def reader_module(monkeypatch):
     package = types.ModuleType("_profile_tool_test")
     package.__path__ = [str(ROOT / "tools")]
     utils = types.ModuleType("_profile_tool_test.utils")
-    utils.isProfilable = lambda layer: False
+    utils.isProfilable = lambda _layer: False
     monkeypatch.setitem(sys.modules, package.__name__, package)
     monkeypatch.setitem(sys.modules, utils.__name__, utils)
     module = _load("_profile_tool_test.dataReaderTool", ROOT / "tools" / "dataReaderTool.py")
@@ -214,7 +214,7 @@ def test_valid_zero_is_distinct_from_missing_sample(reader_module):
 
     tool = reader.DataReaderTool()
     tool.profiles = {"layer": Layer(), "band": 1}
-    tool._status_update = lambda pct: None
+    tool._status_update = lambda _pct: None
     values = tool._extractZValues([0, 1], [0, 0])
     assert values[0] == 0.0
     assert math.isnan(values[1])
@@ -254,7 +254,7 @@ def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch):
     core = sys.modules["qgis.core"]
 
     class Geometry:
-        def __init__(self, parts, multi=False):
+        def __init__(self, parts, multi=False) -> None:
             self.parts, self.multi = parts, multi
 
         def isMultipart(self):
@@ -264,18 +264,18 @@ def test_only_clicked_part_of_multipart_feature(reader_module, monkeypatch):
             return self.parts
 
         @staticmethod
-        def fromPointXY(point):
+        def fromPointXY(point) -> SimpleNamespace:
             return SimpleNamespace(point=point)
 
         @staticmethod
-        def fromPolylineXY(part):
+        def fromPolylineXY(part) -> Geometry:
             return Geometry([part])
 
         def distance(self, point_geom):
             return min(math.hypot(p.x() - point_geom.point.x(), p.y() - point_geom.point.y()) for p in self.parts[0])
 
     class Feature:
-        def __init__(self, original=None):
+        def __init__(self, original=None) -> None:
             self.geom = original.geometry() if original else None
 
         def geometry(self):
