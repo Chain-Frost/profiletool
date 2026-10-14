@@ -122,9 +122,13 @@ class ProfileToolCore(QWidget):
         for profile in sorted(profilers.PLOT_PROFILERS):
             self.dockwidget.plotComboBox.addItem(profile)
         self.dockwidget.plotComboBox.setCurrentIndex(0)
-        self.dockwidget.plotComboBox.currentIndexChanged.connect(lambda _index: self.plotProfil())
+        self.dockwidget.plotComboBox.currentIndexChanged.connect(self._on_plot_type_changed)
         # dockwidget graph zone
         self.dockwidget.changePlotLibrary(self.dockwidget.cboLibrary.currentIndex())
+
+    def _on_plot_type_changed(self, _index: int) -> None:
+        """Refresh the plotted series when the display selection changes."""
+        self.plotProfil()
 
     def activateProfileMapTool(self) -> None:
         """Activate the profile map tool and connect layer-removal callbacks."""

@@ -42,7 +42,16 @@ from qgis.core import (
 from qgis.PyQt.QtWidgets import QMessageBox
 
 if TYPE_CHECKING:
+    from typing import Protocol
+
     from qgis.gui import QgisInterface, QgsMapTool
+
+    class _MultipartGeometry(Protocol):
+        """SIP-generated QGIS stubs omit the multipart vertex result type."""
+
+        def asMultiPolyline(self) -> list[list[QgsPointXY]]:
+            """Return multipart geometry coordinates."""
+            ...
 
 
 class SelectLineTool:
@@ -79,7 +88,7 @@ class SelectLineTool:
         geometry = feature.geometry()
         if not geometry.isMultipart():
             return feature
-        parts = cast(list[list[QgsPointXY]], geometry.asMultiPolyline())
+        parts = cast("_MultipartGeometry", geometry).asMultiPolyline()
         if not parts:
             return feature
         click_geometry = QgsGeometry.fromPointXY(clicked_point)

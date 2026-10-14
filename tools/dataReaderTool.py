@@ -60,6 +60,13 @@ if TYPE_CHECKING:
 
     from .profile_types import ReaderProfile
 
+    class _LineGeometry(Protocol):
+        """QGIS geometry with its native line-vertex return contract."""
+
+        def asPolyline(self) -> list[QgsPointXY]:
+            """Return vertices of the single-part geometry."""
+            ...
+
     class _PluginIdentifier(Protocol):
         """Optional third-party QGIS plugin-layer identification interface."""
 
@@ -406,7 +413,7 @@ class DataReaderTool:
         """
         PRECISION = self._project_chainage_tolerance()
         # SIP omits the QgsPolylineXY alias from the generated return stub.
-        polyline = cast(list[QgsPointXY], geom.asPolyline())
+        polyline = cast("_LineGeometry", geom).asPolyline()
         projectedpoints = projectedpoints[projectedpoints[:, 0].argsort()]
 
         lenpoly = 0

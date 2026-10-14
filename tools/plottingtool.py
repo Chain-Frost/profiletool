@@ -304,7 +304,7 @@ class PlottingTool:
             minimumValue = 1000000000
             maximumValue = -1000000000
             for i in range(len(y_vals)):
-                if profiles[i]["layer"] is not None and any(z is not None and np.isfinite(z) for z in y_vals[i]):
+                if any(z is not None and np.isfinite(z) for z in y_vals[i]):
                     minimumValue = min(self.findMin(y_vals[i]), minimumValue)
                     maximumValue = max(self.findMax(y_vals[i]) + 1, maximumValue)
                     wdg.sbMaxVal.setValue(maximumValue)
