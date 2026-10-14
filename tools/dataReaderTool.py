@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import qgis
@@ -44,11 +45,25 @@ from qgis.PyQt.QtCore import QCoreApplication
 
 from .utils import isProfilable
 
+if TYPE_CHECKING:
+    from qgis.core import QgsRasterDataProvider, QgsRasterLayer, QgsVectorLayer
+    from qgis.gui import QgisInterface, QgsMapTool
+    from qgis.PyQt.QtWidgets import QMainWindow
+
+    from .profile_types import ReaderProfile
+
 
 class DataReaderTool:
     """Read elevations and construct source-aware profile arrays."""
 
-    def dataRasterReaderTool(self, iface1, tool1, profile1, pointstoDraw1, resolution_mode):
+    def dataRasterReaderTool(
+        self,
+        iface1: QgisInterface,
+        tool1: QgsMapTool,
+        profile1: ReaderProfile,
+        pointstoDraw1: Sequence[Sequence[float]],
+        resolution_mode: str,
+    ) -> ReaderProfile:
         """Sample a raster/mesh along a line drawn in the project CRS.
 
         Chainage uses project-CRS angular units for geographic projects, and
@@ -79,8 +94,9 @@ class DataReaderTool:
             if resolution_mode == "samples":
                 steps = 1
             elif layer.type() == layer.RasterLayer:
-                pixel_x = abs(layer.rasterUnitsPerPixelX())
-                pixel_y = abs(layer.rasterUnitsPerPixelY())
+                raster_layer = cast("QgsRasterLayer", layer)
+                pixel_x = abs(raster_layer.rasterUnitsPerPixelX())
+                pixel_y = abs(raster_layer.rasterUnitsPerPixelY())
                 if not pixel_x or not pixel_y:
                     steps = 1
                 else:
@@ -124,7 +140,7 @@ class DataReaderTool:
                 "crs": layer.crs(),
             }
         )
-        iface1.mainWindow().statusBar().showMessage("")
+        cast("QMainWindow", iface1.mainWindow()).statusBar().showMessage("")
         return profile1
 
     @staticmethod
@@ -171,7 +187,7 @@ class DataReaderTool:
         """
         if advancement_pct % 10 == 0:
             progress = "Creating profile: " + "|" * (advancement_pct // 10)
-            self.iface.mainWindow().statusBar().showMessage(progress)
+            cast("QMainWindow", self.iface.mainWindow()).statusBar().showMessage(progress)
 
     def _extractZValues(self, x: Sequence[float], y: Sequence[float]) -> list[float]:
         layer = self.profiles["layer"]
@@ -184,7 +200,8 @@ class DataReaderTool:
         is_mesh = layer.type() == layer.MeshLayer
         identifier = qgis.gui.QgsMapToolIdentify(qgis.utils.iface.mapCanvas()) if is_mesh else None
         mesh_field = QCoreApplication.translate("QgsMapToolIdentify", "Scalar Value")
-        provider = layer.dataProvider() if not (is_plugin or is_mesh) else None
+        # Non-plugin/non-mesh sources reach this method through the raster path.
+        provider = cast("QgsRasterDataProvider | None", layer.dataProvider()) if not (is_plugin or is_mesh) else None
 
         for n, (x_coord, y_coord) in enumerate(zip(x, y)):
             point = QgsPointXY(x_coord, y_coord)
@@ -202,7 +219,7 @@ class DataReaderTool:
                     )
                     if matches:
                         value = float(matches[0].mAttributes[mesh_field])
-                else:
+                elif provider is not None:
                     # Single-band sampling avoids expensive multi-band identify().
                     sampled, valid = provider.sample(point, band)
                     if valid and sampled is not None:
@@ -213,14 +230,22 @@ class DataReaderTool:
             self._status_update((100 * n) // max(1, len(x) - 1))
         return values
 
-    def dataVectorReaderTool(self, iface1, tool1, profile1, pointstoDraw1, valbuf1):
+    def dataVectorReaderTool(
+        self,
+        iface1: QgisInterface,
+        tool1: QgsMapTool,
+        profile1: ReaderProfile,
+        pointstoDraw1: Sequence[Sequence[float]],
+        valbuf1: float,
+    ) -> tuple[ReaderProfile, QgsGeometry | None, QgsGeometry | None]:
         """Sample point features near a profile line in the project CRS.
 
         Buffer and exact distance checks are both performed in project units,
         irrespective of the source point layer's CRS.
         """
-        layer = profile1["layer"]
-        profile = {
+        # The vector reader is dispatched only for vector layers by the core.
+        layer = cast("QgsVectorLayer", profile1["layer"])
+        profile: ReaderProfile = {
             "layer": layer,
             "band": profile1["band"],
             "l": [],

@@ -55,7 +55,7 @@ from . import profilers
 # plugin import
 from .dataReaderTool import DataReaderTool
 from .plottingtool import PlottingTool
-from .profile_types import Profile
+from .profile_types import Profile, ReaderProfile
 from .ptmaptool import ProfiletoolMapToolRenderer
 from .selectlinetool import SelectLineTool
 from .tableviewtool import layer_from_model
@@ -174,7 +174,7 @@ class ProfileToolCore(QWidget):
             if layer is None:
                 continue
             band = self.dockwidget.mdl.item(i, 3).data(Qt.ItemDataRole.EditRole)
-            profile = {"layer": layer, "band": band}
+            profile: ReaderProfile = {"layer": layer, "band": band}
             if layer.type() == QgsMapLayer.VectorLayer:
                 profile, buffer_geom, guide_geom = DataReaderTool().dataVectorReaderTool(
                     self.iface,

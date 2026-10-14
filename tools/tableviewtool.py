@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from qgis.core import QgsMapLayer, QgsProject
+from qgis.core import Qgis, QgsMapLayer, QgsProject, QgsRasterLayer, QgsVectorLayer
 from qgis.PyQt.QtCore import QModelIndex, QObject, Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor, QStandardItemModel
 from qgis.PyQt.QtWidgets import QColorDialog, QInputDialog, QMessageBox
@@ -52,24 +52,29 @@ def layer_from_model(model: QStandardItemModel, row: int) -> QgsMapLayer | None:
 class TableViewTool(QObject):
     layerAddedOrRemoved = pyqtSignal()  # Emitted when a new layer is added
 
-    def addLayer(self, iface, mdl, layer1=None):
+    def addLayer(self, iface: QgisInterface, mdl: QStandardItemModel, layer1: QgsMapLayer | None = None) -> int | None:
         if layer1 is None:
-            templist = []
+            templist: list[tuple[QgsMapLayer, str]] = []
             j = 0
             # Ask the layer by a input dialog
             for i in range(iface.mapCanvas().layerCount()):
                 donothing = False
                 layer = iface.mapCanvas().layer(i)
+                if layer is None:
+                    continue
                 if isProfilable(layer):
                     for j in range(mdl.rowCount()):
-                        existing_id = mdl.item(j, 5).data(Qt.ItemDataRole.EditRole)
+                        existing_item = mdl.item(j, 5)
+                        existing_id = (
+                            existing_item.data(Qt.ItemDataRole.EditRole) if existing_item is not None else None
+                        )
                         if existing_id == layer.id():
                             donothing = True
                 else:
                     donothing = True
 
                 if donothing is False:
-                    templist += [[layer, layer.name()]]
+                    templist.append((layer, layer.name()))
 
             if len(templist) == 0:
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", "No raster to add")
@@ -94,26 +99,26 @@ class TableViewTool(QObject):
                 layer2 = layer1
             else:
                 text = "Active layer is not a profilable layer."
-                if layer1.type() == layer1.MeshLayer:
+                if layer1.type() == Qgis.LayerType.Mesh:
                     text += "\n(MeshLayer support requires QGis version 3.6 or newer.)"
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", text)
                 return None
 
         # Ask the Band by a input dialog
         # First, if isProfilable, considerate the real band number (instead of band + 1 for raster)
-        if (layer2.type() == layer2.PluginLayer and isProfilable(layer2)) or layer2.type() == layer2.MeshLayer:
+        if (layer2.type() == Qgis.LayerType.Plugin and isProfilable(layer2)) or layer2.type() == Qgis.LayerType.Mesh:
             self.bandoffset = 0
             typename = "parameter"
-        elif layer2.type() == layer2.RasterLayer:
+        elif layer2.type() == Qgis.LayerType.Raster:
             self.bandoffset = 1
             typename = "band"
-        elif layer2.type() == layer2.VectorLayer:
+        elif layer2.type() == Qgis.LayerType.Vector:
             self.bandoffset = 0
             typename = "field"
         else:
             return None
 
-        if layer2.type() == layer2.RasterLayer and layer2.bandCount() != 1:
+        if isinstance(layer2, QgsRasterLayer) and layer2.bandCount() != 1:
             listband = [str(i + self.bandoffset) for i in range(layer2.bandCount())]
             testqt, ok = QInputDialog.getItem(
                 iface.mainWindow(),
@@ -126,7 +131,7 @@ class TableViewTool(QObject):
                 choosenBand = int(testqt) - self.bandoffset
             else:
                 return 2
-        elif layer2.type() == layer2.VectorLayer:
+        elif isinstance(layer2, QgsVectorLayer):
             fieldstemp = [field.name() for field in layer2.fields()]
             fields = [field.name() for field in layer2.fields() if field.isNumeric()]
             if len(fields) == 0:
@@ -148,7 +153,7 @@ class TableViewTool(QObject):
                     choosenBand = fieldstemp.index(testqt)
                 else:
                     return defaultfield
-        elif layer2.type() == layer2.PluginLayer and isProfilable(layer2) and layer2.LAYER_TYPE == "selafin_viewer":
+        elif layer2.type() == Qgis.LayerType.Plugin and isProfilable(layer2) and layer2.LAYER_TYPE == "selafin_viewer":
             listparameterband = []
             listparametername = []
             for i in range(layer2.bandCount()):
@@ -178,22 +183,22 @@ class TableViewTool(QObject):
         lineColour = Qt.GlobalColor.red
         # QGis2
         if (
-            (layer2.type() == layer2.PluginLayer and layer2.LAYER_TYPE == "crayfish_viewer")
-            or (layer2.type() == layer2.PluginLayer and layer2.LAYER_TYPE == "selafin_viewer")
-            or layer2.type() == layer2.MeshLayer
+            (layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "crayfish_viewer")
+            or (layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "selafin_viewer")
+            or layer2.type() == Qgis.LayerType.Mesh
         ):
             lineColour = Qt.GlobalColor.blue
         mdl.setData(mdl.index(row, 1, QModelIndex()), QColor(lineColour), Qt.ItemDataRole.BackgroundRole)
         mdl.item(row, 1).setFlags(Qt.ItemFlag.NoItemFlags)
         mdl.setData(mdl.index(row, 2, QModelIndex()), layer2.name())
         mdl.item(row, 2).setFlags(Qt.ItemFlag.NoItemFlags)
-        if layer2.type() == layer2.PluginLayer and layer2.LAYER_TYPE == "selafin_viewer":
+        if layer2.type() == Qgis.LayerType.Plugin and layer2.LAYER_TYPE == "selafin_viewer":
             mdl.setData(mdl.index(row, 3, QModelIndex()), choosenBand + self.bandoffset)
         else:
             mdl.setData(mdl.index(row, 3, QModelIndex()), choosenBand + self.bandoffset)
             mdl.item(row, 3).setFlags(Qt.ItemFlag.NoItemFlags)
 
-        if layer2.type() == layer2.VectorLayer:
+        if layer2.type() == Qgis.LayerType.Vector:
             # Buffer distance is expressed in project CRS units: degrees in
             # geographic projects, linear units in projected projects.
             default_buffer = 0.001 if QgsProject.instance().crs().isGeographic() else 100.0
@@ -270,7 +275,7 @@ class TableViewTool(QObject):
             mdl.setData(mdl.index(temp.row(), 0, QModelIndex()), booltemp, Qt.ItemDataRole.CheckStateRole)
             PlottingTool().changeAttachCurve(wdg, plotlibrary, booltemp, name)
         elif (
-            index1.column() == 3 and layer.type() == layer.PluginLayer and layer.LAYER_TYPE == "selafin_viewer"
+            index1.column() == 3 and layer.type() == Qgis.LayerType.Plugin and layer.LAYER_TYPE == "selafin_viewer"
         ):  # modifying selafin_viewer parameter
             listparameterband = []
             listparametername = []
