@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from math import sqrt
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from qgis.core import QgsMapLayer, QgsProject, QgsUnitTypes
@@ -70,6 +70,23 @@ def getSaveFileName(parent: QWidget | None, caption: str, directory: str, filter
         parent=parent, caption=caption, directory=directory, filter=filter
     )
     return fileName
+
+
+def pyqtgraph_plot_item(widget: QWidget | None) -> pg.PlotItem | None:
+    """Resolve the concrete plot item only for a PyQtGraph widget."""
+    if isinstance(widget, pg.PlotWidget):
+        return cast("pg.PlotItem | None", widget.getPlotItem())
+    return None
+
+
+def plot_data_items(plot_item: pg.PlotItem) -> list[pg.PlotDataItem]:
+    """Read profile curves created by PlotWidget.plot as PlotDataItem instances."""
+    return cast("list[pg.PlotDataItem]", plot_item.listDataItems())
+
+
+def plot_view_box(plot_item: pg.PlotItem) -> pg.ViewBox | None:
+    """Return the plot's view box, allowing for an already closed plot."""
+    return cast("pg.ViewBox | None", plot_item.getViewBox())
 
 
 class PlottingTool:
@@ -205,7 +222,7 @@ class PlottingTool:
             return
 
         if library == "PyQtGraph":
-            plot_item = wdg.plotWdg.getPlotItem()
+            plot_item = pyqtgraph_plot_item(wdg.plotWdg)
             if plot_item is None:
                 return
             # cretae graph
@@ -225,7 +242,7 @@ class PlottingTool:
                     name=tmp_name,
                 )
                 # set it visible or not
-                for item in plot_item.listDataItems():
+                for item in plot_data_items(plot_item):
                     if item.name() == tmp_name:
                         item.setVisible(visibility_item.data(Qt.ItemDataRole.CheckStateRole))
 
@@ -278,7 +295,10 @@ class PlottingTool:
             return
 
         if library == "PyQtGraph":
-            view_range = wdg.plotWdg.getViewBox().viewRange()
+            plot_item = pyqtgraph_plot_item(wdg.plotWdg)
+            if plot_item is None or (view_box := plot_view_box(plot_item)) is None:
+                return
+            view_range = cast("list[list[float]]", view_box.viewRange())
             wdg.disconnectYSpinbox()
             wdg.sbMaxVal.setValue(view_range[1][1])
             wdg.sbMinVal.setValue(view_range[1][0])
@@ -314,15 +334,15 @@ class PlottingTool:
 
         if minimumValue < maximumValue:
             if library == "PyQtGraph":
+                plot_item = pyqtgraph_plot_item(wdg.plotWdg)
+                if plot_item is None or (view_box := plot_view_box(plot_item)) is None:
+                    return
                 wdg.disconnectPlotRangechanged()
                 if auto:
-                    plot_item = wdg.plotWdg.getPlotItem()
-                    if plot_item is None:
-                        return
-                    wdg.plotWdg.getViewBox().autoRange(items=plot_item.listDataItems())
+                    view_box.autoRange(items=plot_data_items(plot_item))
                     wdg.plotRangechanged()
                 else:
-                    wdg.plotWdg.getViewBox().setYRange(minimumValue, maximumValue, padding=0)
+                    view_box.setYRange(minimumValue, maximumValue, padding=0)
                 wdg.connectPlotRangechanged()
 
             elif library == "Matplotlib" and has_mpl:
@@ -340,12 +360,12 @@ class PlottingTool:
             return
 
         if library == "PyQtGraph":
-            plot_item = wdg.plotWdg.getPlotItem()
+            plot_item = pyqtgraph_plot_item(wdg.plotWdg)
             if plot_item is None:
                 return
-            pitems = plot_item.listDataItems()
+            pitems = plot_data_items(plot_item)
             for item in pitems:
-                wdg.plotWdg.removeItem(item)
+                plot_item.removeItem(item)
             # Mouse callbacks belong to ProfileToolCore, which manages them.
 
         elif library == "Matplotlib" and has_mpl:
@@ -362,10 +382,10 @@ class PlottingTool:
             return
 
         if library == "PyQtGraph":
-            pitems = wdg.plotWdg.getPlotItem()
+            pitems = pyqtgraph_plot_item(wdg.plotWdg)
             if pitems is None:
                 return
-            for item in pitems.listDataItems():
+            for item in plot_data_items(pitems):
                 if item.name() == name:
                     item.setPen(color1, width=2)
 
@@ -392,10 +412,10 @@ class PlottingTool:
             return
 
         if library == "PyQtGraph":
-            pitems = wdg.plotWdg.getPlotItem()
+            pitems = pyqtgraph_plot_item(wdg.plotWdg)
             if pitems is None:
                 return
-            for item in pitems.listDataItems():
+            for item in plot_data_items(pitems):
                 if item.name() == name:
                     if bool:
                         item.setVisible(True)

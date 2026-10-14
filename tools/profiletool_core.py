@@ -54,7 +54,12 @@ from . import profilers
 
 # plugin import
 from .dataReaderTool import DataReaderTool
-from .plottingtool import PlottingTool
+from .plottingtool import (
+    PlottingTool,
+    plot_data_items,
+    plot_view_box,
+    pyqtgraph_plot_item,
+)
 from .profile_types import Profile, ReaderProfile
 from .ptmaptool import ProfiletoolMapToolRenderer
 from .selectlinetool import SelectLineTool
@@ -439,28 +444,30 @@ class ProfileToolCore(QWidget):
         if self.dockwidget.plotWdg is None:
             return
         if library == "PyQtGraph":
+            if not isinstance(self.dockwidget.plotWdg, pg.PlotWidget):
+                return
             scene = cast("PlotScene | None", self.dockwidget.plotWdg.scene())
-            plot_item = self.dockwidget.plotWdg.getPlotItem()
-            if scene is None or plot_item is None:
+            plot_item = pyqtgraph_plot_item(self.dockwidget.plotWdg)
+            if scene is None or plot_item is None or (view_box := plot_view_box(plot_item)) is None:
                 return
             scene.sigMouseMoved.connect(self.mouseMovedPyQtGraph)
             scene.sigMouseClicked.connect(self.mouseClickedPyQtGraph)
-            self.dockwidget.plotWdg.getViewBox().autoRange(items=plot_item.listDataItems())
+            view_box.autoRange(items=plot_data_items(plot_item))
             self.dockwidget.connectPlotRangechanged()
 
     def mouseClickedPyQtGraph(self, event: _SceneMouseEvent) -> None:
         """Save source elevation at the nearest valid sample to a plot click."""
         if not self.dockwidget.cbAddPoint.isChecked() or self.dockwidget.plotWdg is None:
             return
+        plot_item = pyqtgraph_plot_item(self.dockwidget.plotWdg)
+        if plot_item is None or (view_box := plot_view_box(plot_item)) is None:
+            return
         pos = event.scenePos()
-        if not self.dockwidget.showcursor or not self.dockwidget.plotWdg.sceneBoundingRect().contains(pos):
+        if not self.dockwidget.showcursor or not plot_item.sceneBoundingRect().contains(pos):
             return
-        mouse = self.dockwidget.plotWdg.getViewBox().mapSceneToView(pos)
+        mouse = cast("QPointF", view_box.mapSceneToView(pos))
         best: tuple[float, float, float] | None = None
-        plot_item = self.dockwidget.plotWdg.getPlotItem()
-        if plot_item is None:
-            return
-        for profile, item in zip(self.profiles, plot_item.listDataItems()):
+        for profile, item in zip(self.profiles, plot_data_items(plot_item)):
             if not item.isVisible():
                 continue
             x, y = item.getData()
@@ -487,7 +494,7 @@ class ProfileToolCore(QWidget):
 
     def disableMouseCoordonates(self) -> None:
         """Disconnect owned PyQtGraph mouse and range-change callbacks."""
-        if self.dockwidget.plotWdg is None or self.dockwidget.plotlibrary != "PyQtGraph":
+        if not isinstance(self.dockwidget.plotWdg, pg.PlotWidget) or self.dockwidget.plotlibrary != "PyQtGraph":
             return
         scene = cast("PlotScene | None", self.dockwidget.plotWdg.scene())
         if scene is None:
@@ -502,10 +509,10 @@ class ProfileToolCore(QWidget):
         """Update plot cursors and the map marker from the nearest visible sample."""
         if not isinstance(self.dockwidget.plotWdg, pg.PlotWidget):
             return
-        pitems = cast("PlotItem | None", self.dockwidget.plotWdg.getPlotItem())
+        pitems = pyqtgraph_plot_item(self.dockwidget.plotWdg)
         if pitems is None:
             return
-        view_box = cast("pg.ViewBox | None", pitems.getViewBox())
+        view_box = plot_view_box(pitems)
         if view_box is None:
             return
         # si connexion directe du signal "mouseMoved" : la fonction reçoit le point courant
@@ -513,10 +520,10 @@ class ProfileToolCore(QWidget):
         if pitems.sceneBoundingRect().contains(pos) and self.dockwidget.showcursor:
             view_range = cast("list[list[float]]", view_box.viewRange())
             # récupère le point souris à partir ViewBox
-            mousePoint = view_box.mapSceneToView(pos)
+            mousePoint = cast("QPointF", view_box.mapSceneToView(pos))
             xtoplot, ytoplot = self._nearest_plot_sample(pitems, mousePoint)
             # Draw labels and cursors only when a sample was found.
-            if len(pitems.listDataItems()) > 0 and xtoplot is not None and ytoplot is not None:
+            if plot_data_items(pitems) and xtoplot is not None and ytoplot is not None:
                 for item in cast("list[QGraphicsItem]", pitems.allChildItems()):
                     if isinstance(item, pg.InfiniteLine):
                         if item.name() == "cross_vertical":
@@ -542,11 +549,11 @@ class ProfileToolCore(QWidget):
         ytoplot = None
         xtoplot = None
 
-        if len(pitems.listDataItems()) > 0:
+        if plot_data_items(pitems):
             # get data and nearest xy from cursor
             compt = 0
             try:
-                for item in pitems.listDataItems():
+                for item in plot_data_items(pitems):
                     if item.isVisible():
                         x, y = item.getData()
                         nearestindex = np.argmin(abs(np.array(x, dtype=float) - mouse_point.x()))
