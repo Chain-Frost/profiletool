@@ -12,7 +12,7 @@ pytest.importorskip("qgis.core", reason="Requires the OSGeo4W QGIS environment")
 
 from qgis.core import QgsFeature, QgsGeometry, QgsProject, QgsVectorLayer
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtWidgets import QGroupBox, QVBoxLayout
+from qgis.PyQt.QtWidgets import QApplication, QGroupBox, QVBoxLayout
 from qgis.testing.mocked import get_iface
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -72,6 +72,26 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(monkeypatch
         # Coordinate-tab rebuilding must preserve the Designer widget fields.
         assert isinstance(dock.groupBox, QGroupBox)
         assert isinstance(dock.verticalLayout, QVBoxLayout)
+        # Exercise coordinate-tab actions through their real Qt signal senders.
+        profile = core.profiles[0]
+        clipboard = QApplication.clipboard()
+        assert clipboard is not None
+        dock.profilePushButton[0].click()
+        expected = "".join(f"{length}\t{height}\n" for length, height in zip(profile["l"], profile["z"]))
+        assert clipboard.text() == expected
+        dock.coordsPushButton[0].click()
+        assert all(len(row.split("\t")) == 4 for row in clipboard.text().splitlines())
+        before_ids = set(project.mapLayers())
+        dock.tolayerPushButton[0].click()
+        added_ids = set(project.mapLayers()) - before_ids
+        assert len(added_ids) == 1
+        temporary_layer = project.mapLayer(added_ids.pop())
+        assert isinstance(temporary_layer, QgsVectorLayer)
+        assert temporary_layer.featureCount() == len(profile["z"])
+        assert temporary_layer.crs() == profile["crs"]
+        assert [feature["Value"] for feature in temporary_layer.getFeatures()] == list(profile["z"])
+        project.removeMapLayer(temporary_layer.id())
+        assert not callback_errors
         tracking_connections = dock.checkBox_mpl_tracking.receivers(dock.checkBox_mpl_tracking.stateChanged)
         for _ in range(2):
             for index in range(dock.cboLibrary.count()):

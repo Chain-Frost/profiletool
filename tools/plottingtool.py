@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from qgis.core import QgsMapLayer, QgsProject
 from qgis.PyQt.QtCore import QSettings, Qt
-from qgis.PyQt.QtGui import QPainter, QStandardItemModel
+from qgis.PyQt.QtGui import QColor, QPainter, QStandardItemModel
 from qgis.PyQt.QtSvg import QSvgGenerator
 from qgis.PyQt.QtWidgets import QFileDialog, QSizePolicy, QWidget
 
@@ -46,6 +46,9 @@ from .profile_types import Profile
 from .profilers import ProfileSeries
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from qgis.gui import QgisInterface
+
     from ..ui.ptdockwidget import PTDockWidget
 
 pg.setConfigOption("background", "w")
@@ -91,7 +94,7 @@ class PlottingTool:
             name += f" [{layer.id()[-8:]}]"
         return f"{name}#{band}"
 
-    def changePlotWidget(self, library, frame_for_plot):
+    def changePlotWidget(self, library: str, frame_for_plot: QWidget):
 
         if library == "PyQtGraph":
             plotWdg = pg.PlotWidget()
@@ -160,7 +163,7 @@ class PlottingTool:
             return canvas
         return None
 
-    def drawVertLine(self, wdg, pointstoDraw, library):
+    def drawVertLine(self, wdg: PTDockWidget, pointstoDraw: Sequence[Sequence[float]], library: str | None) -> None:
         if library == "PyQtGraph":
             pass
         elif library == "Matplotlib" and has_mpl:
@@ -250,7 +253,7 @@ class PlottingTool:
     def findMax(self, values: ProfileSeries) -> float:
         return max(float(z) for z in values if z is not None and np.isfinite(z))
 
-    def plotRangechanged(self, wdg, library):
+    def plotRangechanged(self, wdg: PTDockWidget, library: str | None) -> None:
 
         if library == "PyQtGraph":
             range = wdg.plotWdg.getViewBox().viewRange()
@@ -323,10 +326,14 @@ class PlottingTool:
         wdg.sbMaxVal.setValue(0)
         wdg.sbMinVal.setValue(0)
 
-    def changeColor(self, wdg, library, color1, name):  # Action when clicking the tableview - color
+    def changeColor(self, wdg: PTDockWidget, library: str | None, color1: QColor, name: str) -> None:
+        if wdg.plotWdg is None:
+            return
 
         if library == "PyQtGraph":
             pitems = wdg.plotWdg.getPlotItem()
+            if pitems is None:
+                return
             for item in pitems.listDataItems():
                 if item.name() == name:
                     item.setPen(color1, width=2)
@@ -348,10 +355,14 @@ class PlottingTool:
                     wdg.plotWdg.draw()
                     break
 
-    def changeAttachCurve(self, wdg, library, bool, name):  # Action when clicking the tableview - checkstate
+    def changeAttachCurve(self, wdg: PTDockWidget, library: str | None, bool: int | Qt.CheckState, name: str) -> None:
+        if wdg.plotWdg is None:
+            return
 
         if library == "PyQtGraph":
             pitems = wdg.plotWdg.getPlotItem()
+            if pitems is None:
+                return
             for item in pitems.listDataItems():
                 if item.name() == name:
                     if bool:
@@ -373,7 +384,7 @@ class PlottingTool:
 
                     break
 
-    def manageMatplotlibAxe(self, axe1):
+    def manageMatplotlibAxe(self, axe1: Axes) -> None:
         unit = "degrees" if QgsProject.instance().crs().isGeographic() else "m"
         axe1.set_xlabel(f"Chainage ({unit})")
         axe1.grid()
@@ -401,7 +412,7 @@ class PlottingTool:
             right=False,
         )
 
-    def outPrint(self, iface, wdg, mdl, library):
+    def outPrint(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
         name = "Profile"
         # Postscript file rendering doesn't work properly yet.
         for i in range(mdl.rowCount()):
@@ -414,7 +425,7 @@ class PlottingTool:
             if library == "Matplotlib" and has_mpl:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
-    def outPDF(self, iface, wdg, mdl, library):
+    def outPDF(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
         name = "Profile"
         for i in range(mdl.rowCount()):
             if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
@@ -430,7 +441,7 @@ class PlottingTool:
             if library == "Matplotlib" and has_mpl:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
-    def outSVG(self, iface, wdg, mdl, library):
+    def outSVG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
         fileName = getSaveFileName(
             parent=iface.mainWindow(),
             caption="Save As",
@@ -461,7 +472,7 @@ class PlottingTool:
             elif library == "Matplotlib" and has_mpl:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
-    def outPNG(self, iface, wdg, mdl, library):
+    def outPNG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
         fileName = getSaveFileName(
             parent=iface.mainWindow(),
             caption="Save As",
@@ -479,7 +490,15 @@ class PlottingTool:
             elif library == "Matplotlib" and has_mpl:
                 wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
 
-    def outDXF(self, iface, wdg, mdl, library: str, profiles: Sequence[Profile], type: str = "3D") -> None:
+    def outDXF(
+        self,
+        iface: QgisInterface,
+        wdg: PTDockWidget,
+        mdl: QStandardItemModel,
+        library: str | None,
+        profiles: Sequence[Profile],
+        type: str = "3D",
+    ) -> None:
         fileName = getSaveFileName(
             parent=iface.mainWindow(),
             caption="Save As",

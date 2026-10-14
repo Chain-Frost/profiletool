@@ -4,14 +4,22 @@ Measured on 14 October 2026 using the configured OSGeo4W Python 3.12 / QGIS
 4.2.1 environment and matching PyQt6 type definitions.
 
 Full strict Pyright decreased from **2,259 errors at commit `84b3ed3`** to
-**1,205 errors in the working tree**, with zero warnings: 1,054 fewer errors.
+**808 errors in the working tree**, with zero warnings: 1,451 fewer errors.
 The first batch reduced the count to 1,857 and was committed as `1e0a667`.
-The reader, plotting, table-model and map-tool follow-up removes another 652 errors.
+The subsequent reader, plotting, table-model, map-tool, core and UI work removes
+another 1,049 errors.
 The working-tree result includes uncommitted changes and is not a hosted CI
 result. Generated reports remain local and ignored.
 
 ## Changes
 
+- Typed dock-widget handlers and plotting/export inputs, preserving established
+  names. Guarded missing layout items, headers, signal senders and clipboards.
+- Fixed temporary-layer export's Qt 6 field enum (`QMetaType.Type.Double`).
+  The isolated QGIS regression now clicks the coordinate-tab buttons, checks
+  clipboard output and verifies exported feature values and CRS.
+- Typed feature-selection inputs, cursor positions, point-layer state and core
+  lifecycle methods. Missing map canvases/renderers are guarded before access.
 - Typed the map renderer, mouse positions, drawn points and core constructor.
   Missing canvases fail explicitly, and mouse callbacks skip unavailable
   coordinate transforms.
@@ -56,8 +64,8 @@ remain acceptable after checking callers and compatibility.
 | CI-scoped strict Pyright | Zero errors and warnings |
 | Headless CI regression suite | 13 passed |
 | Tests in isolated QGIS processes | 15 passed |
-| Full strict Pyright | 1,205 errors, zero warnings |
-| Full Ruff inventory | 448 findings remain after legacy naming exemptions |
+| Full strict Pyright | 808 errors, zero warnings |
+| Full Ruff inventory | 340 findings remain after legacy naming exemptions |
 | Formatting of changed Python files | Passed |
 
 The isolated QGIS run used `QT_QPA_PLATFORM=offscreen` and excluded

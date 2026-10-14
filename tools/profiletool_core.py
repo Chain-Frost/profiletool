@@ -47,6 +47,7 @@ from qgis.core import (
 )
 from qgis.gui import QgisInterface, QgsMapTool
 from qgis.PyQt.QtCore import QSettings, QSignalBlocker, Qt
+from qgis.PyQt.QtGui import QStandardItemModel
 from qgis.PyQt.QtWidgets import QWidget
 
 from ..ui.ptdockwidget import PTDockWidget
@@ -61,6 +62,8 @@ from .selectlinetool import SelectLineTool
 from .tableviewtool import layer_from_model
 
 if TYPE_CHECKING:
+    from matplotlib.backend_bases import MouseEvent
+
     from ..profileplugin import ProfilePlugin
 
 
@@ -91,9 +94,10 @@ class ProfileToolCore(QWidget):
         self.saveTool: QgsMapTool | None = None  # Save the standard map tool for restoring it at the end.
         # Used to remove highlighting from previously active layer.
         self.previousLayerId = None
-        self.pointLayer = None
+        self.pointLayer: QgsVectorLayer | None = None
         self._layers_signal_connected = False
-        self.x_cursor = None  # Keep track of last x position of cursor
+        self.x_cursor: float | None = None  # Keep track of last x position of cursor
+        self.distancesPicked: list[float] = []
         # the dockwidget
         self.dockwidget = PTDockWidget(self.iface, self)
         # Initialize the dockwidget combo box with the list of available profiles.
@@ -106,8 +110,10 @@ class ProfileToolCore(QWidget):
         # dockwidget graph zone
         self.dockwidget.changePlotLibrary(self.dockwidget.cboLibrary.currentIndex())
 
-    def activateProfileMapTool(self):
+    def activateProfileMapTool(self) -> None:
         canvas = self.iface.mapCanvas()
+        if canvas is None:
+            return
         if self.toolrenderer is not None:
             if canvas.mapTool() != self.toolrenderer.tool:
                 self.saveTool = canvas.mapTool()
@@ -127,13 +133,15 @@ class ProfileToolCore(QWidget):
     # **************************** function part *************************************************
     # ******************************************************************************************
 
-    def clearProfil(self):
+    def clearProfil(self) -> None:
         self.updateProfilFromFeatures(None, [])
 
-    def updateProfilFromFeatures(self, layer, features, plotProfil=True):
+    def updateProfilFromFeatures(
+        self, layer: QgsVectorLayer | None, features: Sequence[QgsFeature], plotProfil: bool = True
+    ) -> None:
         """Read only the selected polyline part; preserve existing QGIS selection."""
-        points = []
-        if layer and features:
+        points: list[list[float]] = []
+        if layer and features and self.toolrenderer is not None:
             if SelectLineTool.checkIsPointLayer(layer):
                 for feature in features:
                     geom = feature.geometry()
@@ -208,7 +216,7 @@ class ProfileToolCore(QWidget):
         if plotProfil:
             self.plotProfil()
 
-    def plotProfil(self, vertline=True):
+    def plotProfil(self, vertline: bool = True) -> None:
         self.disableMouseCoordonates()
         if self.removeClosedLayers(self.dockwidget.mdl):
             self.updateProfil(self.pointstoDraw, False, True)
@@ -237,7 +245,7 @@ class ProfileToolCore(QWidget):
         self.updateCursorOnMap(self.x_cursor)
         self.enableMouseCoordonates(self.dockwidget.plotlibrary)
 
-    def setPointOnMap(self, x, y):
+    def setPointOnMap(self, x: float | None, y: float) -> None:
         """Store the actual sampled elevation, even on a slope-profile plot."""
         elevation = y  # Preserve the legacy keyword argument while naming its meaning locally.
         self.x_cursor = x
@@ -295,8 +303,10 @@ class ProfileToolCore(QWidget):
             level=Qgis.Info,
         )
 
-    def updateCursorOnMap(self, x):
+    def updateCursorOnMap(self, x: float | None) -> None:
         self.x_cursor = x
+        if self.toolrenderer is None:
+            return
         if self.pointstoDraw and self.doTracking:
             if x is not None:
                 points = [QgsPointXY(*p) for p in self.pointstoDraw]
@@ -319,7 +329,7 @@ class ProfileToolCore(QWidget):
     def onLayersRemoved(self, *args):
         self.updateProfil(self.pointstoDraw, False, True)
 
-    def removeClosedLayers(self, model1):
+    def removeClosedLayers(self, model1: QStandardItemModel) -> bool:
         """Remove missing layers by stable ID, not by non-unique layer name."""
         removed = False
         blocker = QSignalBlocker(self.dockwidget.tableViewTool)
@@ -332,7 +342,7 @@ class ProfileToolCore(QWidget):
             blocker.unblock()
         return removed
 
-    def cleaning(self):
+    def cleaning(self) -> None:
         self.profiles = []
         self.pointstoDraw = []
         if self.toolrenderer:
@@ -346,7 +356,7 @@ class ProfileToolCore(QWidget):
     # **************************** mouse interaction *******************************************
     # ******************************************************************************************
 
-    def activateMouseTracking(self, int1):
+    def activateMouseTracking(self, int1: int) -> None:
         if self.dockwidget.TYPE == "PyQtGraph":
             if int1 == 2:
                 self.doTracking = True
@@ -368,7 +378,7 @@ class ProfileToolCore(QWidget):
                 except Exception as e:
                     print(str(e))
 
-    def mouseevent_mpl(self, event):
+    def mouseevent_mpl(self, event: MouseEvent) -> None:
         """Handle interactive mouse movement in the Matplotlib view."""
         if event.xdata:
             try:
@@ -381,7 +391,7 @@ class ProfileToolCore(QWidget):
             self.dockwidget.plotWdg.draw()
             self.updateCursorOnMap(xdata)
 
-    def enableMouseCoordonates(self, library):
+    def enableMouseCoordonates(self, library: str | None) -> None:
         if library == "PyQtGraph":
             self.dockwidget.plotWdg.scene().sigMouseMoved.connect(self.mouseMovedPyQtGraph)
             self.dockwidget.plotWdg.scene().sigMouseClicked.connect(self.mouseClickedPyQtGraph)
@@ -421,7 +431,7 @@ class ProfileToolCore(QWidget):
             self.setPointOnMap(x, z)
             self.distancesPicked.append(x)
 
-    def disableMouseCoordonates(self):
+    def disableMouseCoordonates(self) -> None:
         with suppress(AttributeError, RuntimeError, TypeError):
             self.dockwidget.plotWdg.scene().sigMouseMoved.disconnect(self.mouseMovedPyQtGraph)
         with suppress(AttributeError, RuntimeError, TypeError):
