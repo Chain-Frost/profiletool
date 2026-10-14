@@ -239,7 +239,6 @@ class TableViewTool(QObject):
             mdl.setData(mdl.index(temp.row(), 1, QModelIndex()), color, Qt.ItemDataRole.BackgroundRole)
             PlottingTool().changeColor(wdg, plotlibrary, color, name)
         elif index1.column() == 0:  # modifying checkbox
-            # name = mdl.item(index1.row(),2).data(Qt.ItemDataRole.EditRole)
             name = PlottingTool.curveName(
                 layer,
                 mdl.item(index1.row(), 3).data(Qt.ItemDataRole.EditRole),

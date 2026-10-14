@@ -162,7 +162,6 @@ class SelectLineTool:
                     featureId = f.id()
             # get the closest feature
             f = QgsFeature()
-            # closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).next()
             layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f)
             closestFeature = f
             if featureId is None or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) is False:

@@ -9,7 +9,6 @@ import qgis.utils
 initialized = False
 if not initialized and hasattr(qgis.utils, "QGis"):
     initialized = True
-    # log('Running apicompat on QGIS version %s' % QGIS_VERSION)
 
     # Here import all the compatibility fixes modules
     import qgiscoreqgis

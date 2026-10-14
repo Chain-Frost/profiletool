@@ -36,11 +36,8 @@ import numpy as np
 from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsMapLayer, QgsPointXY, QgsProject, QgsVectorLayer, QgsWkbTypes
 from qgis.gui import QgsMapTool
 
-# from qgis.gui import *
 from qgis.PyQt.QtCore import QSettings, QSignalBlocker, Qt
 
-# from qgis.PyQt.QtGui import QColor
-# from qgis.PyQt.QtSvg import *  # required in some distros
 from qgis.PyQt.QtWidgets import QWidget
 
 from ..ui.ptdockwidget import PTDockWidget
@@ -76,7 +73,6 @@ class ProfileToolCore(QWidget):
         # The line information
         self.pointstoDraw = []
         # he renderer for temporary polyline
-        # self.toolrenderer = ProfiletoolMapToolRenderer(self)
         self.toolrenderer = None
         # the maptool previously loaded
         self.saveTool: QgsMapTool | None = None  # Save the standard map tool for restoring it at the end.
@@ -371,7 +367,6 @@ class ProfileToolCore(QWidget):
             self.dockwidget.plotWdg.scene().sigMouseMoved.connect(self.mouseMovedPyQtGraph)
             self.dockwidget.plotWdg.scene().sigMouseClicked.connect(self.mouseClickedPyQtGraph)
             self.dockwidget.plotWdg.getViewBox().autoRange(items=self.dockwidget.plotWdg.getPlotItem().listDataItems())
-            # self.dockwidget.plotWdg.getViewBox().sigRangeChanged.connect(self.dockwidget.plotRangechanged)
             self.dockwidget.connectPlotRangechanged()
 
     def mouseClickedPyQtGraph(self, event):

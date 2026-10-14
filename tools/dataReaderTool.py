@@ -377,7 +377,6 @@ class DataReaderTool:
             if i == len(polyline) - 1:
                 break
             vertexpoint_xy = QgsPointXY(geom.vertexAt(i))
-            # vertexpoint_xy = QgsPointXY(vertexpoint.x(), vertexpoint.y())
             lenpoly = geom.lineLocatePoint(qgis.core.QgsGeometry.fromPointXY(vertexpoint_xy))
 
             if min(abs(projectedpoints[:, 0] - lenpoly)) < PRECISION:
@@ -405,7 +404,6 @@ class DataReaderTool:
                 projectedpoints[previouspointindex][5]
                 + (projectedpoints[nextpointindex][5] - projectedpoints[previouspointindex][5]) / lentot * lentemp
             )
-            # return [lenpoly, point[0], point[1], -1, None ,z,point[0], point[1], None ]
             return [
                 lenpoly,
                 vertexpoint.x(),

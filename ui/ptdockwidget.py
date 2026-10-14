@@ -37,8 +37,6 @@ from qgis.core import (
     QgsVectorLayer,
 )
 
-# from qgis.gui import *
-# from qgis.PyQt import QtCore, QtGui, uic
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import QModelIndex, Qt, QVariant, pyqtSignal
 from qgis.PyQt.QtGui import QStandardItemModel
@@ -101,7 +99,6 @@ class PTDockWidget(QDockWidget, FormClass):
         self.tableView.setModel(self.mdl)
         self.tableView.setColumnWidth(0, 20)
         self.tableView.setColumnWidth(1, 20)
-        # self.tableView.setColumnWidth(2, 150)
         hh = self.tableView.horizontalHeader()
         hh.setStretchLastSection(True)
         self.tableView.setColumnHidden(5, True)
@@ -195,7 +192,6 @@ class PTDockWidget(QDockWidget, FormClass):
 
         elif library == "Matplotlib":
             self.stackedWidget.setCurrentIndex(0)
-            # self.widget_save_buttons.setVisible( False )
             self.plotWdg = PlottingTool().changePlotWidget("Matplotlib", self.frame_for_plot)
             layout.addWidget(self.plotWdg)
             self.TYPE = "Matplotlib"
@@ -373,15 +369,12 @@ class PTDockWidget(QDockWidget, FormClass):
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self.profileTableViews[i].setSizePolicy(sizePolicy)
             self.profileTableViews[i].setObjectName("tableView" + str(i))
-            # font = QFont("Arial", 8)
             column = len(self.profiletoolcore.profiles[i]["l"])
             self.mdl2 = QStandardItemModel(2, column)
             self.profileModels.append(self.mdl2)
             for j in range(len(self.profiletoolcore.profiles[i]["l"])):
                 self.mdl2.setData(self.mdl2.index(0, j, QModelIndex()), self.profiletoolcore.profiles[i]["l"][j])
-                # self.mdl2.setData(self.mdl2.index(0, j, QModelIndex())  ,font ,QtCore.Qt.FontRole)
                 self.mdl2.setData(self.mdl2.index(1, j, QModelIndex()), self.profiletoolcore.profiles[i]["z"][j])
-                # self.mdl2.setData(self.mdl2.index(1, j, QModelIndex())  ,font ,QtCore.Qt.FontRole)
             self.profileTableViews[i].verticalHeader().setDefaultSectionSize(18)
             self.profileTableViews[i].horizontalHeader().setDefaultSectionSize(60)
             self.profileTableViews[i].setModel(self.mdl2)
@@ -497,7 +490,6 @@ class PTDockWidget(QDockWidget, FormClass):
             labelsettings = vl.labeling().settings()
             labelsettings.enabled = True
 
-        # vl.setCustomProperty("labeling/enabled", "true")
         # show layer
         QgsProject.instance().addMapLayer(vl)
 
@@ -508,8 +500,6 @@ class PTDockWidget(QDockWidget, FormClass):
     def closeEvent(self, event):
         self.closed.emit()
         self.profiletoolcore.cleaning()
-        # self.butSaveAs.clicked.disconnect(self.saveAs)
-        # return QDockWidget.closeEvent(self, event)
 
     # generic save as button
     def saveAs(self):

@@ -123,7 +123,6 @@ class ProfilePlugin:
 
     def mapToolChanged(self, newtool: QgsMapTool | None, oldtool: QgsMapTool | None = None) -> None:
         pass
-        # print('maptoolchanged',newtool,oldtool)
 
     def about(self) -> None:
         from .ui.dlgabout import DlgAbout

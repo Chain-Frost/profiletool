@@ -285,8 +285,6 @@ class PlottingTool:
         elif library == "Matplotlib" and has_mpl:
             wdg.plotWdg.figure.get_axes()[0].cla()
             self.manageMatplotlibAxe(wdg.plotWdg.figure.get_axes()[0])
-            # wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
-            # wdg.plotWdg.draw()
         wdg.sbMaxVal.setEnabled(False)
         wdg.sbMinVal.setEnabled(False)
         wdg.sbMaxVal.setValue(0)
@@ -376,7 +374,6 @@ class PlottingTool:
         for i in range(mdl.rowCount()):
             if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
                 name = str(mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
-                # return
         fileName = getSaveFileName(
             iface.mainWindow(), "Save As", "Profile of " + name + ".ps", "PostScript Format (*.ps)"
         )
@@ -436,7 +433,6 @@ class PlottingTool:
             parent=iface.mainWindow(),
             caption="Save As",
             directory=wdg.profiletoolcore.loaddirectory,
-            # filter = "Profile of " + name + ".png",
             filter="Portable Network Graphics (*.png)",
         )
 

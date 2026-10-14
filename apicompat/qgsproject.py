@@ -6,10 +6,8 @@ import qgis.core
 import qgis.utils
 from PyQt4.QtCore import QFileInfo
 
-# from qgis2compat import log
 
 
-# log('Monkeypatching QgsProject')
 
 
 def visibilityPresetCollection(self):

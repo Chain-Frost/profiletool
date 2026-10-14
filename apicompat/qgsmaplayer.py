@@ -4,7 +4,6 @@
 import qgis.core
 
 
-# log('Monkeypatching QgsPointXY')
 # hasGeometryType has been replaced by isSpatial in QGis 3.0 api
 def isSpatial(self):
     # Will raise AttributeError when used with layers that are not
