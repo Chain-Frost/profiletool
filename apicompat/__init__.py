@@ -1,4 +1,3 @@
-# coding=utf-8
 import qgis.utils
 
 # Based on qgis2compat plugin from opengis.ch

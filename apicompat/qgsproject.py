@@ -1,4 +1,3 @@
-# coding=utf-8
 """Monkey patching for QgsProject - QGis 3 compatibility in QGis 2.
 
 From qgis2compat plugin by opengis.ch

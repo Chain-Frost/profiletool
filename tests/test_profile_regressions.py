@@ -88,7 +88,7 @@ def reader_module(monkeypatch):
             return "feet" if not self.geographic else "degrees"
 
     project = SimpleNamespace(
-        crs=lambda: ProjectCrs(),
+        crs=ProjectCrs,
         transformContext=lambda: None,
         ellipsoid=lambda: "WGS84",
     )

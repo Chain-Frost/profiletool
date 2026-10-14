@@ -22,6 +22,7 @@
 #
 # ---------------------------------------------------------------------
 import os
+from contextlib import suppress
 from math import sqrt
 
 import numpy as np
@@ -142,6 +143,7 @@ class PlottingTool:
             sizePolicy.setVerticalStretch(0)
             canvas.setSizePolicy(sizePolicy)
             return canvas
+        return None
 
     def drawVertLine(self, wdg, pointstoDraw, library):
         if library == "PyQtGraph":
@@ -275,10 +277,8 @@ class PlottingTool:
             pitems = wdg.plotWdg.getPlotItem().listDataItems()
             for item in pitems:
                 wdg.plotWdg.removeItem(item)
-            try:
+            with suppress(Exception):  # Signal may not be connected to this instance.
                 wdg.plotWdg.scene().sigMouseMoved.disconnect(self.mouseMoved)
-            except Exception:
-                pass
 
         elif library == "Matplotlib" and has_mpl:
             wdg.plotWdg.figure.get_axes()[0].cla()
@@ -294,7 +294,7 @@ class PlottingTool:
 
         if library == "PyQtGraph":
             pitems = wdg.plotWdg.getPlotItem()
-            for i, item in enumerate(pitems.listDataItems()):
+            for item in pitems.listDataItems():
                 if item.name() == name:
                     item.setPen(color1, width=2)
 
@@ -319,7 +319,7 @@ class PlottingTool:
 
         if library == "PyQtGraph":
             pitems = wdg.plotWdg.getPlotItem()
-            for i, item in enumerate(pitems.listDataItems()):
+            for item in pitems.listDataItems():
                 if item.name() == name:
                     if bool:
                         item.setVisible(True)

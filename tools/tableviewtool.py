@@ -105,9 +105,7 @@ class TableViewTool(QObject):
             return None
 
         if layer2.type() == layer2.RasterLayer and layer2.bandCount() != 1:
-            listband = []
-            for i in range(layer2.bandCount()):
-                listband.append(str(i + self.bandoffset))
+            listband = [str(i + self.bandoffset) for i in range(layer2.bandCount())]
             testqt, ok = QInputDialog.getItem(
                 iface.mainWindow(),
                 typename.capitalize() + " selector",
@@ -198,6 +196,7 @@ class TableViewTool(QObject):
         mdl.setData(mdl.index(row, 5, QModelIndex()), layer2.id())
         mdl.item(row, 5).setFlags(Qt.ItemFlag.NoItemFlags)
         self.layerAddedOrRemoved.emit()
+        return None
 
     def removeLayer(self, mdl, index):
         try:
@@ -212,9 +211,10 @@ class TableViewTool(QObject):
                 return 0
             return None
 
-        list1 = []
-        for i in range(mdl.rowCount()):
-            list1.append(str(i + 1) + " : " + mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
+        list1 = [
+            str(i + 1) + " : " + mdl.item(i, 2).data(Qt.ItemDataRole.EditRole)
+            for i in range(mdl.rowCount())
+        ]
         testqt, ok = QInputDialog.getItem(iface.mainWindow(), "Layer selector", "Choose the Layer", list1, False)
         if ok:
             for i in range(mdl.rowCount()):
@@ -272,11 +272,6 @@ class TableViewTool(QObject):
                 choosenBand = previousparam
             mdl.setData(mdl.index(temp.row(), 3, QModelIndex()), choosenBand)
             self.layerAddedOrRemoved.emit()
-
-        elif False and index1.column() == 4:
-            # name = mdl.item(index1.row(),2).data(Qt.ItemDataRole.EditRole)
-            name = mdl.item(index1.row(), 4).data(Qt.ItemDataRole.EditRole)
-            print(name)
 
         else:
             return

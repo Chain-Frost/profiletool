@@ -385,9 +385,7 @@ class DataReaderTool:
         temp = projectedpoints.tolist() + projectedpointsinterp
         projectedpoints = np.array(temp)
 
-        projectedpoints = projectedpoints[projectedpoints[:, 0].argsort()]
-
-        return projectedpoints
+        return projectedpoints[projectedpoints[:, 0].argsort()]
 
     def interpolatePoint(self, vertexpoint, geom, projectedpoints):
 
