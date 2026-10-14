@@ -23,7 +23,8 @@ jobs:
             tools/ptmaptool.py tools/tableviewtool.py tools/plottingtool.py \
             ui/dlgabout.py ui/ptdockwidget.py \
             scripts/write_qgis_env.py scripts/qgis_dev.py scripts/setup_qgis_typing.py \
-            scripts/pyright_triage.py tests/test_pyright_triage.py tests/test_qgis_layer_lifecycle.py
+            scripts/pyright_triage.py tests/test_pyright_triage.py tests/test_qgis_layer_lifecycle.py \
+            tools/profile_types.py ui/profiletool_form_types.py tests/test_ui_typing_contract.py
       - name: Full Ruff inventory (informational)
         continue-on-error: true
         run: |
@@ -34,4 +35,4 @@ jobs:
       - name: Compile plugin sources
         run: python -m compileall -q __init__.py profileplugin.py tools ui
       - name: Regression tests (no QGIS desktop)
-        run: python -m pytest -q tests/test_profile_regressions.py tests/test_pyright_triage.py
+        run: python -m pytest -q tests/test_profile_regressions.py tests/test_pyright_triage.py tests/test_ui_typing_contract.py

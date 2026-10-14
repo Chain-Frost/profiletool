@@ -28,16 +28,16 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from contextlib import suppress
+from typing import cast
 
 import numpy as np
 
 # qgis import
 from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsMapLayer, QgsPointXY, QgsProject, QgsVectorLayer, QgsWkbTypes
 from qgis.gui import QgsMapTool
-
 from qgis.PyQt.QtCore import QSettings, QSignalBlocker, Qt
-
 from qgis.PyQt.QtWidgets import QWidget
 
 from ..ui.ptdockwidget import PTDockWidget
@@ -46,6 +46,7 @@ from . import profilers
 # plugin import
 from .dataReaderTool import DataReaderTool
 from .plottingtool import PlottingTool
+from .profile_types import Profile
 from .ptmaptool import ProfiletoolMapToolRenderer
 from .selectlinetool import SelectLineTool
 from .tableviewtool import layer_from_model
@@ -69,9 +70,9 @@ class ProfileToolCore(QWidget):
         self.liveUpdate = True
         # the datas / results
         # dictionary where is saved the plotting data {"l":[l],"z":[z], "layer":layer1, "curve":curve1}
-        self.profiles = []
+        self.profiles: list[Profile] = []
         # The line information
-        self.pointstoDraw = []
+        self.pointstoDraw: list[Sequence[float]] = []
         # he renderer for temporary polyline
         self.toolrenderer = None
         # the maptool previously loaded
@@ -150,7 +151,9 @@ class ProfileToolCore(QWidget):
             self.toolrenderer.updateRubberBand()
         self.updateProfil(points, False, plotProfil)
 
-    def updateProfil(self, points1, removeSelection=True, plotProfil=True):
+    def updateProfil(
+        self, points1: Sequence[Sequence[float]], removeSelection: bool = True, plotProfil: bool = True
+    ) -> None:
         """Sample selected, manually added layers without changing feature selections."""
         self.pointstoDraw = list(points1)
         self.profiles = []
@@ -187,7 +190,9 @@ class ProfileToolCore(QWidget):
                 )
             profile["plot_x"] = []
             profile["plot_y"] = []
-            self.profiles.append(profile)
+            # Both reader paths populate source coordinates, samples and CRS;
+            # plot series are populated immediately above before storage.
+            self.profiles.append(cast(Profile, profile))
         if plotProfil:
             self.plotProfil()
 

@@ -12,6 +12,7 @@ pytest.importorskip("qgis.core", reason="Requires the OSGeo4W QGIS environment")
 
 from qgis.core import QgsFeature, QgsGeometry, QgsProject, QgsVectorLayer
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtWidgets import QGroupBox, QVBoxLayout
 from qgis.testing.mocked import get_iface
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -68,6 +69,9 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(monkeypatch
             layers.append(layer)
             dock.addLayer(layer)
         core.updateProfil([[400000, 6500000], [400019, 6500000]], removeSelection=False, plotProfil=True)
+        # Coordinate-tab rebuilding must preserve the Designer widget fields.
+        assert isinstance(dock.groupBox, QGroupBox)
+        assert isinstance(dock.verticalLayout, QVBoxLayout)
         tracking_connections = dock.checkBox_mpl_tracking.receivers(dock.checkBox_mpl_tracking.stateChanged)
         for _ in range(2):
             for index in range(dock.cboLibrary.count()):

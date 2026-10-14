@@ -24,27 +24,32 @@
 
 """Height and grade transformations for sampled profiles."""
 
-from collections.abc import Callable
-from typing import TypedDict
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
+from typing import TypedDict, Union
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
+
+# This runtime alias must also be constructible under Python 3.9.
+ProfileSeries = Union[Sequence[float], NDArray[np.float64]]
 
 
 class ProfileSamples(TypedDict):
     """Required displayed chainage and elevation samples."""
 
-    l: ArrayLike  # noqa: E741 -- Existing profile dictionary key for chainage.
-    z: ArrayLike
+    l: ProfileSeries  # noqa: E741 -- Existing profile dictionary key for chainage.
+    z: ProfileSeries
 
 
 class ProfileData(ProfileSamples, total=False):
     """Profile samples with optional physical chainage for grade calculations."""
 
-    l_slope: ArrayLike
+    l_slope: ProfileSeries
 
 
-def height(p: ProfileData) -> tuple[ArrayLike, ArrayLike]:
+def height(p: ProfileData) -> tuple[ProfileSeries, ProfileSeries]:
     """Return the height profile for given track p.
 
     Returns the x (distance from origin) and y (height)
@@ -90,7 +95,7 @@ def slopes_deg(p: ProfileData) -> tuple[NDArray[np.float64], NDArray[np.float64]
     return x, slope_deg
 
 
-PLOT_PROFILERS: dict[str, Callable[[ProfileData], tuple[ArrayLike, ArrayLike]]] = {
+PLOT_PROFILERS: dict[str, Callable[[ProfileData], tuple[ProfileSeries, ProfileSeries]]] = {
     "Height": height,
     "Slope (%)": slopes_pct,
     "Slope (°)": slopes_deg,

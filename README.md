@@ -111,6 +111,9 @@ can resolve the `profiletool` package, matching their runtime import path.
 
 ## Full Pyright diagnostic triage
 
+The latest local typing cleanup and validation results are recorded in
+[the cleanup report](docs/pyright-cleanup.md).
+
 The full strict type check must run in a matching OSGeo4W QGIS/PyQt
 environment. It is not comparable to a headless CI run without QGIS. To
 capture and classify the **actual** full-workspace errors in PowerShell:

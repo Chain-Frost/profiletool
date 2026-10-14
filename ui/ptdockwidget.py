@@ -24,8 +24,11 @@
 
 """Implement the interactive Profile Tool dock widget."""
 
+from __future__ import annotations
+
 import os
 from contextlib import suppress
+from typing import TYPE_CHECKING
 
 from qgis.core import (
     QgsFeature,
@@ -48,6 +51,7 @@ from qgis.PyQt.QtWidgets import (
     QSizePolicy,
     QTableView,
     QVBoxLayout,
+    QWidget,
 )
 
 # plugin import
@@ -64,7 +68,12 @@ except ImportError:
 
 
 uiFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__), "profiletool.ui"))
-FormClass = uic.loadUiType(uiFilePath)[0]
+if TYPE_CHECKING:
+    from ..tools.profile_types import Profile
+    from ..tools.profiletool_core import ProfileToolCore
+    from .profiletool_form_types import Ui_ProfileTool as FormClass
+else:
+    FormClass = uic.loadUiType(uiFilePath)[0]
 
 
 class PTDockWidget(QDockWidget, FormClass):
@@ -73,7 +82,7 @@ class PTDockWidget(QDockWidget, FormClass):
 
     closed = pyqtSignal()
 
-    def __init__(self, iface1, profiletoolcore, parent=None) -> None:
+    def __init__(self, iface1, profiletoolcore: ProfileToolCore, parent: QWidget | None = None) -> None:
         QDockWidget.__init__(self, parent)
         self.setupUi(self)
         self.profiletoolcore = profiletoolcore
@@ -323,7 +332,7 @@ class PTDockWidget(QDockWidget, FormClass):
     # coordinate tab ****************************************************************
     # ********************************************************************************
     @staticmethod
-    def _profile_name(profile) -> str:
+    def _profile_name(profile: Profile) -> str:
         groupTitle = profile["layer"].name()
         band = profile["band"]
         if band is not None and band > -1:
@@ -343,28 +352,28 @@ class PTDockWidget(QDockWidget, FormClass):
             self.VLayout = QVBoxLayout(self.scrollAreaWidgetContents)
             self.VLayout.setContentsMargins(9, -1, -1, -1)
         # Setup the table tab
-        self.groupBox = []
-        self.profilePushButton = []
-        self.coordsPushButton = []
-        self.tolayerPushButton = []
-        self.profileTableViews = []
-        self.profileModels = []
-        self.verticalLayout = []
+        self.coordinateGroups: list[QGroupBox] = []
+        self.profilePushButton: list[QPushButton] = []
+        self.coordsPushButton: list[QPushButton] = []
+        self.tolayerPushButton: list[QPushButton] = []
+        self.profileTableViews: list[QTableView] = []
+        self.profileModels: list[QStandardItemModel] = []
+        self.coordinateLayouts: list[QVBoxLayout] = []
         if self.mdl.rowCount() != len(self.profiletoolcore.profiles or []):
             return
         for i in range(self.mdl.rowCount()):
-            self.groupBox.append(QGroupBox(self.scrollAreaWidgetContents))
+            self.coordinateGroups.append(QGroupBox(self.scrollAreaWidgetContents))
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            self.groupBox[i].setSizePolicy(sizePolicy)
+            self.coordinateGroups[i].setSizePolicy(sizePolicy)
             profileTitle = self._profile_name(self.profiletoolcore.profiles[i])
 
-            self.groupBox[i].setTitle(QApplication.translate("GroupBox" + str(i), profileTitle))
-            self.groupBox[i].setObjectName("groupBox" + str(i))
+            self.coordinateGroups[i].setTitle(QApplication.translate("GroupBox" + str(i), profileTitle))
+            self.coordinateGroups[i].setObjectName("groupBox" + str(i))
 
-            self.verticalLayout.append(QVBoxLayout(self.groupBox[i]))
-            self.verticalLayout[i].setObjectName("verticalLayout")
+            self.coordinateLayouts.append(QVBoxLayout(self.coordinateGroups[i]))
+            self.coordinateLayouts[i].setObjectName("verticalLayout")
             # The table
-            self.profileTableViews.append(QTableView(self.groupBox[i]))
+            self.profileTableViews.append(QTableView(self.coordinateGroups[i]))
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self.profileTableViews[i].setSizePolicy(sizePolicy)
             self.profileTableViews[i].setObjectName("tableView" + str(i))
@@ -387,12 +396,12 @@ class PTDockWidget(QDockWidget, FormClass):
             )  # extra safety margin
             self.profileTableViews[i].setMinimumHeight(minTableHeight)
 
-            self.verticalLayout[i].addWidget(self.profileTableViews[i])
+            self.coordinateLayouts[i].addWidget(self.profileTableViews[i])
 
             self.horizontalLayout = QHBoxLayout()
 
             # the copy to clipboard button
-            self.profilePushButton.append(QPushButton(self.groupBox[i]))
+            self.profilePushButton.append(QPushButton(self.coordinateGroups[i]))
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
             self.profilePushButton[i].setSizePolicy(sizePolicy)
             self.profilePushButton[i].setText(QApplication.translate("GroupBox", "Copy to clipboard"))
@@ -400,15 +409,13 @@ class PTDockWidget(QDockWidget, FormClass):
             self.horizontalLayout.addWidget(self.profilePushButton[i])
 
             # button to copy to clipboard with coordinates
-            self.coordsPushButton.append(QPushButton(self.groupBox[i]))
+            self.coordsPushButton.append(QPushButton(self.coordinateGroups[i]))
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
             self.coordsPushButton[i].setSizePolicy(sizePolicy)
-            self.coordsPushButton[i].setText(
-                QApplication.translate("GroupBox", "Copy to clipboard (with coordinates)")
-            )
+            self.coordsPushButton[i].setText(QApplication.translate("GroupBox", "Copy to clipboard (with coordinates)"))
 
             # button to copy to clipboard with coordinates
-            self.tolayerPushButton.append(QPushButton(self.groupBox[i]))
+            self.tolayerPushButton.append(QPushButton(self.coordinateGroups[i]))
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
             self.tolayerPushButton[i].setSizePolicy(sizePolicy)
             self.tolayerPushButton[i].setText(QApplication.translate("GroupBox", "Create Temporary layer"))
@@ -420,9 +427,9 @@ class PTDockWidget(QDockWidget, FormClass):
             self.horizontalLayout.addWidget(self.tolayerPushButton[i])
 
             self.horizontalLayout.addStretch(0)
-            self.verticalLayout[i].addLayout(self.horizontalLayout)
+            self.coordinateLayouts[i].addLayout(self.horizontalLayout)
 
-            self.VLayout.addWidget(self.groupBox[i])
+            self.VLayout.addWidget(self.coordinateGroups[i])
 
             self.profilePushButton[i].clicked.connect(self.copyTable)
             self.coordsPushButton[i].clicked.connect(self.copyTableAndCoords)
