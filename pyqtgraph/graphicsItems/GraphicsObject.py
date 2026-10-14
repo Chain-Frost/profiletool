@@ -27,6 +27,11 @@ class GraphicsObject(GraphicsItem, QtWidgets.QGraphicsObject):
             if QT_LIB != 'PyQt5' or 'unable to convert a QVariant back to a Python object' not in str(exc):
                 raise
             ret = value
+        # Restore pyqtgraph's original PyQt5 SIP parent-item workaround.
+        # SIP needs a base QGraphicsItem wrapper when Qt changes a parent.
+        if QT_LIB == 'PyQt5' and change == self.GraphicsItemChange.ItemParentChange and isinstance(ret, QtWidgets.QGraphicsItem):
+            from ..Qt import sip
+            ret = sip.cast(ret, QtWidgets.QGraphicsItem)
         if change in [self.GraphicsItemChange.ItemParentHasChanged, self.GraphicsItemChange.ItemSceneHasChanged]:
             if self.__class__.__dict__.get('parentChanged') is not None:
                 # user's GraphicsObject subclass has a parentChanged() method
