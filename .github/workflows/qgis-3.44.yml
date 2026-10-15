@@ -11,6 +11,7 @@ on:
       - "tools/**"
       - "ui/**"
       - "tests/test_qgis_layer_lifecycle.py"
+      - "docs/qgis-3.44-compatibility.md"
       - "pyqtgraph/graphicsItems/**"
   pull_request:
     paths:
@@ -20,6 +21,7 @@ on:
       - "tools/**"
       - "ui/**"
       - "tests/test_qgis_layer_lifecycle.py"
+      - "docs/qgis-3.44-compatibility.md"
       - "pyqtgraph/graphicsItems/**"
 
 jobs:
