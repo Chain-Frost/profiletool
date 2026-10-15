@@ -36,6 +36,47 @@ def test_unload_before_opening_dock_disconnects_map_tool_callback() -> None:
     assert canvas.receivers(canvas.mapToolSet) == before
 
 
+def test_graphics_parent_scene_and_bounds_notifications_are_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
+    """QGIS 3.44/PyQt5 must not lose parent attachment or plot auto-range updates."""
+    callback_errors: list[BaseException] = []
+
+    def capture_callback_error(
+        _kind: type[BaseException], value: BaseException, _traceback: TracebackType | None
+    ) -> None:
+        callback_errors.append(value)
+
+    monkeypatch.setattr(sys, "excepthook", capture_callback_error)
+    plot = pg.PlotWidget()
+    curve = pg.PlotDataItem([0.0, 1.0], [3.0, 6.0])
+    try:
+        assert curve.scene() is None
+        plot.addItem(curve)
+        assert curve.scene() is plot.scene()
+        assert curve.parentItem() is not None
+        view_box = plot.getViewBox()
+        assert curve.getViewBox() is view_box
+
+        # Bounds notification is required for PyQtGraph's auto-range behaviour.
+        bounds_changed: list[object] = []
+        previous_bounds_changed = view_box.itemBoundsChanged
+
+        def capture_bounds_changed(item: object) -> None:
+            bounds_changed.append(item)
+            previous_bounds_changed(item)
+
+        monkeypatch.setattr(view_box, "itemBoundsChanged", capture_bounds_changed)
+        curve.setPos(12.0, 4.0)
+        assert curve.pos().x() == 12.0
+        assert curve.pos().y() == 4.0
+        assert curve in bounds_changed
+
+        plot.removeItem(curve)
+        assert curve.scene() is None
+        assert not callback_errors, [str(error) for error in callback_errors]
+    finally:
+        plot.close()
+
+
 def test_deleting_profile_sources_refreshes_without_deleted_wrappers(monkeypatch: pytest.MonkeyPatch) -> None:
     """Deleting one or several sources must keep model and sampled profiles valid."""
     callback_errors: list[tuple[type[BaseException], BaseException, TracebackType | None]] = []
