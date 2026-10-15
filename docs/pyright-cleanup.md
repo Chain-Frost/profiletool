@@ -1,5 +1,16 @@
 # Pyright cleanup validation
 
+> **Committed-head note (15 October 2026):** The most recent complete QGIS
+> Pyright JSON checked into `validation/pyright/latest-working-tree/` records
+> **26 errors and 0 warnings**, produced from a working tree based on
+> `c8adac6`. Those changes were subsequently committed as `21ab42c`.
+> Additional low-risk typing changes on PR #1 address numeric NoData guards,
+> QGIS polyline-return signatures and narrow Matplotlib/PyQtGraph/DXF export
+> call contracts. **No full QGIS Pyright recount has been verified at the
+> latest PR head.** The separate headless CI Pyright test cannot establish
+> that count. QGIS 3.44 remains a separate failing compatibility test.
+
+
 Measured on 14 October 2026 using the configured OSGeo4W Python 3.12 / QGIS
 4.2.1 environment and matching PyQt6 type definitions.
 
