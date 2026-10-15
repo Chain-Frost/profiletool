@@ -37,5 +37,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}:/tests_directory/profiletool" \
             qgis/qgis:3.44.15-noble -euc '
               python3 -c "from qgis.core import Qgis; from qgis.PyQt.QtCore import QT_VERSION_STR, PYQT_VERSION_STR; from profiletool import pyqtgraph as pg; print(Qgis.QGIS_VERSION, QT_VERSION_STR, PYQT_VERSION_STR, pg.__version__)"
+              python3 /tests_directory/profiletool/scripts/qgis3_44_qvariant_probe.py || true
+              echo "Above probe is informational; the following normal-setting test is authoritative:"
               python3 -m pytest -s -q /tests_directory/profiletool/tests/test_qgis_layer_lifecycle.py
             '
