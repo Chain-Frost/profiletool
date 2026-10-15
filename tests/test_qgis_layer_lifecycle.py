@@ -13,8 +13,9 @@ import pytest
 
 pytest.importorskip("qgis.core", reason="Requires the OSGeo4W QGIS environment")
 
-from qgis.core import QgsFeature, QgsGeometry, QgsProject, QgsVectorLayer
+from qgis.core import QgsCoordinateReferenceSystem, QgsFeature, QgsGeometry, QgsPointXY, QgsProject, QgsVectorLayer
 from qgis.PyQt.QtCore import Qt, pyqtBoundSignal
+from qgis.PyQt.QtGui import QTransform
 from qgis.PyQt.QtWidgets import QApplication, QGroupBox, QVBoxLayout
 from qgis.testing.mocked import get_iface
 
@@ -70,11 +71,52 @@ def test_graphics_parent_scene_and_bounds_notifications_are_preserved(monkeypatc
         assert curve.pos().y() == 4.0
         assert curve in bounds_changed
 
+        # QGIS 3/PyQt5 must invalidate bounds for explicit transforms, too.
+        bounds_changed.clear()
+        curve.setTransform(QTransform.fromScale(2.0, 1.5))
+        assert curve in bounds_changed
+        bounds_changed.clear()
+        curve.resetTransform()
+        assert curve in bounds_changed
+
         plot.removeItem(curve)
         assert curve.scene() is None
         assert not callback_errors, [str(error) for error in callback_errors]
     finally:
         plot.close()
+
+
+def test_whole_layer_selection_keeps_all_disconnected_features() -> None:
+    """Whole-layer mode must not silently discard subsequent line features."""
+    iface = get_iface()
+    iface.activeLayer.return_value = None
+    project = QgsProject.instance()
+    assert project is not None
+    original_crs = project.crs()
+    project.setCrs(QgsCoordinateReferenceSystem("EPSG:28350"))
+    plugin = ProfilePlugin(iface)
+    plugin.initGui()
+    layer = QgsVectorLayer("LineString?crs=EPSG:28350", "disconnected", "memory")
+    try:
+        provider = layer.dataProvider()
+        assert provider is not None
+        for coords in (((0.0, 0.0), (2.0, 0.0)), ((10.0, 0.0), (12.0, 0.0))):
+            feature = QgsFeature(layer.fields())
+            feature.setGeometry(QgsGeometry.fromPolylineXY([QgsPointXY(*point) for point in coords]))
+            provider.addFeatures([feature])
+        project.addMapLayer(layer)
+        plugin.run()
+        core = plugin.profiletool
+        assert core is not None
+        features = list(cast(Iterable[QgsFeature], layer.getFeatures()))
+        core.updateProfilFromFeatures(layer, features)
+        # The upstream code concatenated all source lines, dropping the first
+        # point of each subsequent feature. Preserve that observable behaviour.
+        assert core.pointstoDraw == [[0.0, 0.0], [2.0, 0.0], [12.0, 0.0]]
+    finally:
+        plugin.unload()
+        project.removeMapLayer(layer.id())
+        project.setCrs(original_crs)
 
 
 def test_deleting_profile_sources_refreshes_without_deleted_wrappers(monkeypatch: pytest.MonkeyPatch) -> None:

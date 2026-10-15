@@ -27,6 +27,18 @@ class GraphicsObject(GraphicsItem, QtWidgets.QGraphicsObject):
             self.yChanged.connect(self.informViewBoundsChanged)
             self.rotationChanged.connect(self.informViewBoundsChanged)
             self.scaleChanged.connect(self.informViewBoundsChanged)
+            self.transformOriginPointChanged.connect(self.informViewBoundsChanged)
+
+    if QT_LIB == 'PyQt5':
+        def setTransform(self, transform, combine=False):
+            # An explicit matrix change does not emit x/rotation/scale signals.
+            # Notify auto-range without restoring the unsafe Qt5 itemChange().
+            QtWidgets.QGraphicsObject.setTransform(self, transform, combine)
+            self.informViewBoundsChanged()
+
+        def resetTransform(self):
+            QtWidgets.QGraphicsObject.resetTransform(self)
+            self.informViewBoundsChanged()
         
     def itemChange(self, change, value):
         ret = super().itemChange(change, value)

@@ -1,6 +1,7 @@
 {
   "include": [
     "tools/profilers.py",
+    "tools/csv_export.py",
     "scripts/write_qgis_env.py",
     "scripts/setup_qgis_typing.py",
     "scripts/pyright_triage.py"

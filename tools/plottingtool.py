@@ -42,6 +42,7 @@ from ..dxfwrite import (
     DXFEngine as dxf,  # noqa: N813 -- Preserve the established writer alias.
 )
 from ..pyqtgraph import exporters
+from .csv_export import write_plot_csv
 from .dataReaderTool import DataReaderTool
 from .profile_types import Profile
 from .profilers import ProfileSeries
@@ -597,6 +598,36 @@ class PlottingTool:
                 cast("ImageExport", exporter).export(fileName)
             elif library == "Matplotlib" and has_mpl:
                 cast("ExportFigure", wdg.plotWdg.figure).savefig(str(fileName), bbox_inches="tight")
+
+    def outCSV(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:  # noqa: ARG002 -- Common export signature.
+        """Export plotted source curves as CSV, regardless of graph backend."""
+        profiles = wdg.profiletoolcore.profiles
+        if not profiles:
+            return
+        fileName = getSaveFileName(
+            parent=iface.mainWindow(),
+            caption="Save As",
+            directory=wdg.profiletoolcore.loaddirectory,
+            filter="Comma-separated values (*.csv)",
+        )
+        if not fileName:
+            return
+        series = [
+            (
+                self.curveName(profile["layer"], profile["band"], mdl),
+                profile["plot_x"],
+                profile["plot_y"],
+            )
+            for profile in profiles
+        ]
+        write_plot_csv(
+            fileName,
+            series,
+            chainage_label=f"Chainage ({self._chainage_unit()})",
+            value_label=wdg.plotComboBox.currentText(),
+        )
+        wdg.profiletoolcore.loaddirectory = str(Path(fileName).parent)
+        QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
 
     def outDXF(
         self,

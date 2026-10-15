@@ -190,9 +190,9 @@ class ProfileToolCore(QWidget):
                         point = self.toolrenderer.tool.toMapCoordinates(layer, QgsPointXY(geom.asPoint()))
                         points.append([point.x(), point.y()])
             else:
-                # The feature-selection tool narrows multipart geometries to
-                # the clicked part. For layer-wide mode, use the first part
-                # rather than silently stitching disconnected parts together.
+                # Feature-selection mode narrows multipart geometry to the
+                # clicked part; whole-layer mode keeps the upstream feature
+                # concatenation behaviour (using each feature's first part).
                 for feature in features:
                     geometry = feature.geometry()
                     if geometry.isNull() or geometry.isEmpty():
@@ -206,10 +206,10 @@ class ProfileToolCore(QWidget):
                         continue
                     part_points = [self.toolrenderer.tool.toMapCoordinates(layer, p) for p in parts[0]]
                     converted = [[p.x(), p.y()] for p in part_points]
-                    if points and converted and points[-1] != converted[0]:
-                        # Do not join distinct/disconnected lines with a
-                        # fabricated profile segment.
-                        break
+                    # Restore the upstream whole-layer behaviour: every line
+                    # feature contributes to the profile in iteration order.
+                    # The first vertex of each subsequent feature is skipped,
+                    # as in the original plugin, even for disconnected lines.
                     points.extend(converted if not points else converted[1:])
         if self.toolrenderer:
             self.toolrenderer.pointstoDraw = list(points)

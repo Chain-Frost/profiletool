@@ -1,9 +1,11 @@
 # Profile Tool ![image](https://github.com/PANOimagen/profiletool/blob/master/icons/profileIcon.png?raw=true)
 
 This tool plots profile lines from raster layers or point vector layer with elevation field.
-Supports multiple lines and graph export to SVG/PNG, plus PDF with Matplotlib.
-Profile tables can be copied as tab-separated text for spreadsheet import;
-there is no native CSV file export action.
+Supports multiple lines and graph export to SVG/PNG/CSV, plus PDF with Matplotlib.
+The Save As CSV action works with either plotting backend, exporting each
+source's plotted chainage and height/slope in separate column pairs; missing
+samples are blank. PyQtGraph also retains its context-menu CSV exporter.
+Profile tables can be copied as tab-separated text, including coordinates.
 Supports 3D polyline export to dxf.
 
 **Authors:** Borys Jurgiel - Patrice Verchere - Etienne Tourigny - Javier Becerra
@@ -30,6 +32,16 @@ This work has been partially funded by the C.A. La Rioja
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+## Packaging for QGIS 3 and 4
+
+The plugin loads `ui/profiletool.ui` at runtime and includes its generated
+`resources.py`. No Qt4 UI/resource generators are needed.
+Run `make zip` to create `profiletool.zip` with a top-level
+`profiletool/` folder suitable for QGIS Plugin Manager. Use
+`make deploy QGIS_PLUGIN_DIR=/path/to/QGIS3/profile/python/plugins` for
+a specific local QGIS profile. The default deploy directory is the Linux
+QGIS 3 user profile; `make clean` removes the staging directory and ZIP.
 
 ## Development checks
 

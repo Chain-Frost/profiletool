@@ -215,7 +215,7 @@ class PTDockWidget(QDockWidget, FormClass):
             layout.addWidget(self.plotWdg)
             self.plot_type = "PyQtGraph"
             self.cbxSaveAs.clear()
-            self.cbxSaveAs.addItems(["Graph - PNG", "Graph - SVG", "3D line - DXF", "2D Profile - DXF"])
+            self.cbxSaveAs.addItems(["Graph - PNG", "Graph - SVG", "Graph - CSV", "3D line - DXF", "2D Profile - DXF"])
 
         elif library == "Matplotlib":
             self.stackedWidget.setCurrentIndex(0)
@@ -228,6 +228,7 @@ class PTDockWidget(QDockWidget, FormClass):
                     "Graph - PDF",
                     "Graph - PNG",
                     "Graph - SVG",
+                    "Graph - CSV",
                     "Graph - print (PS)",
                     "3D line - DXF",
                     "2D Profile - DXF",
@@ -582,6 +583,8 @@ class PTDockWidget(QDockWidget, FormClass):
             self.outPNG()
         elif idx == "Graph - SVG":
             self.outSVG()
+        elif idx == "Graph - CSV":
+            self.outCSV()
         elif idx == "Graph - print (PS)":
             self.outPrint()
         elif idx == "3D line - DXF":
@@ -606,6 +609,10 @@ class PTDockWidget(QDockWidget, FormClass):
     def outPNG(self) -> None:
         """Delegate PNG export to the current plotting backend."""
         PlottingTool().outPNG(self.iface, self, self.mdl, self.cboLibrary.currentText())
+
+    def outCSV(self) -> None:
+        """Export original plotted series in CSV format."""
+        PlottingTool().outCSV(self.iface, self, self.mdl, self.cboLibrary.currentText())
 
     def outDXF(self, type: str) -> None:  # noqa: A002 -- Preserve the legacy keyword argument.
         """Delegate the requested 2D or 3D profile export to the DXF writer."""
