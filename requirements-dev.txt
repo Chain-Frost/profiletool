@@ -1,0 +1,5 @@
+# Development checks; run the plugin using the QGIS Python environment.
+ruff==0.16.6
+pytest>=9
+pyright>=1.1.410
+pymarkdownlnt>=0.9.39

@@ -1,0 +1,43 @@
+name: Profile Tool quality
+
+on:
+  push:
+    branches: [master, "fix/**", "feat/**"]
+  pull_request:
+
+jobs:
+  syntax-and-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install development dependencies
+        run: python -m pip install numpy pytest ruff==0.16.6 "pyright>=1.1.410"
+      - name: Ruff baseline (plugin-owned files only)
+        run: |
+          ruff check --isolated --target-version py39 --select E,F,I,UP,B --ignore E501 \
+            __init__.py profileplugin.py \
+            tools/profilers.py tools/dataReaderTool.py tools/selectlinetool.py tools/utils.py \
+            tools/ptmaptool.py tools/tableviewtool.py tools/plottingtool.py \
+            ui/dlgabout.py ui/ptdockwidget.py \
+            scripts/write_qgis_env.py scripts/qgis_dev.py scripts/setup_qgis_typing.py \
+            scripts/pyright_triage.py tests/test_pyright_triage.py tests/test_qgis_layer_lifecycle.py \
+            tools/profile_types.py tools/plot_types.py ui/profiletool_form_types.py tests/test_ui_typing_contract.py \
+            tools/csv_export.py tests/test_csv_export.py
+      - name: Full Ruff inventory (informational)
+        continue-on-error: true
+        run: |
+          ruff check . --statistics || true
+          ruff check . --select D100,D104,D415,ANN204,ANN205,ARG005,ERA001 --output-format concise
+      - name: Pyright baseline (QGIS-independent modules)
+        run: pyright --project pyright-ci.json
+      - name: Compile plugin sources
+        run: python -m compileall -q __init__.py profileplugin.py tools ui
+      - name: Regression tests (no QGIS desktop)
+        run: python -m pytest -q tests/test_profile_regressions.py tests/test_pyright_triage.py tests/test_ui_typing_contract.py tests/test_csv_export.py
+      - name: Build QGIS plugin archive
+        run: |
+          make zip
+          python -c 'from zipfile import ZipFile; names=set(ZipFile("profiletool.zip").namelist()); assert {"profiletool/__init__.py", "profiletool/metadata.txt", "profiletool/resources.py", "profiletool/ui/profiletool.ui", "profiletool/tools/csv_export.py", "profiletool/pyqtgraph/graphicsItems/GraphicsObject.py"} <= names'

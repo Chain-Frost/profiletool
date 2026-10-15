@@ -1,3 +1,17 @@
 *.pyc
 __pycache__
 .venv
+.ruff_cache/
+.pytest_cache/
+.vscode/qgis.env
+.vscode/qgis-tools/
+validation_artifacts/
+.vscode/qgis-type-stubs/
+
+# Local Pyright full-analysis output; paths and diagnostics are machine-specific.
+pyright-full.json
+pyright-summary.json
+
+# Generated QGIS plugin packaging outputs.
+build/
+profiletool.zip

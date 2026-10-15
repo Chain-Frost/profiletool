@@ -1,0 +1,128 @@
+required-version = "==0.16.6"
+target-version = "py39"
+line-length = 120
+
+# Bundled dependencies and Qt-generated resources are maintained separately.
+extend-exclude = ["pyqtgraph", "dxfwrite", "resources.py"]
+force-exclude = true
+
+[lint]
+select = [
+    # Core correctness and Python errors.
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "B",      # flake8-bugbear
+    "PLE",    # Pylint errors
+    "PLW",    # Pylint warnings
+    "RUF",    # Ruff-specific rules
+    # Modern Python.
+    "UP",     # pyupgrade
+    "FURB",   # refurb
+    "FLY",    # flynt-style string improvements
+    "SLOT",   # avoid per-instance dictionaries on immutable built-in subclasses
+    # Imports.
+    "I",      # isort
+    "ICN",    # import conventions
+    "INP",    # prevent accidental implicit namespace packages
+    # Internal imports deliberately remain package-relative where possible.
+    # Code quality and maintainability.
+    "A",      # built-in shadowing
+    "ARG",    # unused arguments
+    "BLE",    # broad exception handling
+    "FBT",    # require explicit, keyword-oriented boolean APIs
+    "C4",     # comprehensions
+    "C90",    # McCabe complexity
+    "EM",     # exception-message style
+    "ERA",    # commented-out code
+    "ISC",    # implicit string concatenation
+    "N",      # naming conventions
+    "PERF",   # performance
+    "PGH",    # pygrep-hooks / code hygiene
+    "PIE",    # miscellaneous Python improvements
+    "PLC",    # Pylint convention
+    "RET",    # return-statement improvements
+    "RSE",    # raise-statement improvements
+    "SIM",    # simplification
+    "SLF",    # private-member access boundaries
+    "TRY",    # exception-handling practices
+    # Type annotations.
+    "ANN",    # type annotation coverage
+    # Documentation.
+    "D",      # pydocstyle
+    # Logging.
+    "G",      # logging-format checks
+    "LOG",    # logging-specific checks
+    # Security.
+    "S",      # flake8-bandit
+    # Filesystem and general hygiene.
+    "EXE",    # executable/shebang checks
+    "PTH",    # pathlib usage
+    "T10",    # debugger statements
+    "YTT",    # sys.version checks
+    # Testing.
+    "PT",     # pytest style and correctness
+]
+
+ignore = [
+    # Ruff formatter compatibility.
+    "D206",   # docstring tab indentation
+    "D300",   # triple-single-quoted docstrings
+    "E111",   # indentation with invalid multiple
+    "E114",   # indentation with invalid multiple in comments
+    "E117",   # over-indented
+    # The formatter cannot or should not wrap every valid construct.
+    "E501",   # line too long
+    # Constructors and protocol methods inherit their public type documentation.
+    "D105",   # missing docstring in magic method
+    "D107",   # missing docstring in __init__
+]
+
+[lint.mccabe]
+# Allow moderately complex engineering/numerical routines before requiring refactoring.
+max-complexity = 15
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.pep8-naming]
+# QGIS discovers this entry point by its exact name.
+extend-ignore-names = ["classFactory"]
+
+[lint.per-file-ignores]
+# Development/validation scripts are standalone helpers, not a plugin package.
+"scripts/**/*.py" = ["INP001"]
+# QGIS invokes the factory only after its interface is ready.
+"__init__.py" = ["PLC0415"]
+# Preserve the established names in legacy plugin modules. New code should use
+# snake_case, including additions to these files; Ruff still checks new modules.
+# Keep this list explicit so new files do not inherit the compatibility exception.
+# N802: functions; N803: parameters; N806: locals; N815/N816: class/module variables.
+# Dialogs, mesh tools and optional Matplotlib backends intentionally load lazily.
+"profileplugin.py" = ["N802", "N803", "N806", "N815", "N816", "PLC0415"]
+"tools/dataReaderTool.py" = ["N802", "N803", "N806", "N815", "N816", "N999", "PLC0415"]
+"tools/plottingtool.py" = ["N802", "N803", "N806", "N815", "N816", "PLC0415"]
+"tools/profiletool_core.py" = ["N802", "N803", "N806", "N815", "N816"]
+"tools/ptmaptool.py" = ["N802", "N803", "N806", "N815", "N816"]
+"tools/selectlinetool.py" = ["N802", "N803", "N806", "N815", "N816"]
+"tools/tableviewtool.py" = ["N802", "N803", "N806", "N815", "N816"]
+"tools/utils.py" = ["N802", "N803", "N806", "N815", "N816"]
+"ui/dlgabout.py" = ["N802", "N803", "N806", "N815", "N816"]
+"ui/ptdockwidget.py" = ["N802", "N803", "N806", "N815", "N816"]
+
+"tests/**/*.py" = [
+    "D",      # Test and QGIS-console scripts do not require production docstrings.
+    "INP001", # Tests are not an importable package.
+    "S101",   # Assertions are expected in tests.
+    "SLF001", # Regression tests intentionally exercise internal helpers.
+]
+
+# These fixtures implement Qt/QGIS methods by their actual public names.
+"tests/test_profile_regressions.py" = ["N802"]
+"tests/test_qgis_layer_lifecycle.py" = ["PLC0415"] # Matplotlib is optional.
+"tests/test_pyright_triage.py" = ["S108"] # Synthetic diagnostic strings, not filesystem operations.
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

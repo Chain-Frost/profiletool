@@ -1,0 +1,24 @@
+{
+  "include": [
+    "__init__.py",
+    "profileplugin.py",
+    "tools",
+    "ui",
+    "tests"
+  ],
+  "exclude": [
+    "pyqtgraph",
+    "dxfwrite",
+    "resources.py",
+    "**/__pycache__",
+    ".venv"
+  ],
+  "extraPaths": [
+    "..",
+    ".vscode/qgis-type-stubs",
+    "C:/OSGeo4W/apps/qgis/python",
+    "C:/OSGeo4W/apps/qgis/python/plugins"
+  ],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "strict"
+}

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profile
@@ -22,37 +21,100 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
-import os
+"""Render and export Profile Tool plots."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
 from math import sqrt
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
+from qgis.core import QgsMapLayer, QgsProject, QgsUnitTypes
 from qgis.PyQt.QtCore import QSettings, Qt
-from qgis.PyQt.QtWidgets import QFileDialog, QSizePolicy
+from qgis.PyQt.QtGui import QBrush, QColor, QPainter, QPen, QStandardItemModel
+from qgis.PyQt.QtSvg import QSvgGenerator
+from qgis.PyQt.QtWidgets import QFileDialog, QGraphicsView, QSizePolicy, QWidget
 
 from .. import pyqtgraph as pg
-from ..dxfwrite import DXFEngine as dxf
+from ..dxfwrite import (
+    DXFEngine as dxf,  # noqa: N813 -- Preserve the established writer alias.
+)
 from ..pyqtgraph import exporters
+from . import profilers
+from .csv_export import write_plot_csv
+from .dataReaderTool import DataReaderTool
+from .profile_types import Profile
+from .profilers import ProfileSeries
 
-pg.setConfigOption("background", "w")
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as MatplotlibCanvas
+    from qgis.gui import QgisInterface
+
+    from ..ui.ptdockwidget import PTDockWidget
+    from .plot_types import (
+        CurvePen,
+        DrawableCanvas,
+        DxfEngine,
+        ExportFigure,
+        ImageExport,
+        MatplotlibAxes,
+        MatplotlibFigure,
+        PlotConfig,
+        PlotItem,
+        PlotViewBox,
+        PlotWidget,
+    )
+
+cast("PlotConfig", pg).setConfigOption("background", "w")
 
 
 try:
-    import matplotlib  # noqa:F401
-    from matplotlib import rc  # noqa:F403,F401
+    import matplotlib as mpl
 
-    has_mpl = True
+    has_mpl = bool(mpl.__version__)
 except ImportError:
     has_mpl = False
 
 
-def getSaveFileName(parent, caption, directory, filter):
-    """Qt4/Qt5 compatible getSaveFileName"""
-    fileName = QFileDialog.getSaveFileName(
+def getSaveFileName(parent: QWidget | None, caption: str, directory: str, filter: str) -> str:  # noqa: A002 -- Legacy keyword.
+    """Return the selected output path from the Qt file dialog."""
+    fileName, _selected_filter = QFileDialog.getSaveFileName(
         parent=parent, caption=caption, directory=directory, filter=filter
     )
-    if isinstance(fileName, tuple):  # pyqt5 case
-        fileName = fileName[0]
     return fileName
+
+
+def _valid_elevation(value: float | None) -> bool:
+    """Accept finite numeric elevations while treating None and NaN as gaps."""
+    return value is not None and bool(np.isfinite(value))
+
+
+def pyqtgraph_plot_item(widget: QWidget | None) -> PlotItem | None:
+    """Resolve the concrete plot item only for a PyQtGraph widget."""
+    if isinstance(widget, pg.PlotWidget):
+        return cast("PlotWidget", widget).getPlotItem()
+    return None
+
+
+def plot_data_items(plot_item: PlotItem) -> list[pg.PlotDataItem]:
+    """Read profile curves created by PlotWidget.plot as PlotDataItem instances."""
+    return cast("list[pg.PlotDataItem]", plot_item.listDataItems())
+
+
+def plot_view_box(plot_item: PlotItem) -> PlotViewBox | None:
+    """Return the plot's view box, allowing for an already closed plot."""
+    return plot_item.getViewBox()
+
+
+def _cosmetic_pen(color: QColor, width: int) -> QPen:
+    """Keep plot strokes at their configured pixel width when the view scales."""
+    pen = QPen(color)
+    pen.setWidthF(width)
+    pen.setCosmetic(True)
+    return pen
 
 
 class PlottingTool:
@@ -66,16 +128,56 @@ class PlottingTool:
     are used as the data series x and y values respectively.
     """
 
-    def changePlotWidget(self, library, frame_for_plot):
+    @staticmethod
+    def _chainage_unit() -> str:
+        """Return the display unit from the active project's geographic status."""
+        project = QgsProject.instance()
+        if project is None:
+            msg = "Profile plots require an active QGIS project"
+            raise RuntimeError(msg)
+        return QgsUnitTypes.toAbbreviatedString(project.crs().mapUnits()) or "unknown units"
 
+    def refreshChainageAxisLabel(self, wdg: PTDockWidget, library: str | None) -> None:
+        """Keep the axis unit label in sync when the project CRS changes."""
+        if wdg.plotWdg is None:
+            return
+        label = f"Chainage ({self._chainage_unit()})"
+        if library == "PyQtGraph" and isinstance(wdg.plotWdg, pg.PlotWidget):
+            cast("PlotWidget", wdg.plotWdg).setLabel("bottom", label)
+        elif library == "Matplotlib" and has_mpl:
+            axes = wdg.plotWdg.figure.get_axes()
+            if axes:
+                cast("MatplotlibAxes", axes[0]).set_xlabel(label)
+
+    @staticmethod
+    def curveName(layer: QgsMapLayer, band: int, model: QStandardItemModel) -> str:
+        """Unique plot key; disambiguate layers with identical names."""
+        name = layer.name()
+        same_name = sum(
+            item.data(Qt.ItemDataRole.EditRole) == name
+            for i in range(model.rowCount())
+            if (item := model.item(i, 2)) is not None
+        )
+        if same_name > 1:
+            name += f" [{layer.id()[-8:]}]"
+        return f"{name}#{band}"
+
+    def changePlotWidget(
+        self,
+        library: str,
+        frame_for_plot: QWidget,  # noqa: ARG002 -- Legacy widget factory signature.
+    ) -> PlotWidget | MatplotlibCanvas | None:
+        """Construct the selected plotting backend and configure its axes and cursors."""
         if library == "PyQtGraph":
-            plotWdg = pg.PlotWidget()
-            plotWdg.showGrid(True, True, 0.5)
+            plotWdg = cast("PlotWidget", pg.PlotWidget())
+            unit = self._chainage_unit()
+            plotWdg.setLabel("bottom", f"Chainage ({unit})")
+            plotWdg.showGrid(x=True, y=True, alpha=0.5)
             datavline = pg.InfiniteLine(
-                0, angle=90, pen=pg.mkPen("r", width=1), name="cross_vertical"
+                0, angle=90, pen=_cosmetic_pen(QColor(Qt.GlobalColor.red), 1), name="cross_vertical"
             )
             datahline = pg.InfiniteLine(
-                0, angle=0, pen=pg.mkPen("r", width=1), name="cross_horizontal"
+                0, angle=0, pen=_cosmetic_pen(QColor(Qt.GlobalColor.red), 1), name="cross_horizontal"
             )
             plotWdg.addItem(datavline)
             plotWdg.addItem(datahline)
@@ -83,15 +185,15 @@ class PlottingTool:
             xtextitem = pg.TextItem(
                 "X : /",
                 color=(0, 0, 0),
-                border=pg.mkPen(color=(0, 0, 0), width=1),
-                fill=pg.mkBrush("w"),
+                border=_cosmetic_pen(QColor(Qt.GlobalColor.black), 1),
+                fill=QBrush(Qt.GlobalColor.white),
                 anchor=(0, 1),
             )
             ytextitem = pg.TextItem(
                 "Y : / ",
                 color=(0, 0, 0),
-                border=pg.mkPen(color=(0, 0, 0), width=1),
-                fill=pg.mkBrush("w"),
+                border=_cosmetic_pen(QColor(Qt.GlobalColor.black), 1),
+                fill=QBrush(Qt.GlobalColor.white),
                 anchor=(0, 0),
             )
             plotWdg.addItem(xtextitem)
@@ -99,29 +201,37 @@ class PlottingTool:
 
             plotWdg.getViewBox().autoRange(items=[])
             plotWdg.getViewBox().disableAutoRange()
-            plotWdg.getViewBox().border = pg.mkPen(color=(0, 0, 0), width=1)
+            plotWdg.getViewBox().border = _cosmetic_pen(QColor(Qt.GlobalColor.black), 1)
 
             return plotWdg
 
-        elif library == "Matplotlib" and has_mpl:
-            from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-            from matplotlib.figure import Figure
+        if library == "Matplotlib" and has_mpl:
+            if TYPE_CHECKING:
+                from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+            else:
+                try:
+                    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+                except ImportError:
+                    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+            from matplotlib import rcParams
+            from matplotlib.figure import Figure, SubplotParams
 
             fig = Figure(
                 (1.0, 1.0),
                 linewidth=0.0,
-                subplotpars=matplotlib.figure.SubplotParams(
-                    left=0, bottom=0, right=1, top=1, wspace=0, hspace=0
-                ),
+                subplotpars=SubplotParams(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0),
             )
 
-            font = {"family": "arial", "weight": "normal", "size": 12}
-            rc("font", **font)
+            rcParams["font.family"] = "arial"
+            rcParams["font.weight"] = "normal"
+            rcParams["font.size"] = 12
 
             rect = fig.patch
             rect.set_facecolor((0.9, 0.9, 0.9))
 
-            self.subplot = fig.add_axes((0.05, 0.15, 0.92, 0.82))
+            self.subplot = cast("MatplotlibFigure", fig).add_axes((0.05, 0.15, 0.92, 0.82))
+            unit = self._chainage_unit()
+            cast("MatplotlibAxes", self.subplot).set_xlabel(f"Chainage ({unit})")
             self.subplot.set_xbound(0, 1000)
             self.subplot.set_ybound(0, 1000)
             self.manageMatplotlibAxe(self.subplot)
@@ -129,48 +239,70 @@ class PlottingTool:
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             sizePolicy.setHorizontalStretch(0)
             sizePolicy.setVerticalStretch(0)
-            canvas.setSizePolicy(sizePolicy)
+            cast("QWidget", canvas).setSizePolicy(sizePolicy)
             return canvas
+        return None
 
-    def drawVertLine(self, wdg, pointstoDraw, library):
+    def drawVertLine(self, wdg: PTDockWidget, pointstoDraw: Sequence[Sequence[float]], library: str | None) -> None:
+        """Mark internal path vertices on the Matplotlib chainage axis."""
+        if wdg.plotWdg is None:
+            return
         if library == "PyQtGraph":
             pass
         elif library == "Matplotlib" and has_mpl:
             profileLen = 0
-            for i in range(0, len(pointstoDraw) - 1):
+            for i in range(len(pointstoDraw) - 1):
                 x1 = float(pointstoDraw[i][0])
                 y1 = float(pointstoDraw[i][1])
                 x2 = float(pointstoDraw[i + 1][0])
                 y2 = float(pointstoDraw[i + 1][1])
-                profileLen = sqrt(((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1))) + profileLen
-                wdg.plotWdg.figure.get_axes()[0].vlines(profileLen, 0, 1000, linewidth=1)
+                profileLen += sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+                cast("MatplotlibAxes", wdg.plotWdg.figure.get_axes()[0]).axvline(
+                    profileLen * DataReaderTool.project_distance_scale(), linewidth=1
+                )
             profileLen = 0
 
-    def attachCurves(self, wdg, profiles, model1, library):
+    def attachCurves(
+        self, wdg: PTDockWidget, profiles: Sequence[Profile], model1: QStandardItemModel, library: str | None
+    ) -> None:
+        """Draw profile series with their source-table colors and visibility settings."""
+        if wdg.plotWdg is None:
+            return
 
         if library == "PyQtGraph":
+            plot_item = pyqtgraph_plot_item(wdg.plotWdg)
+            if plot_item is None:
+                return
             # cretae graph
             for i, profile in enumerate(profiles):
-                tmp_name = ("%s#%d") % (profile["layer"].name(), profile["band"])
+                color_item = model1.item(i, 1)
+                visibility_item = model1.item(i, 0)
+                if color_item is None or visibility_item is None:
+                    continue
+                tmp_name = self.curveName(profile["layer"], profile["band"], model1)
                 # case line outside the raster
                 y = np.array(profile["plot_y"], dtype=float)  # replace None value by np.nan
                 x = np.array(profile["plot_x"])
-                wdg.plotWdg.plot(
+                cast("PlotWidget", wdg.plotWdg).plot(
                     x,
                     y,
-                    pen=pg.mkPen(model1.item(i, 1).data(Qt.ItemDataRole.BackgroundRole), width=2),
+                    pen=_cosmetic_pen(color_item.data(Qt.ItemDataRole.BackgroundRole), 2),
                     name=tmp_name,
                 )
                 # set it visible or not
-                for item in wdg.plotWdg.getPlotItem().listDataItems():
+                for item in plot_data_items(plot_item):
                     if item.name() == tmp_name:
-                        item.setVisible(model1.item(i, 0).data(Qt.ItemDataRole.CheckStateRole))
+                        item.setVisible(visibility_item.data(Qt.ItemDataRole.CheckStateRole))
 
         elif library == "Matplotlib" and has_mpl:
             for i, profile in enumerate(profiles):
-                tmp_name = ("%s#%d") % (profile["layer"].name(), profile["band"])
-                if model1.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
-                    wdg.plotWdg.figure.get_axes()[0].plot(
+                color_item = model1.item(i, 1)
+                visibility_item = model1.item(i, 0)
+                if color_item is None or visibility_item is None:
+                    continue
+                tmp_name = self.curveName(profile["layer"], profile["band"], model1)
+                if visibility_item.data(Qt.ItemDataRole.CheckStateRole):
+                    cast("MatplotlibAxes", wdg.plotWdg.figure.get_axes()[0]).plot(
                         profile["plot_x"],
                         profile["plot_y"],
                         gid=tmp_name,
@@ -178,7 +310,7 @@ class PlottingTool:
                         visible=True,
                     )
                 else:
-                    wdg.plotWdg.figure.get_axes()[0].plot(
+                    cast("MatplotlibAxes", wdg.plotWdg.figure.get_axes()[0]).plot(
                         profile["plot_x"],
                         profile["plot_y"],
                         gid=tmp_name,
@@ -188,36 +320,50 @@ class PlottingTool:
                 self.changeColor(
                     wdg,
                     "Matplotlib",
-                    model1.item(i, 1).data(Qt.ItemDataRole.BackgroundRole),
+                    color_item.data(Qt.ItemDataRole.BackgroundRole),
                     tmp_name,
                 )
-            try:
+            max_chainage = profilers.max_finite_plot_chainage(
+                [(profile["plot_x"], profile["plot_y"]) for profile in profiles]
+            )
+            if max_chainage is not None:
                 self.reScalePlot(wdg, profiles, library)
-                wdg.plotWdg.figure.get_axes()[0].set_xbound(0, max(profiles[-1]["plot_x"]))
-            except Exception:
-                pass
+                wdg.plotWdg.figure.get_axes()[0].set_xbound(0, max_chainage)
             wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
             wdg.plotWdg.draw()
 
-    def findMin(self, values):
-        minVal = min(z for z in values if z is not None)
-        return minVal
+    def findMin(self, values: ProfileSeries) -> float:
+        """Return the smallest finite value from a nonempty sample series."""
+        return min(float(z) for z in values if z is not None and np.isfinite(z))
 
-    def findMax(self, values):
-        maxVal = max(z for z in values if z is not None)
-        return maxVal
+    def findMax(self, values: ProfileSeries) -> float:
+        """Return the largest finite value from a nonempty sample series."""
+        return max(float(z) for z in values if z is not None and np.isfinite(z))
 
-    def plotRangechanged(self, wdg, library):
+    def plotRangechanged(self, wdg: PTDockWidget, library: str | None) -> None:
+        """Synchronize vertical bounds with the PyQtGraph view range."""
+        if wdg.plotWdg is None:
+            return
 
         if library == "PyQtGraph":
-            range = wdg.plotWdg.getViewBox().viewRange()
+            plot_item = pyqtgraph_plot_item(wdg.plotWdg)
+            if plot_item is None or (view_box := plot_view_box(plot_item)) is None:
+                return
+            view_range = cast("list[list[float]]", view_box.viewRange())
             wdg.disconnectYSpinbox()
-            wdg.sbMaxVal.setValue(range[1][1])
-            wdg.sbMinVal.setValue(range[1][0])
+            wdg.sbMaxVal.setValue(view_range[1][1])
+            wdg.sbMinVal.setValue(view_range[1][0])
             wdg.connectYSpinbox()
 
-    def reScalePlot(self, wdg, profiles, library, auto=False):  # called when spinbox value changed
-        if profiles is None:
+    def reScalePlot(
+        self,
+        wdg: PTDockWidget,
+        profiles: Sequence[Profile] | None,
+        library: str | None,
+        auto: bool = False,  # noqa: FBT001, FBT002 -- Preserve positional calls to the legacy API.
+    ) -> None:  # called when spinbox value changed
+        """Apply requested vertical bounds or automatically fit visible profile data."""
+        if profiles is None or wdg.plotWdg is None:
             return
         minimumValue = wdg.sbMinVal.value()
         maximumValue = wdg.sbMaxVal.value()
@@ -228,11 +374,8 @@ class PlottingTool:
             # Automatic mode
             minimumValue = 1000000000
             maximumValue = -1000000000
-            for i in range(0, len(y_vals)):
-                if (
-                    profiles[i]["layer"] is not None
-                    and len([z for z in y_vals[i] if z is not None]) > 0
-                ):
+            for i in range(len(y_vals)):
+                if any(z is not None and np.isfinite(z) for z in y_vals[i]):
                     minimumValue = min(self.findMin(y_vals[i]), minimumValue)
                     maximumValue = max(self.findMax(y_vals[i]) + 1, maximumValue)
                     wdg.sbMaxVal.setValue(maximumValue)
@@ -242,14 +385,15 @@ class PlottingTool:
 
         if minimumValue < maximumValue:
             if library == "PyQtGraph":
+                plot_item = pyqtgraph_plot_item(wdg.plotWdg)
+                if plot_item is None or (view_box := plot_view_box(plot_item)) is None:
+                    return
                 wdg.disconnectPlotRangechanged()
                 if auto:
-                    wdg.plotWdg.getViewBox().autoRange(
-                        items=wdg.plotWdg.getPlotItem().listDataItems()
-                    )
+                    view_box.autoRange(items=plot_data_items(plot_item))
                     wdg.plotRangechanged()
                 else:
-                    wdg.plotWdg.getViewBox().setYRange(minimumValue, maximumValue, padding=0)
+                    view_box.setYRange(minimumValue, maximumValue, padding=0)
                 wdg.connectPlotRangechanged()
 
             elif library == "Matplotlib" and has_mpl:
@@ -261,36 +405,40 @@ class PlottingTool:
                     wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
                     wdg.plotWdg.draw()
 
-    def clearData(self, wdg, profiles, library):  # erase one of profiles
-        if not profiles:
+    def clearData(self, wdg: PTDockWidget, profiles: Sequence[Profile] | None, library: str | None) -> None:
+        """Remove plotted curves and reset the vertical-bound controls."""
+        if not profiles or wdg.plotWdg is None:
             return
 
         if library == "PyQtGraph":
-            pitems = wdg.plotWdg.getPlotItem().listDataItems()
+            plot_item = pyqtgraph_plot_item(wdg.plotWdg)
+            if plot_item is None:
+                return
+            pitems = plot_data_items(plot_item)
             for item in pitems:
-                wdg.plotWdg.removeItem(item)
-            try:
-                wdg.plotWdg.scene().sigMouseMoved.disconnect(self.mouseMoved)
-            except Exception:
-                pass
+                plot_item.removeItem(item)
+            # Mouse callbacks belong to ProfileToolCore, which manages them.
 
         elif library == "Matplotlib" and has_mpl:
             wdg.plotWdg.figure.get_axes()[0].cla()
             self.manageMatplotlibAxe(wdg.plotWdg.figure.get_axes()[0])
-            # wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
-            # wdg.plotWdg.draw()
         wdg.sbMaxVal.setEnabled(False)
         wdg.sbMinVal.setEnabled(False)
         wdg.sbMaxVal.setValue(0)
         wdg.sbMinVal.setValue(0)
 
-    def changeColor(self, wdg, library, color1, name):  # Action when clicking the tableview - color
+    def changeColor(self, wdg: PTDockWidget, library: str | None, color1: QColor, name: str) -> None:
+        """Apply a source-table color to the curve identified by its plot key."""
+        if wdg.plotWdg is None:
+            return
 
         if library == "PyQtGraph":
-            pitems = wdg.plotWdg.getPlotItem()
-            for i, item in enumerate(pitems.listDataItems()):
+            pitems = pyqtgraph_plot_item(wdg.plotWdg)
+            if pitems is None:
+                return
+            for item in plot_data_items(pitems):
                 if item.name() == name:
-                    item.setPen(color1, width=2)
+                    cast("CurvePen", item).setPen(color1, width=2)
 
         elif library == "Matplotlib":
             temp1 = wdg.plotWdg.figure.get_axes()[0].get_lines()
@@ -305,17 +453,20 @@ class PlottingTool:
                         )
                     )
                     wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
-                    wdg.plotWdg.figure.canvas.draw()
+                    cast("DrawableCanvas", wdg.plotWdg.figure.canvas).draw()
                     wdg.plotWdg.draw()
                     break
 
-    def changeAttachCurve(
-        self, wdg, library, bool, name
-    ):  # Action when clicking the tableview - checkstate
+    def changeAttachCurve(self, wdg: PTDockWidget, library: str | None, bool: int | Qt.CheckState, name: str) -> None:  # noqa: A002 -- Preserve the legacy keyword argument.
+        """Update a named curve's visibility from its source-table check state."""
+        if wdg.plotWdg is None:
+            return
 
         if library == "PyQtGraph":
-            pitems = wdg.plotWdg.getPlotItem()
-            for i, item in enumerate(pitems.listDataItems()):
+            pitems = pyqtgraph_plot_item(wdg.plotWdg)
+            if pitems is None:
+                return
+            for item in plot_data_items(pitems):
                 if item.name() == name:
                     if bool:
                         item.setVisible(True)
@@ -331,14 +482,18 @@ class PlottingTool:
                     else:
                         temp1[i].set_visible(False)
                     wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
-                    wdg.plotWdg.figure.canvas.draw()
+                    cast("DrawableCanvas", wdg.plotWdg.figure.canvas).draw()
                     wdg.plotWdg.draw()
 
                     break
 
-    def manageMatplotlibAxe(self, axe1):
-        axe1.grid()
-        axe1.tick_params(
+    def manageMatplotlibAxe(self, axe1: Axes) -> None:
+        """Configure chainage units, grid lines and ticks on a Matplotlib axis."""
+        unit = self._chainage_unit()
+        ax = cast("MatplotlibAxes", axe1)
+        ax.set_xlabel(f"Chainage ({unit})")
+        ax.grid()
+        ax.tick_params(
             axis="both",
             which="major",
             direction="out",
@@ -350,7 +505,7 @@ class PlottingTool:
             right=False,
         )
         axe1.minorticks_on()
-        axe1.tick_params(
+        ax.tick_params(
             axis="both",
             which="minor",
             direction="out",
@@ -362,23 +517,33 @@ class PlottingTool:
             right=False,
         )
 
-    def outPrint(self, iface, wdg, mdl, library):
+    def outPrint(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+        """Save the Matplotlib plot as PostScript after selecting an output path."""
+        if wdg.plotWdg is None:
+            return
+        name = "Profile"
         # Postscript file rendering doesn't work properly yet.
-        for i in range(0, mdl.rowCount()):
-            if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
-                name = str(mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
-                # return
+        for i in range(mdl.rowCount()):
+            checked_item = mdl.item(i, 0)
+            name_item = mdl.item(i, 2)
+            if checked_item is not None and name_item is not None and checked_item.data(Qt.ItemDataRole.CheckStateRole):
+                name = str(name_item.data(Qt.ItemDataRole.EditRole))
         fileName = getSaveFileName(
             iface.mainWindow(), "Save As", "Profile of " + name + ".ps", "PostScript Format (*.ps)"
         )
-        if fileName:
-            if library == "Matplotlib" and has_mpl:
-                wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
+        if fileName and library == "Matplotlib" and has_mpl:
+            cast("ExportFigure", wdg.plotWdg.figure).savefig(str(fileName), bbox_inches="tight")
 
-    def outPDF(self, iface, wdg, mdl, library):
-        for i in range(0, mdl.rowCount()):
-            if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
-                name = str(mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
+    def outPDF(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
+        """Save the Matplotlib plot as PDF after selecting an output path."""
+        if wdg.plotWdg is None:
+            return
+        name = "Profile"
+        for i in range(mdl.rowCount()):
+            checked_item = mdl.item(i, 0)
+            name_item = mdl.item(i, 2)
+            if checked_item is not None and name_item is not None and checked_item.data(Qt.ItemDataRole.CheckStateRole):
+                name = str(name_item.data(Qt.ItemDataRole.EditRole))
                 break
         fileName = getSaveFileName(
             iface.mainWindow(),
@@ -386,11 +551,13 @@ class PlottingTool:
             "Profile of " + name + ".pdf",
             "Portable Document Format (*.pdf)",
         )
-        if fileName:
-            if library == "Matplotlib" and has_mpl:
-                wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
+        if fileName and library == "Matplotlib" and has_mpl:
+            cast("ExportFigure", wdg.plotWdg.figure).savefig(str(fileName), bbox_inches="tight")
 
-    def outSVG(self, iface, wdg, mdl, library):
+    def outSVG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:  # noqa: ARG002 -- Common export signature.
+        """Export the current plot as SVG using the selected backend."""
+        if wdg.plotWdg is None:
+            return
         fileName = getSaveFileName(
             parent=iface.mainWindow(),
             caption="Save As",
@@ -399,66 +566,127 @@ class PlottingTool:
         )
 
         if fileName:
-            wdg.profiletoolcore.loaddirectory = os.path.dirname(fileName)
+            wdg.profiletoolcore.loaddirectory = str(Path(fileName).parent)
             QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
 
             if library == "PyQtGraph":
-                exporter = exporters.SVGExporter(wdg.plotWdg.getPlotItem().scene())
-                # exporter =  pg.exporters.ImageExporter(wdg.plotWdg.getPlotItem()
-                exporter.export(fileName=fileName)
+                # Qt 6 SVG paths are not compatible with the bundled
+                # pyqtgraph exporter's coordinate parser. Render through Qt
+                # directly so paths, including NoData gaps, remain vector data.
+                if not isinstance(wdg.plotWdg, pg.PlotWidget):
+                    return
+                view = cast("QGraphicsView", wdg.plotWdg)
+                generator = QSvgGenerator()
+                generator.setFileName(fileName)
+                generator.setSize(view.size())
+                generator.setViewBox(view.rect())
+                painter = QPainter()
+                if not painter.begin(generator):
+                    message = "Could not open SVG export for painting."
+                    raise OSError(message)
+                try:
+                    view.render(painter)
+                finally:
+                    painter.end()
             elif library == "Matplotlib" and has_mpl:
-                wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
+                cast("ExportFigure", wdg.plotWdg.figure).savefig(str(fileName), bbox_inches="tight")
 
-    def outPNG(self, iface, wdg, mdl, library):
+    def outPNG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:  # noqa: ARG002 -- Common export signature.
+        """Export the current plot as PNG using the selected backend."""
+        if wdg.plotWdg is None:
+            return
         fileName = getSaveFileName(
             parent=iface.mainWindow(),
             caption="Save As",
             directory=wdg.profiletoolcore.loaddirectory,
-            # filter = "Profile of " + name + ".png",
             filter="Portable Network Graphics (*.png)",
         )
 
         if fileName:
-            wdg.profiletoolcore.loaddirectory = os.path.dirname(fileName)
+            wdg.profiletoolcore.loaddirectory = str(Path(fileName).parent)
             QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
 
             if library == "PyQtGraph":
-                exporter = exporters.ImageExporter(wdg.plotWdg.getPlotItem())
-                exporter.export(fileName)
+                plot_item = pyqtgraph_plot_item(wdg.plotWdg)
+                if plot_item is None:
+                    return
+                exporter = exporters.ImageExporter(plot_item)
+                cast("ImageExport", exporter).export(fileName)
             elif library == "Matplotlib" and has_mpl:
-                wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
+                cast("ExportFigure", wdg.plotWdg.figure).savefig(str(fileName), bbox_inches="tight")
 
-    def outDXF(self, iface, wdg, mdl, library, profiles, type="3D"):
-
-        for i in range(0, mdl.rowCount()):
-            if mdl.item(i, 0).data(Qt.ItemDataRole.CheckStateRole):
-                name = str(mdl.item(i, 2).data(Qt.ItemDataRole.EditRole))
+    def outCSV(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:  # noqa: ARG002 -- Common export signature.
+        """Export plotted source curves as CSV, regardless of graph backend."""
+        profiles = wdg.profiletoolcore.profiles
+        if not profiles:
+            return
         fileName = getSaveFileName(
             parent=iface.mainWindow(),
             caption="Save As",
             directory=wdg.profiletoolcore.loaddirectory,
-            # filter = "Profile of " + name + ".png",
+            filter="Comma-separated values (*.csv)",
+        )
+        if not fileName:
+            return
+        series = [
+            (
+                self.curveName(profile["layer"], profile["band"], mdl),
+                profile["plot_x"],
+                profile["plot_y"],
+            )
+            for profile in profiles
+        ]
+        write_plot_csv(
+            fileName,
+            series,
+            chainage_label=f"Chainage ({self._chainage_unit()})",
+            value_label=wdg.plotComboBox.currentText(),
+        )
+        wdg.profiletoolcore.loaddirectory = str(Path(fileName).parent)
+        QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
+
+    def outDXF(
+        self,
+        iface: QgisInterface,
+        wdg: PTDockWidget,
+        mdl: QStandardItemModel,  # noqa: ARG002 -- Common export signature.
+        library: str | None,  # noqa: ARG002 -- Common export signature.
+        profiles: Sequence[Profile],
+        type: str = "3D",  # noqa: A002 -- Preserve the legacy keyword argument.
+    ) -> None:
+        """Export 2D or source-coordinate 3D polylines, splitting at missing elevations."""
+        fileName = getSaveFileName(
+            parent=iface.mainWindow(),
+            caption="Save As",
+            directory=wdg.profiletoolcore.loaddirectory,
             filter="dxf (*.dxf)",
         )
-        if fileName:
-            wdg.profiletoolcore.loaddirectory = os.path.dirname(fileName)
-            QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
-
-            drawing = dxf.drawing(fileName)
-            for profile in profiles:
-                name = profile["layer"].name()
-                drawing.add_layer(name)
-                if type == "2D":
-                    points = [
-                        (l, z, 0)
-                        for l, z in zip(profile["l"], profile["z"])  # noqa: E74
-                        if z is not None
-                    ]
+        if not fileName:
+            return
+        wdg.profiletoolcore.loaddirectory = str(Path(fileName).parent)
+        QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
+        dxf_engine = cast("DxfEngine", dxf)
+        drawing = dxf_engine.drawing(fileName)
+        for profile in profiles:
+            name = profile["layer"].name()
+            drawing.add_layer(name)
+            if type == "2D":
+                vertices = [
+                    (length, elevation, 0) if _valid_elevation(elevation) else None
+                    for length, elevation in zip(profile["l"], profile["z"])
+                ]
+            else:
+                vertices = [
+                    (x, y, elevation) if _valid_elevation(elevation) else None
+                    for x, y, elevation in zip(profile["x"], profile["y"], profile["z"])
+                ]
+            # NoData gaps must not become fictitious connecting lines.
+            part: list[tuple[float, float, float]] = []
+            for vertex in [*vertices, None]:
+                if vertex is None:
+                    if len(part) >= 2:
+                        drawing.add(dxf_engine.polyline(part, color=7, layer=name))
+                    part = []
                 else:
-                    points = [
-                        (x, y, z)
-                        for x, y, z in zip(profile["x"], profile["y"], profile["z"])
-                        if z is not None
-                    ]
-                drawing.add(dxf.polyline(points, color=7, layer=name))
-            drawing.save()
+                    part.append(vertex)
+        drawing.save()

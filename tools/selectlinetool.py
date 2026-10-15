@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profile
@@ -22,7 +21,15 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
+"""Select line features and clicked multipart geometry components."""
+
+from __future__ import annotations
+
+from collections.abc import Iterator, Sequence
+from typing import TYPE_CHECKING, cast
+
 from qgis.core import (
+    Qgis,
     QgsFeature,
     QgsFeatureRequest,
     QgsGeometry,
@@ -30,91 +37,115 @@ from qgis.core import (
     QgsPointXY,
     QgsRectangle,
     QgsSpatialIndex,
-    QgsWkbTypes,
+    QgsVectorLayer,
 )
 from qgis.PyQt.QtWidgets import QMessageBox
 
+if TYPE_CHECKING:
+    from typing import Protocol
+
+    from qgis.gui import QgisInterface, QgsMapTool
+
+    class _MultipartGeometry(Protocol):
+        """SIP-generated QGIS stubs omit the multipart vertex result type."""
+
+        def asMultiPolyline(self) -> list[list[QgsPointXY]]:
+            """Return multipart geometry coordinates."""
+            ...
+
 
 class SelectLineTool:
-    def __init__(self, selectionMethod="feature"):
+    """Select profile source features without changing the user's layer selection."""
+
+    def __init__(self, selectionMethod: str = "feature") -> None:
         """Selection mode can be feature or layer."""
         self.selectionMethod = selectionMethod
 
-    def getPointTableFromSelectedLine(self, iface, tool, newPoints):
-        closestFeatures = []
+    def getPointTableFromSelectedLine(
+        self, iface: QgisInterface, tool: QgsMapTool, newPoints: Sequence[Sequence[float]]
+    ) -> tuple[QgsVectorLayer | None, list[QgsFeature]]:
+        """Return the active line layer and features for the requested selection mode."""
+        closestFeatures: list[QgsFeature] = []
         layer = iface.activeLayer()
-        if layer is None or not self.checkIsLineLayer(layer):
-            QMessageBox.warning(
-                iface.mainWindow(), "Closest Feature Finder", "No line layer selected"
-            )
+        if not isinstance(layer, QgsVectorLayer) or not self.checkIsLineLayer(layer):
+            QMessageBox.warning(iface.mainWindow(), "Closest Feature Finder", "No line layer selected")
             return None, closestFeatures
 
         if self.selectionMethod == "feature":
             # get the point coordinates in the layer's CRS
             point = tool.toLayerCoordinates(layer, QgsPointXY(newPoints[0][0], newPoints[0][1]))
             closestFeatures = self.select_closest_feature(iface, layer, point)
+            if closestFeatures:
+                closestFeatures = [self.select_closest_part(closestFeatures[0], point)]
         elif self.selectionMethod == "layer":
             closestFeatures = self.select_layer_features(iface, layer, None)
 
         return layer, closestFeatures
 
     @staticmethod
-    def checkIsLineLayer(layer):
-        if layer is None or layer.type() != QgsMapLayer.LayerType.VectorLayer:
-            return False
-        return layer.geometryType() == QgsWkbTypes.LineGeometry
+    def select_closest_part(feature: QgsFeature, clicked_point: QgsPointXY) -> QgsFeature:
+        """Return a feature copy containing only the clicked multipart line."""
+        geometry = feature.geometry()
+        if not geometry.isMultipart():
+            return feature
+        parts = cast("_MultipartGeometry", geometry).asMultiPolyline()
+        if not parts:
+            return feature
+        click_geometry = QgsGeometry.fromPointXY(clicked_point)
+        best_part = min(
+            parts,
+            key=lambda part: QgsGeometry.fromPolylineXY(part).distance(click_geometry),
+        )
+        selected = QgsFeature(feature)
+        selected.setGeometry(QgsGeometry.fromPolylineXY(best_part))
+        return selected
 
     @staticmethod
-    def checkIsPointLayer(layer):
-        if layer is None or layer.type() != QgsMapLayer.LayerType.VectorLayer:
-            return False
-        return layer.geometryType() == QgsWkbTypes.PointGeometry
+    def checkIsLineLayer(layer: QgsMapLayer | None) -> bool:
+        """Return whether the source is a vector layer with line geometry."""
+        return isinstance(layer, QgsVectorLayer) and layer.geometryType() == Qgis.GeometryType.Line
 
     @staticmethod
-    def select_closest_feature(iface, layer, point):
+    def checkIsPointLayer(layer: QgsMapLayer | None) -> bool:
+        """Return whether the source is a vector layer with point geometry."""
+        return isinstance(layer, QgsVectorLayer) and layer.geometryType() == Qgis.GeometryType.Point
+
+    @staticmethod
+    def select_closest_feature(iface: QgisInterface, layer: QgsVectorLayer, point: QgsPointXY) -> list[QgsFeature]:  # noqa: ARG004 -- Preserve the legacy selection helper signature.
         """Returns a list with the closest feature in given layer."""
         # Create the index with the layers features
         layerindex = QgsSpatialIndex()
         # rajout
         f = QgsFeature()
         #
-        iter = layer.getFeatures()
-        while iter.nextFeature(f):
+        feature_iterator = layer.getFeatures()
+        while feature_iterator.nextFeature(f):
             layerindex.addFeature(f)
 
         # get the feature which has the closest bounding box using the spatial index
         nearest = layerindex.nearestNeighbor(point, 1)
         featureId = nearest[0] if len(nearest) > 0 else None
-        closestFeature = QgsFeature()
+        closestFeature: QgsFeature | None = QgsFeature()
 
         f = QgsFeature()
-        if (
-            featureId is None
-            or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) is False
-        ):
+        if featureId is None or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) is False:
             closestFeature = None
 
-        booltemp = layer.geometryType() != QgsWkbTypes.PointGeometry
+        booltemp = layer.geometryType() != Qgis.GeometryType.Point
 
         if booltemp and closestFeature is not None:
             # find the furthest bounding box borders
             f = QgsFeature()
-            closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f)
+            layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f)
             rect = f.geometry().boundingBox()
 
             dist_pX_rXmax = abs(point.x() - rect.xMaximum())
             dist_pX_rXmin = abs(point.x() - rect.xMinimum())
-            if dist_pX_rXmax > dist_pX_rXmin:
-                width = dist_pX_rXmax
-            else:
-                width = dist_pX_rXmin
+            width = max(dist_pX_rXmin, dist_pX_rXmax)
 
             dist_pY_rYmax = abs(point.y() - rect.yMaximum())
             dist_pY_rYmin = abs(point.y() - rect.yMinimum())
-            if dist_pY_rYmax > dist_pY_rYmin:
-                height = dist_pY_rYmax
-            else:
-                height = dist_pY_rYmin
+            height = max(dist_pY_rYmin, dist_pY_rYmax)
 
             # create the search rectangle
             rect = QgsRectangle()
@@ -129,35 +160,34 @@ class SelectLineTool:
             # find the nearest feature
             minDist = -1
             featureId = None
-            point = QgsGeometry.fromPointXY(point)
+            point_geometry = QgsGeometry.fromPointXY(point)
             f = QgsFeature()
             while iter2.nextFeature(f):
                 geom = f.geometry()
-                distance = geom.distance(point)
+                distance = geom.distance(point_geometry)
                 if minDist < 0 or distance < minDist:
                     minDist = distance
                     featureId = f.id()
             # get the closest feature
             f = QgsFeature()
-            # closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).next()
-            closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f)
+            layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f)
             closestFeature = f
-            if (
-                featureId is None
-                or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) is False
-            ):
+            if featureId is None or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) is False:
                 closestFeature = None
 
         return [closestFeature] if closestFeature else []
 
     @staticmethod
-    def select_layer_features(iface, layer, point):
+    def select_layer_features(
+        iface: QgisInterface | None,  # noqa: ARG004 -- Common selection helper signature.
+        layer: QgsVectorLayer | None,
+        point: QgsPointXY | None,  # noqa: ARG004 -- Common selection helper signature.
+    ) -> list[QgsFeature]:
         """Returns a list with all the features in layer.
 
         iface, point are unused, kept to use
         the same function interface as select_closest_feature.
         """
-        if layer:
-            return [f for f in layer.getFeatures()]
-        else:
-            return []
+        if layer is not None:
+            return list(cast(Iterator[QgsFeature], layer.getFeatures()))
+        return []

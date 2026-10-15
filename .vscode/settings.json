@@ -1,0 +1,32 @@
+{
+  "python.defaultInterpreterPath": "C:/OSGeo4W/apps/Python312/python.exe",
+  "python.envFile": "${workspaceFolder}/.vscode/qgis.env",
+  "python.terminal.useEnvFile": false,
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/..",
+    "${workspaceFolder}/.vscode/qgis-type-stubs",
+    "C:/OSGeo4W/apps/qgis/python",
+    "C:/OSGeo4W/apps/qgis/python/plugins"
+  ],
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests/test_profile_regressions.py", "tests/test_qgis_layer_lifecycle.py"],
+  "terminal.integrated.env.windows": {
+    "OSGEO4W_ROOT": "C:/OSGeo4W",
+    "PYTHONHOME": "C:/OSGeo4W/apps/Python312",
+    "PYTHONPATH": "${workspaceFolder}/.vscode/qgis-tools;C:/OSGeo4W/apps/qgis/python;C:/OSGeo4W/apps/qgis/python/plugins",
+    "QGIS_PREFIX_PATH": "C:/OSGeo4W/apps/qgis",
+    "QT_PLUGIN_PATH": "C:/OSGeo4W/apps/qgis/qtplugins;C:/OSGeo4W/apps/Qt6/plugins",
+    "GDAL_DATA": "C:/OSGeo4W/apps/gdal/share/gdal",
+    "GDAL_DRIVER_PATH": "C:/OSGeo4W/apps/gdal/lib/gdalplugins",
+    "PROJ_DATA": "C:/OSGeo4W/share/proj",
+    "PYTHONUTF8": "1",
+    "PATH": "${workspaceFolder}/.vscode/qgis-tools/bin;C:/OSGeo4W/apps/qgis/bin;C:/OSGeo4W/apps/Qt6/bin;C:/OSGeo4W/apps/Python312;C:/OSGeo4W/apps/Python312/Scripts;C:/OSGeo4W/bin;${env:PATH}"
+  },
+  "ruff.importStrategy": "fromEnvironment",
+  "ruff.configurationPreference": "filesystemFirst",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  }
+}

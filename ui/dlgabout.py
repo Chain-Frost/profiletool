@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------
 #
 # Profile
@@ -23,31 +22,47 @@
 #
 # ---------------------------------------------------------------------
 
-import os
-import platform
+"""Display Profile Tool version and metadata information."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from qgis.PyQt import uic
-from qgis.PyQt.QtCore import *
-from qgis.PyQt.QtGui import *
-from qgis.PyQt.QtWidgets import QDialog
+from qgis.PyQt.QtCore import QSettings
+from qgis.PyQt.QtWidgets import QDialog, QLabel, QWidget
 
-uiFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__), "about.ui"))
-FormClass = uic.loadUiType(uiFilePath)[0]
+uiFilePath = str(Path(__file__).resolve().with_name("about.ui"))
+if TYPE_CHECKING:
+
+    class FormClass:
+        """Typed fields supplied by the generated about.ui form at runtime."""
+
+        title: QLabel
+        description: QLabel
+
+        def setupUi(self, dialog: QDialog) -> None:
+            """Populate the dialog with the fields declared by about.ui."""
+            ...
+
+else:
+    FormClass = uic.loadUiType(uiFilePath)[0]
 
 
 class DlgAbout(QDialog, FormClass):
-    def __init__(self, parent=None):
+    """Display the Profile Tool information and version dialog."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
         QDialog.__init__(self, parent)
         self.setupUi(self)
 
-        fp = os.path.join(
-            os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), "metadata.txt"
-        )
+        fp = str(Path(__file__).resolve().parent.parent / "metadata.txt")
 
-        iniText = QSettings(fp, QSettings.IniFormat)
-        verno = iniText.value("version")
-        name = iniText.value("name")
-        description = iniText.value("description")
+        iniText = QSettings(fp, QSettings.Format.IniFormat)
+        verno = iniText.value("version", "", type=str)
+        name = iniText.value("name", "", type=str)
+        description = iniText.value("description", "", type=str)
 
         self.title.setText(name)
         self.description.setText(description + " - " + verno)

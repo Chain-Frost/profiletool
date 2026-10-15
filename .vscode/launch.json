@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: QGIS environment (current file)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "python": "C:/OSGeo4W/apps/Python312/python.exe",
+      "envFile": "${workspaceFolder}/.vscode/qgis.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

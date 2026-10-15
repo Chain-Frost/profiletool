@@ -1,21 +1,30 @@
-import qgis
+"""Inspect layer/project distance conversions from a running QGIS console."""
 
+from typing import cast
 
-vl = iface.activeLayer()
+from qgis.core import QgsDistanceArea, QgsProject
+from qgis.gui import QgisInterface
+from qgis.utils import iface
 
-crs1 = vl.crs() 
-crs2 = iface.mapCanvas().mapSettings().destinationCrs()
+desktop_iface = cast("QgisInterface | None", iface)
+if desktop_iface is None:
+    message = "Run this script from the QGIS desktop Python console"
+    raise RuntimeError(message)
+vl = desktop_iface.activeLayer()
+canvas = desktop_iface.mapCanvas()
+project = QgsProject.instance()
+if vl is None or canvas is None or project is None:
+    message = "Distance inspection requires an active layer, canvas and project"
+    raise RuntimeError(message)
 
-dist = qgis.core.QgsDistanceArea()
-#dist.setEllipsoid(qgis.core.QgsProject().instance().ellipsoid())
-#dist.setEllipsoidalMode(True)
-dist.setSourceCrs(crs2)
+crs1 = vl.crs()
+crs2 = canvas.mapSettings().destinationCrs()
 
-dist2 = qgis.core.QgsDistanceArea()
-#dist2.setEllipsoid(qgis.core.QgsProject().instance().ellipsoid())
-#dist2.setEllipsoidalMode(True)
-dist2.setSourceCrs(crs1)
+dist = QgsDistanceArea()
+dist.setSourceCrs(crs2, project.transformContext())
 
-print(dist.convertLengthMeasurement(1.0, crs1.mapUnits()) )
-print(dist2.convertLengthMeasurement(1.0, crs2.mapUnits()) )
+dist2 = QgsDistanceArea()
+dist2.setSourceCrs(crs1, project.transformContext())
 
+print(dist.convertLengthMeasurement(1.0, crs1.mapUnits()))
+print(dist2.convertLengthMeasurement(1.0, crs2.mapUnits()))
