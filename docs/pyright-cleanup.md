@@ -8,8 +8,9 @@
 > The single latest JSON report set records this uncommitted working tree.
 > Ruff, formatting, scoped Pyright, 21 isolated tests and all 17 live QGIS 4.x
 > desktop cases pass. This is local evidence, not hosted CI or committed-head
-> verification of the zero-error change. QGIS 3.44 remains paused; its separate
-> GraphicsObject.itemChange QVariant failure is not fixed by parameter names.
+> verification of the zero-error change. The separate QGIS 3.44 Docker
+> regression now passes with a Qt5-only graphics callback fix; native Windows
+> and final manual QGIS 3.44 visual validation remain outstanding.
 
 Earlier working-tree measurements below are retained as historical evidence.
 
@@ -215,7 +216,7 @@ cleanup errors, and layer IDs/CRS were restored. Evidence is recorded in the
 ignored `validation_artifacts/qgis-desktop/interaction-report.json` and
 `distance-report.json`. Native CRS unit checks are recorded in
 `native-units-report.json`. Human hardware clicks and visual export inspection
-remain manual. QGIS 3.44 was subsequently smoke-tested using the official Linux Docker image. One QGIS lifecycle test passes; the other **fails** due to PyQt5 QVariant conversion during vendored PyQtGraph graphics-item changes. See [the QGIS 3.44 compatibility blocker](qgis-3.44-compatibility.md). Full QGIS 3.44 desktop scenarios remain unverified. The reader and
+remain manual. QGIS 3.44 was subsequently tested in the official Docker image. Its previously failing PyQt5 QVariant callback was resolved by preserving the native Qt5 virtual and using property signals; **3 QGIS 3.44 tests now pass**, including scene/parent and bounds notifications. See [QGIS 3.44 compatibility evidence](qgis-3.44-compatibility.md). Native Windows QGIS 3.44 desktop scenarios remain unverified. The reader and
 plotting follow-up has not been committed or pushed; hosted CI has not been
 verified for this batch. The
 separate report-sharing branch is unchanged.
@@ -249,4 +250,4 @@ The uploaded strict Pyright JSON, summary and metadata independently verify **16
 
 The follow-on commits after `c540dd12` have typed the optional plugin-layer `identify` boundary, QGIS geometry polyline-return contracts and Qt plot-selection callback. They also replaced untyped headless-test lambdas. Both GitHub quality runs pass (19 headless tests and zero headless strict Pyright errors); **full local strict Pyright has not been rerun at this later head**.
 
-A new independently running QGIS **3.44.15/PyQt5** container test exposed an actual graphics callback error in bundled PyQtGraph. It remains a **failed compatibility gate**, not a successful QGIS 3.44 validation. Unverified vendor modifications were reverted; documentation and reproduction instructions are in [qgis-3.44-compatibility.md](qgis-3.44-compatibility.md).
+The QGIS **3.44.15/PyQt5** container test initially exposed an actual graphics callback failure in bundled PyQtGraph. Subsequent targeted experiments identified its Python `itemChange` virtual override as the trigger. The committed Qt5-only native-signal solution passes **all three** QGIS 3.44 container regressions, while the Windows/visual acceptance gate remains outstanding. Reproduction and test evidence are in [qgis-3.44-compatibility.md](qgis-3.44-compatibility.md).

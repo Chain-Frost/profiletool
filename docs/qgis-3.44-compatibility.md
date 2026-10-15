@@ -1,19 +1,38 @@
-# QGIS 3.44 compatibility smoke test
+# QGIS 3.44 / PyQt5 compatibility
 
-## Verified result
+## Verified automated result (15 October 2026)
 
-- Tested the official QGIS 3.44.15 (Qt5/PyQt5) image `qgis/qgis:3.44.15-noble` in GitHub Actions.
-- Confirmed runtime versions on 15 October 2026: **QGIS 3.44.15-Solothurn**, **Qt 5.15.13**, **PyQt 5.15.10**, bundled **PyQtGraph 0.13.7**. The version-reporting command and the two tests ran successfully; the lifecycle failure remains.
-- `tests/test_qgis_layer_lifecycle.py`: **one passes; one fails**. Plugin startup and unload pass; the source deletion/coordinate export lifecycle test fails because Qt emits Python callback exceptions during PyQtGraph graphics-item setup.
-- Native error: `TypeError: unable to convert a QVariant back to a Python object` from vendored `pyqtgraph/graphicsItems/GraphicsObject.py`, during `itemChange`. The pre-change event values for scene/parent are opaque `PyQt5.QtCore.QVariant` wrappers in this environment.
-- Existing QGIS 4.2.x tests and the standard Python/Ruff/headless-Pyright checks are separate and passing. **This QGIS 3.44 failure is a compatibility blocker, not a passing test.**
-- Narrow Qt5 return/conversion experiments did **not** resolve the native failure and were reverted. Do not suppress the callback errors or treat the new smoke test as a substitute for complete QGIS 3.44 desktop/manual verification.
+**The previously failing QGIS 3.44 graphics callback regression is fixed in the
+CI container.** The official `qgis/qgis:3.44.15-noble` image reports QGIS
+3.44.15-Solothurn, Qt 5.15.13, PyQt 5.15.10 and bundled PyQtGraph 0.13.7.
+
+- The original tests failed with repeated
+  `TypeError: unable to convert a QVariant back to a Python object` in
+  `pyqtgraph/graphicsItems/GraphicsObject.py::itemChange`. This was a
+  **PyQt5/SIP issue with scene and parent pointer QVariant conversion**.
+- A disposable test proved that omitting only this Python virtual override
+  eliminated the errors: **2/2 lifecycle tests passed**, whereas the normal
+  override still failed.
+- The committed **Qt5-only implementation** now leaves the native C++
+  `itemChange` virtual in place while subscribing to the native
+  `QGraphicsObject.parentChanged`, `xChanged`, `yChanged`,
+  `rotationChanged` and `scaleChanged` signals. This retains view
+  registration and movement/bounds updates without global SIP changes.
+  The Qt6 path still uses its original Python `itemChange`.
+- The authoritative clean CI run passed **3/3** QGIS 3.44 tests, including
+  a new parent/scene attachment and movement-driven bounds notification
+  regression, with **no captured Qt callback exceptions**.
+  Normal hosted quality checks (Ruff, CI-scoped strict Pyright,
+  19 headless regressions) also passed.
+- Experimental changes that tried to convert/return opaque QVariant
+  wrappers or disable process-wide SIP autoconversion were **not retained**.
+  The disposable diagnostic probe was removed.
 
 ## Reproduction
 
-The separate [QGIS 3.44 workflow](../.github/workflows/qgis-3.44.yml) runs this exact regression. It is manually dispatchable and automatically runs when the workflow, the lifecycle test, or the vendored graphics-item implementation changes.
-
-A local Linux Docker reproduction is:
+[QGIS 3.44 CI workflow](../.github/workflows/qgis-3.44.yml)
+runs for PRs and relevant changes to the plugin, test and vendored graphics
+code.
 
 ```bash
 docker run --rm --entrypoint /bin/bash \
@@ -25,11 +44,23 @@ docker run --rm --entrypoint /bin/bash \
   'python3 -m pytest -s -q /tests_directory/profiletool/tests/test_qgis_layer_lifecycle.py'
 ```
 
-## Work remaining
+## Remaining merge acceptance
 
-Investigate the QGIS 3.44 PyQt5/SIP QVariant conversion boundary for graphics-item parent/scene changes, including whether it is specific to the QGIS Docker build. Compare the native Windows OSGeo4W QGIS 3.44 environment before changing vendored PyQtGraph. Preserve valid parent/scene changes and graphical scene ownership. Acceptance requires no captured Qt callback exceptions, both container tests passing, and no regression in QGIS 4.x; full desktop scenarios and human checks remain separate gates.
+The CI result resolves the **reproducible Qt5 QVariant code blocker**, not
+every compatibility or visual requirement:
 
+- [ ] On native Windows/OSGeo4W QGIS 3.44, repeat the complete scenario
+  suite and inspect plot rendering, scene/item parenting, curve visibility,
+  axis scaling, tracking and backend switching.
+- [ ] Manually inspect PDF, SVG, PNG and DXF output and confirm interaction
+  with real representative project data in QGIS 3.44 and QGIS 4.x.
+- [ ] Verify the final exact PR head passes all GitHub checks and obtain
+  full strict QGIS-aware Pyright evidence for that head if required by
+  the merge policy.
+- [ ] Record any remaining QGIS 3.44-specific differences. In particular,
+  Qt5 signal-driven notifications replace the legacy Python override; visual
+  and interactive tests must confirm all needed view/transform updates.
 
-## Qt virtual-method implications
-
-Qt's [`QGraphicsItem.itemChange` contract](https://doc.qt.io/qt-6/qgraphicsitem.html) permits an override to return a different parent/scene during some change notifications. Therefore a blanket `None` return or suppression of `QVariant` conversion errors can change scene ownership and invalidate plot behavior. The error reproduces in the official container; the equivalent Windows QGIS 3.44 build must be checked separately. A correct fix needs to preserve the Qt method's parent/scene semantics, not merely clear the test log.
+Qt's `QGraphicsItem.itemChange` can adjust parent/scene values, so the native
+virtual remains authoritative in Qt5. Avoid silent exception suppression or
+returning `None` for change requests. QGIS 4/PyQt6 behaviour is unchanged.

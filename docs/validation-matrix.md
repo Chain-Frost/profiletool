@@ -146,7 +146,10 @@ the empty project's layers and EPSG:4326 CRS were restored. The console-only
 distance script also ran successfully with a temporary EPSG:28350 layer;
 `distance-report.json` records its output and source checksum.
 
-QGIS 3.44 is unavailable on this machine and remains untested. Human mouse and
-dialog confirmation also remains separate from the automated widget tests.
+Native Windows QGIS 3.44 is unavailable on this machine and has not completed
+desktop/visual verification. Separately, the official QGIS 3.44.15 Linux Docker
+regression now passes all three real-PyQGIS tests, including graphics parent,
+scene and movement bounds notifications, after the PyQt5 QVariant fix.
+Human mouse and dialog confirmation remains separate from automated widget tests.
 The broader cases remain synthetic fixtures, not a representative real-data
 terrain survey. No PR description, commit, push or merge was performed here.
