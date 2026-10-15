@@ -44,6 +44,7 @@ from ..dxfwrite import (
 from ..pyqtgraph import exporters
 from .csv_export import write_plot_csv
 from .dataReaderTool import DataReaderTool
+from . import profilers
 from .profile_types import Profile
 from .profilers import ProfileSeries
 
@@ -135,6 +136,18 @@ class PlottingTool:
             msg = "Profile plots require an active QGIS project"
             raise RuntimeError(msg)
         return QgsUnitTypes.toAbbreviatedString(project.crs().mapUnits()) or "unknown units"
+
+    def refreshChainageAxisLabel(self, wdg: PTDockWidget, library: str | None) -> None:
+        """Keep the axis unit label in sync when the project CRS changes."""
+        if wdg.plotWdg is None:
+            return
+        label = f"Chainage ({self._chainage_unit()})"
+        if library == "PyQtGraph" and isinstance(wdg.plotWdg, pg.PlotWidget):
+            cast("PlotWidget", wdg.plotWdg).setLabel("bottom", label)
+        elif library == "Matplotlib" and has_mpl:
+            axes = wdg.plotWdg.figure.get_axes()
+            if axes:
+                cast("MatplotlibAxes", axes[0]).set_xlabel(label)
 
     @staticmethod
     def curveName(layer: QgsMapLayer, band: int, model: QStandardItemModel) -> str:
@@ -310,9 +323,12 @@ class PlottingTool:
                     color_item.data(Qt.ItemDataRole.BackgroundRole),
                     tmp_name,
                 )
-            if profiles and len(profiles[-1]["plot_x"]) > 0:
+            max_chainage = profilers.max_finite_plot_chainage(
+                [(profile["plot_x"], profile["plot_y"]) for profile in profiles]
+            )
+            if max_chainage is not None:
                 self.reScalePlot(wdg, profiles, library)
-                wdg.plotWdg.figure.get_axes()[0].set_xbound(0, max(profiles[-1]["plot_x"]))
+                wdg.plotWdg.figure.get_axes()[0].set_xbound(0, max_chainage)
             wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
             wdg.plotWdg.draw()
 

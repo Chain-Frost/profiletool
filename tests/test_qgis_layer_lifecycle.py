@@ -22,7 +22,7 @@ from qgis.core import (
     QgsProject,
     QgsVectorLayer,
 )
-from qgis.PyQt.QtCore import Qt, pyqtBoundSignal
+from qgis.PyQt.QtCore import QPointF, Qt, pyqtBoundSignal
 from qgis.PyQt.QtGui import QTransform
 from qgis.PyQt.QtWidgets import QApplication, QGroupBox, QVBoxLayout
 from qgis.testing.mocked import get_iface
@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from profiletool import pyqtgraph as pg
 from profiletool.profileplugin import ProfilePlugin
 from profiletool.tools import plottingtool as plottingtool_module
-from profiletool.tools.plottingtool import pyqtgraph_plot_item
+from profiletool.tools.plottingtool import PlottingTool, pyqtgraph_plot_item
 
 
 def test_unload_before_opening_dock_disconnects_map_tool_callback() -> None:
@@ -93,6 +93,128 @@ def test_graphics_parent_scene_and_bounds_notifications_are_preserved(monkeypatc
         assert not callback_errors, [str(error) for error in callback_errors]
     finally:
         plot.close()
+
+
+def test_plot_cursor_hides_nodata_and_marker(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mouse tracking must not snap across missing raster samples."""
+    iface = get_iface()
+    iface.activeLayer.return_value = None
+    plugin = ProfilePlugin(iface)
+    plugin.initGui()
+    try:
+        plugin.run()
+        core = plugin.profiletool
+        assert core is not None
+        assert core.toolrenderer is not None
+        plot = core.dockwidget.plotWdg
+        assert isinstance(plot, pg.PlotWidget)
+        plot_item = plot.getPlotItem()
+        gap_curve = plot.plot([0.0, 1.0, 2.0], [3.0, float("nan"), 5.0], name="gap")
+        assert core._nearest_plot_sample(plot_item, QPointF(0.0, 3.0)) == (0.0, 3.0)
+        assert core._nearest_plot_sample(plot_item, QPointF(1.0, 4.0)) == (None, None)
+        other = plot.plot([0.0, 1.0, 2.0], [float("nan"), 7.0, float("nan")], name="other")
+        assert core._nearest_plot_sample(plot_item, QPointF(1.0, 6.0)) == (1.0, 7.0)
+        other.hide()
+        assert core._nearest_plot_sample(plot_item, QPointF(1.0, 4.0)) == (None, None)
+        gap_curve.hide()
+        assert core._nearest_plot_sample(plot_item, QPointF(0.0, 3.0)) == (None, None)
+        gap_curve.show()
+
+        core.pointstoDraw = [[0.0, 0.0], [2.0, 0.0]]
+        core.doTracking = True
+        core.updateCursorOnMap(0.0)
+        marker = core.toolrenderer.rubberbandpoint
+        assert marker.isVisible()
+        monkeypatch.setattr(core, "_nearest_plot_sample", lambda *args: (None, None))
+        core.dockwidget.showcursor = True
+        core.mouseMovedPyQtGraph(plot_item.sceneBoundingRect().center())
+        assert core.x_cursor is None
+        assert not marker.isVisible()
+        cursor_items = [
+            item for item in plot_item.allChildItems()
+            if isinstance(item, pg.InfiniteLine) and item.name() in ("cross_vertical", "cross_horizontal")
+        ]
+        assert len(cursor_items) == 2
+        assert all(not item.isVisible() for item in cursor_items)
+    finally:
+        plugin.unload()
+
+
+def test_chainage_label_refreshes_for_project_crs_changes() -> None:
+    """Resampling in an existing dock updates the units on both graph backends."""
+    iface = get_iface()
+    iface.activeLayer.return_value = None
+    project = QgsProject.instance()
+    assert project is not None
+    old_crs = project.crs()
+    project.setCrs(QgsCoordinateReferenceSystem("EPSG:28350"))
+    plugin = ProfilePlugin(iface)
+    plugin.initGui()
+    try:
+        plugin.run()
+        core = plugin.profiletool
+        assert core is not None
+        dock = core.dockwidget
+        plot = dock.plotWdg
+        assert isinstance(plot, pg.PlotWidget)
+        assert "m" in plot.getPlotItem().getAxis("bottom").labelText
+        project.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
+        core.plotProfil()
+        assert PlottingTool._chainage_unit() in plot.getPlotItem().getAxis("bottom").labelText
+        if dock.cboLibrary.findText("Matplotlib") >= 0:
+            dock.cboLibrary.setCurrentIndex(dock.cboLibrary.findText("Matplotlib"))
+            core.plotProfil()
+            assert PlottingTool._chainage_unit() in dock.plotWdg.figure.get_axes()[0].get_xlabel()
+    finally:
+        plugin.unload()
+        project.setCrs(old_crs)
+
+
+def test_matplotlib_autoscales_when_final_profile_is_empty() -> None:
+    """A final source without samples must not suppress earlier plotted data."""
+    iface = get_iface()
+    iface.activeLayer.return_value = None
+    project = QgsProject.instance()
+    assert project is not None
+    old_crs = project.crs()
+    project.setCrs(QgsCoordinateReferenceSystem("EPSG:28350"))
+    plugin = ProfilePlugin(iface)
+    plugin.initGui()
+    layers: list[QgsVectorLayer] = []
+    try:
+        plugin.run()
+        core = plugin.profiletool
+        assert core is not None
+        dock = core.dockwidget
+        if dock.cboLibrary.findText("Matplotlib") < 0:
+            pytest.skip("Matplotlib is not installed in this QGIS environment")
+        for name, has_samples in [("with-elevation", True), ("empty", False)]:
+            layer = QgsVectorLayer("Point?crs=EPSG:28350&field=z:double", name, "memory")
+            if has_samples:
+                provider = layer.dataProvider()
+                assert provider is not None
+                for x, z in ((400000, 200.0), (400020, 220.0)):
+                    feature = QgsFeature(layer.fields())
+                    feature.setGeometry(QgsGeometry.fromWkt(f"POINT({x} 6500000)"))
+                    feature["z"] = z
+                    provider.addFeatures([feature])
+            project.addMapLayer(layer)
+            layers.append(layer)
+            dock.addLayer(layer)
+        dock.cboLibrary.setCurrentIndex(dock.cboLibrary.findText("Matplotlib"))
+        core.updateProfil([[400000, 6500000], [400020, 6500000]], removeSelection=False, plotProfil=True)
+        assert len(core.profiles) == 2
+        assert core.profiles[0]["plot_y"]
+        assert not core.profiles[-1]["plot_x"]
+        axes = dock.plotWdg.figure.get_axes()[0]
+        assert 19.0 <= axes.get_xlim()[1] < 100.0
+        assert axes.get_ylim()[1] >= 220.0
+        assert axes.get_ylim()[1] < 250.0
+    finally:
+        plugin.unload()
+        for layer in layers:
+            project.removeMapLayer(layer.id())
+        project.setCrs(old_crs)
 
 
 def test_whole_layer_selection_keeps_all_disconnected_features() -> None:

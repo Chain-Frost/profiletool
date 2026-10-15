@@ -279,6 +279,7 @@ class ProfileToolCore(QWidget):
             return
         plotting = PlottingTool()
         plotting.clearData(self.dockwidget, self.profiles, self.dockwidget.plotlibrary)
+        plotting.refreshChainageAxisLabel(self.dockwidget, self.dockwidget.plotlibrary)
         if vertline:
             plotting.drawVertLine(self.dockwidget, self.pointstoDraw, self.dockwidget.plotlibrary)
 
@@ -365,23 +366,23 @@ class ProfileToolCore(QWidget):
         self.x_cursor = x
         if self.toolrenderer is None:
             return
-        if self.pointstoDraw and self.doTracking:
-            if x is not None:
-                points = [QgsPointXY(*p) for p in self.pointstoDraw]
-                geom = QgsGeometry.fromPolylineXY(points)
-                try:
-                    if len(points) > 1:
-                        pointprojected = geom.interpolate(float(x) / DataReaderTool.project_distance_scale()).asPoint()
-                    else:
-                        pointprojected = points[0]
-                except (IndexError, AttributeError, ValueError):
-                    pointprojected = None
+        if self.pointstoDraw and self.doTracking and x is not None and np.isfinite(x):
+            points = [QgsPointXY(*p) for p in self.pointstoDraw]
+            geom = QgsGeometry.fromPolylineXY(points)
+            try:
+                if len(points) > 1:
+                    pointprojected = geom.interpolate(float(x) / DataReaderTool.project_distance_scale()).asPoint()
+                else:
+                    pointprojected = points[0]
+            except (IndexError, AttributeError, ValueError):
+                pointprojected = None
 
-                if pointprojected:
-                    self.toolrenderer.rubberbandpoint.setCenter(pointprojected)
-            self.toolrenderer.rubberbandpoint.show()
-        else:
-            self.toolrenderer.rubberbandpoint.hide()
+            if pointprojected is not None:
+                self.toolrenderer.rubberbandpoint.setCenter(pointprojected)
+                self.toolrenderer.rubberbandpoint.show()
+                return
+        # Missing samples must hide the previous marker, not retain it.
+        self.toolrenderer.rubberbandpoint.hide()
 
     # remove layers which were removed from QGIS
     def onLayersRemoved(self, *args: object) -> None:  # noqa: ARG002 -- QGIS supplies removed layer IDs.
@@ -544,9 +545,17 @@ class ProfileToolCore(QWidget):
             # récupère le point souris à partir ViewBox
             mousePoint = view_box.mapSceneToView(pos)
             xtoplot, ytoplot = self._nearest_plot_sample(pitems, mousePoint)
-            # Draw labels and cursors only when a sample was found.
-            if plot_data_items(pitems) and xtoplot is not None and ytoplot is not None:
+            # Invalid/missing samples must not leave the last valid labels
+            # visible over a gap, or keep the old marker on the map.
+            if xtoplot is None or ytoplot is None:
                 for item in pitems.allChildItems():
+                    if isinstance(item, pg.InfiniteLine) and item.name() in ("cross_vertical", "cross_horizontal"):
+                        item.hide()
+                    elif isinstance(item, pg.TextItem) and item.textItem.toPlainText().startswith(("X", "Y")):
+                        item.hide()
+                self.updateCursorOnMap(None)
+                return
+            for item in pitems.allChildItems():
                     if isinstance(item, pg.InfiniteLine):
                         if item.name() == "cross_vertical":
                             item.show()
@@ -567,29 +576,29 @@ class ProfileToolCore(QWidget):
             self.updateCursorOnMap(xtoplot)
 
     def _nearest_plot_sample(self, pitems: PlotItem, mouse_point: QPointF) -> tuple[float | None, float | None]:
-        """Choose chainage and elevation from the nearest visible plot series."""
-        ytoplot = None
-        xtoplot = None
-
-        if plot_data_items(pitems):
-            # get data and nearest xy from cursor
-            compt = 0
-            try:
-                for item in plot_data_items(pitems):
-                    if item.isVisible():
-                        x, y = cast("tuple[ProfileSeries | None, ProfileSeries | None]", item.getData())
-                        if x is None or y is None:
-                            continue
-                        nearestindex = np.argmin(abs(np.array(x, dtype=float) - mouse_point.x()))
-                        if compt == 0 or ytoplot is None:
-                            xtoplot = np.array(x, dtype=float)[nearestindex]
-                            ytoplot = np.array(y)[nearestindex]
-                        else:
-                            if abs(np.array(y)[nearestindex] - mouse_point.y()) < abs(ytoplot - mouse_point.y()):
-                                ytoplot = np.array(y)[nearestindex]
-                                xtoplot = np.array(x)[nearestindex]
-                        compt += 1
-            except (IndexError, ValueError):
-                ytoplot = None
-                xtoplot = None
-        return (float(xtoplot) if xtoplot is not None else None, float(ytoplot) if ytoplot is not None else None)
+        """Find the nearest visible, finite source sample without crossing gaps."""
+        nearest: tuple[float, float] | None = None
+        best_distance = float("inf")
+        for item in plot_data_items(pitems):
+            if not item.isVisible():
+                continue
+            x, y = cast("tuple[ProfileSeries | None, ProfileSeries | None]", item.getData())
+            if x is None or y is None:
+                continue
+            x_values = np.asarray(x, dtype=float)
+            y_values = np.asarray(y, dtype=float)
+            if not len(x_values) or len(x_values) != len(y_values):
+                continue
+            finite_x = np.flatnonzero(np.isfinite(x_values))
+            if not len(finite_x):
+                continue
+            # Choose by x before inspecting y. If that sample is NoData,
+            # reject this curve rather than snapping across the gap.
+            index = int(finite_x[np.argmin(np.abs(x_values[finite_x] - mouse_point.x()))])
+            if not np.isfinite(y_values[index]):
+                continue
+            distance = abs(float(y_values[index]) - mouse_point.y())
+            if distance < best_distance:
+                best_distance = distance
+                nearest = (float(x_values[index]), float(y_values[index]))
+        return nearest if nearest is not None else (None, None)

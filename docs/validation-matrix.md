@@ -40,6 +40,13 @@ Run these representative scenarios in QGIS 3.40+/3.44 and QGIS 4.x:
 11. Close and reopen the dock, switch map tools repeatedly and unload plugin.
     Confirm map tool restores and no callbacks remain connected.
 12. Verify plot exports and that 2D/3D DXF lines split at NoData samples.
+13. With Matplotlib, put a valid profile before an empty source and check
+    that both X and Y plot bounds still fit the valid profile.
+14. Move the PyQtGraph cursor over internal/external NoData and check that
+    the plot cursors and map marker hide, rather than retaining old values.
+15. Change the project CRS while the dock remains open, then resample;
+    confirm the chainage axis label reflects the new map units on both
+    graph backends.
 
 The GitHub workflow checks Python syntax and QGIS-independent regression
 tests. It does not substitute for running this checklist in real QGIS.

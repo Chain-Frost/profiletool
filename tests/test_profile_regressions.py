@@ -26,6 +26,8 @@ class _ProfileMath(Protocol):
 
     def slopes_deg(self, p: ProfileData) -> tuple[ProfileSeries, NDArray[np.float64]]: ...
 
+    def max_finite_plot_chainage(self, series: list[tuple[ProfileSeries, ProfileSeries]]) -> float | None: ...
+
 
 class _Coordinates(Protocol):
     """Coordinate access used when copying points in the headless fixture."""
@@ -88,6 +90,23 @@ def _load(name: str, path: Path) -> types.ModuleType:
 @pytest.fixture
 def profilers() -> _ProfileMath:
     return cast(_ProfileMath, _load("_profile_math_regression", ROOT / "tools" / "profilers.py"))
+
+
+def test_plot_extent_uses_valid_sources_even_when_last_source_is_empty(profilers: _ProfileMath) -> None:
+    """A final empty or NoData-only series must not hide valid earlier data."""
+    sources = [
+        ([0.0, 10.0, 20.0], [5.0, 7.0, 9.0]),
+        ([], []),
+        ([0.0, 100.0], [float("nan"), float("nan")]),
+    ]
+    assert profilers.max_finite_plot_chainage(sources) == pytest.approx(20.0)
+    assert profilers.max_finite_plot_chainage(sources[1:]) is None
+    assert profilers.max_finite_plot_chainage(
+        [([0.0, 20.0, 30.0], [1.0, 2.0, float("nan")])]
+    ) == pytest.approx(20.0)
+    assert profilers.max_finite_plot_chainage(
+        [([0.0, 80.0], [1.0, 3.0]), ([0.0, 40.0], [4.0, 5.0])]
+    ) == pytest.approx(80.0)
 
 
 def test_grade_two_points(profilers: _ProfileMath) -> None:

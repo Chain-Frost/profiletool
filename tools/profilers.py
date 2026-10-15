@@ -96,6 +96,25 @@ def slopes_deg(p: ProfileData) -> tuple[NDArray[np.float64], NDArray[np.float64]
     return x, slope_deg
 
 
+def max_finite_plot_chainage(series: Sequence[tuple[ProfileSeries, ProfileSeries]]) -> float | None:
+    """Find the furthest finite chainage that has a finite plotted value.
+
+    All plotted sources are considered, regardless of their order. A missing
+    final source or NoData-only curve must not suppress valid earlier curves.
+    """
+    maximum: float | None = None
+    for x, y in series:
+        x_values = np.asarray(x, dtype=float)
+        y_values = np.asarray(y, dtype=float)
+        if not len(x_values) or len(x_values) != len(y_values):
+            continue
+        valid = np.isfinite(x_values) & np.isfinite(y_values)
+        if valid.any():
+            source_max = float(np.max(x_values[valid]))
+            maximum = source_max if maximum is None else max(maximum, source_max)
+    return maximum
+
+
 PLOT_PROFILERS: dict[str, Callable[[ProfileData], tuple[ProfileSeries, ProfileSeries]]] = {
     "Height": height,
     "Slope (%)": slopes_pct,
