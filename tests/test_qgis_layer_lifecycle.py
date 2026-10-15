@@ -204,7 +204,7 @@ def test_matplotlib_autoscales_when_final_profile_is_empty() -> None:
         dock.cboLibrary.setCurrentIndex(dock.cboLibrary.findText("Matplotlib"))
         core.updateProfil([[400000, 6500000], [400020, 6500000]], removeSelection=False, plotProfil=True)
         assert len(core.profiles) == 2
-        assert core.profiles[0]["plot_y"]
+        assert len(core.profiles[0]["plot_y"]) > 0
         assert not core.profiles[-1]["plot_x"]
         axes = dock.plotWdg.figure.get_axes()[0]
         assert 19.0 <= axes.get_xlim()[1] < 100.0

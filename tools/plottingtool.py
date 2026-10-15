@@ -42,9 +42,9 @@ from ..dxfwrite import (
     DXFEngine as dxf,  # noqa: N813 -- Preserve the established writer alias.
 )
 from ..pyqtgraph import exporters
+from . import profilers
 from .csv_export import write_plot_csv
 from .dataReaderTool import DataReaderTool
-from . import profilers
 from .profile_types import Profile
 from .profilers import ProfileSeries
 
