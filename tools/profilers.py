@@ -67,8 +67,9 @@ def slopes_pct(p: ProfileData) -> tuple[NDArray[np.float64], NDArray[np.float64]
     if len(x) == 1:
         return x, np.array([np.nan])
 
-    # Geographic projects display angular chainage. In that case, source
-    # profiles supply independently measured metre chainages for valid grades.
+    # Geographic projects display angular chainage, but grades use geodesic
+    # metre distances. Projected projects use native linear units, assuming
+    # that the elevation samples use those same units.
     physical_x = np.asarray(p.get("l_slope", p["l"]), dtype=float)
     dx = np.diff(physical_x)
     dz = np.diff(y)

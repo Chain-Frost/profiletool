@@ -185,17 +185,20 @@ class DataReaderTool:
 
     @staticmethod
     def _slope_distances(project_points: Sequence[QgsPointXY], chainages: list[float]) -> list[float]:
-        """Slope distance in metres, independently of displayed CRS units.
+        """Return horizontal distances compatible with unconverted elevations.
 
-        A geographic project's displayed chainage remains angular. Geodesic
-        segment lengths are used only for grades, which must have linear units.
+        Projected projects retain native map units for both displayed chainage
+        and grades, matching the upstream assumption that source elevations
+        use the same linear unit. Geographic projects use geodesic metres for
+        grades, assuming elevations are in metres.
         """
         if not project_points:
             return []
         project = DataReaderTool._project()
         if not project.crs().isGeographic():
-            factor = QgsUnitTypes.fromUnitToUnitFactor(project.crs().mapUnits(), Qgis.DistanceUnit.Meters)
-            return [chainage * factor for chainage in chainages]
+            # Converting only dx to metres produces incorrect grades for DEMs
+            # whose elevations use the native projected units (e.g. feet).
+            return list(chainages)
         distance = QgsDistanceArea()
         distance.setSourceCrs(project.crs(), project.transformContext())
         ellipsoid = project.ellipsoid()

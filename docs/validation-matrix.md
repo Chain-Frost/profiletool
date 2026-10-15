@@ -19,9 +19,11 @@ Run these representative scenarios in QGIS 3.40+/3.44 and QGIS 4.x:
    project degrees and elevation sampling uses the transformed layer CRS.
 3. Projected project (metres) + geographic raster: confirm chainage is in metres;
    verify sampled values at known coordinates and the local location.
-4. Projected project (feet) + raster: confirm chainage and axis labels
-   retain native CRS units, with separate metre distances for the existing
-   elevation/grade convention.
+4. Projected project (feet) + feet-elevation raster: confirm chainage,
+   axis labels and grade distances remain in feet, so a 10-foot rise over
+   100 feet gives 10% (not 32.8%). When the elevation band is instead in
+   metres, its unit must be verified or values converted before slope use;
+   horizontal CRS units alone cannot identify elevation units.
 5. NoData outside raster boundaries and through internal gaps: confirm visible
    gaps rather than zero elevations; verify slope and DXF output do not bridge.
 6. Feature-selection mode: click either part of one multipart line, confirm

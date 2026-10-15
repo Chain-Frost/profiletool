@@ -6,6 +6,13 @@ The Save As CSV action works with either plotting backend, exporting each
 source's plotted chainage and height/slope in separate column pairs; missing
 samples are blank. PyQtGraph also retains its context-menu CSV exporter.
 Profile tables can be copied as tab-separated text, including coordinates.
+
+**Slope units:** In projected projects, grades assume the raster or point
+elevations use the same linear unit as the project CRS (metres, feet, etc.).
+In geographic projects, grades use geodesic distances in metres and assume
+elevations are metres. When a DEM's elevation unit differs, convert the data
+to compatible units before trusting the slope plot. Map coordinates do not
+determine a raster band's vertical units.
 Supports 3D polyline export to dxf.
 
 **Authors:** Borys Jurgiel - Patrice Verchere - Etienne Tourigny - Javier Becerra

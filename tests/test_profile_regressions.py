@@ -262,7 +262,7 @@ def test_project_crs_controls_chainage_units(reader_module: ReaderFixture) -> No
         assert result["x"][-1] == pytest.approx(20.0)
         assert len(result["l"]) == 11
         assert result["crs"] == "source-layer-crs"
-        assert result["l_slope"][-1] == pytest.approx(1_110_000 if geographic else 3.048)
+        assert result["l_slope"][-1] == pytest.approx(1_110_000 if geographic else 10.0)
 
 
 def test_valid_zero_is_distinct_from_missing_sample(reader_module: ReaderFixture) -> None:
@@ -321,16 +321,32 @@ def test_geographic_chainage_dedup_tolerance(reader_module: ReaderFixture) -> No
 
 
 @pytest.mark.parametrize(("unit", "factor"), [("metres", 1.0), ("feet", 0.3048), ("survey-feet", 1200 / 3937)])
-def test_native_project_units_keep_separate_grade_distances(
+def test_projected_grade_distances_keep_native_units(
     reader_module: ReaderFixture, unit: str, factor: float
 ) -> None:
-    """Display native units while preserving the established metre-based grade distances."""
+    """Projected grades must not mix converted horizontal and unconverted z units."""
     reader, project, _factory = reader_module
     project.crs = lambda: SimpleNamespace(isGeographic=lambda: False, mapUnits=lambda: unit)
     points = [reader.QgsPointXY(0, 0), reader.QgsPointXY(12, 0)]
     assert reader.DataReaderTool.project_distance_scale() == 1.0
-    assert reader.DataReaderTool._slope_distances(points, [0.0, 12.0]) == pytest.approx([0.0, 12 * factor])
+    assert reader.DataReaderTool._slope_distances(points, [0.0, 12.0]) == pytest.approx([0.0, 12.0])
     assert reader.DataReaderTool._project_chainage_tolerance() == pytest.approx(0.01 / factor)
+
+
+@pytest.mark.parametrize("unit", ["metres", "feet", "survey-feet"])
+def test_projected_grades_match_upstream_linear_unit_convention(
+    reader_module: ReaderFixture, profilers: _ProfileMath, unit: str
+) -> None:
+    """A 10-unit rise over 100 native map units is 10%, including for feet."""
+    reader, project, _factory = reader_module
+    project.crs = lambda: SimpleNamespace(isGeographic=lambda: False, mapUnits=lambda: unit)
+    points = [reader.QgsPointXY(0, 0), reader.QgsPointXY(100, 0)]
+    grade_x = reader.DataReaderTool._slope_distances(points, [0.0, 100.0])
+    display_x, grades = profilers.slopes_pct(
+        {"l": [0.0, 100.0], "l_slope": grade_x, "z": [0.0, 10.0]}
+    )
+    np.testing.assert_allclose(display_x, [0.0, 100.0])
+    np.testing.assert_allclose(grades, [10.0, 10.0])
 
 
 def test_only_clicked_part_of_multipart_feature(reader_module: ReaderFixture, monkeypatch: pytest.MonkeyPatch) -> None:
