@@ -46,7 +46,7 @@ from qgis.core import (
 from qgis.gui import QgisInterface, QgsMapTool
 from qgis.PyQt.QtCore import QPointF, QSettings, QSignalBlocker, Qt
 from qgis.PyQt.QtGui import QStandardItemModel
-from qgis.PyQt.QtWidgets import QGraphicsItem, QWidget
+from qgis.PyQt.QtWidgets import QWidget
 
 from .. import pyqtgraph as pg
 from ..ui.ptdockwidget import PTDockWidget
@@ -61,6 +61,7 @@ from .plottingtool import (
     pyqtgraph_plot_item,
 )
 from .profile_types import Profile, ReaderProfile
+from .profilers import ProfileSeries
 from .ptmaptool import ProfiletoolMapToolRenderer
 from .selectlinetool import SelectLineTool
 from .tableviewtool import layer_from_model
@@ -70,8 +71,7 @@ if TYPE_CHECKING:
     from matplotlib.lines import Line2D
 
     from ..profileplugin import ProfilePlugin
-    from ..pyqtgraph.graphicsItems.PlotItem.PlotItem import PlotItem
-    from .plot_types import PlotScene
+    from .plot_types import CursorLabel, CursorLine, PlotItem, PlotWidget
 
 
 class _SceneMouseEvent(Protocol):
@@ -186,7 +186,11 @@ class ProfileToolCore(QWidget):
                     geometry = feature.geometry()
                     if geometry.isNull() or geometry.isEmpty():
                         continue
-                    parts = geometry.asMultiPolyline() if geometry.isMultipart() else [geometry.asPolyline()]
+                    parts = (
+                        cast("list[list[QgsPointXY]]", geometry.asMultiPolyline())
+                        if geometry.isMultipart()
+                        else [cast("list[QgsPointXY]", geometry.asPolyline())]
+                    )
                     if not parts or not parts[0]:
                         continue
                     part_points = [self.toolrenderer.tool.toMapCoordinates(layer, p) for p in parts[0]]
@@ -264,7 +268,7 @@ class ProfileToolCore(QWidget):
         if vertline:
             plotting.drawVertLine(self.dockwidget, self.pointstoDraw, self.dockwidget.plotlibrary)
 
-        geoms = []
+        geoms: list[QgsGeometry] = []
         for profile in self.profiles:
             for name in ("_buffer_geometry", "_guide_geometry"):
                 geometry = profile.get(name)
@@ -402,13 +406,13 @@ class ProfileToolCore(QWidget):
         """Enable or disable map tracking for the selected plotting backend."""
         if self.dockwidget.plotWdg is None:
             return
-        if self.dockwidget.TYPE == "PyQtGraph":
+        if self.dockwidget.plot_type == "PyQtGraph":
             if int1 == 2:
                 self.doTracking = True
             elif int1 == 0:
                 self.doTracking = False
 
-        elif self.dockwidget.TYPE == "Matplotlib":
+        elif self.dockwidget.plot_type == "Matplotlib":
             if int1 == 2:
                 self.doTracking = True
                 self.cid = self.dockwidget.plotWdg.mpl_connect("motion_notify_event", self.mouseevent_mpl)
@@ -446,7 +450,7 @@ class ProfileToolCore(QWidget):
         if library == "PyQtGraph":
             if not isinstance(self.dockwidget.plotWdg, pg.PlotWidget):
                 return
-            scene = cast("PlotScene | None", self.dockwidget.plotWdg.scene())
+            scene = cast("PlotWidget", self.dockwidget.plotWdg).scene()
             plot_item = pyqtgraph_plot_item(self.dockwidget.plotWdg)
             if scene is None or plot_item is None or (view_box := plot_view_box(plot_item)) is None:
                 return
@@ -465,12 +469,14 @@ class ProfileToolCore(QWidget):
         pos = event.scenePos()
         if not self.dockwidget.showcursor or not plot_item.sceneBoundingRect().contains(pos):
             return
-        mouse = cast("QPointF", view_box.mapSceneToView(pos))
+        mouse = view_box.mapSceneToView(pos)
         best: tuple[float, float, float] | None = None
         for profile, item in zip(self.profiles, plot_data_items(plot_item)):
             if not item.isVisible():
                 continue
-            x, y = item.getData()
+            x, y = cast("tuple[ProfileSeries | None, ProfileSeries | None]", item.getData())
+            if x is None or y is None:
+                continue
             x_values = np.asarray(x, dtype=float)
             y_values = np.asarray(y, dtype=float)
             if not len(x_values):
@@ -479,7 +485,7 @@ class ProfileToolCore(QWidget):
             if not valid.any():
                 continue
             indices = np.flatnonzero(valid)
-            index = indices[np.argmin(np.abs(x_values[indices] - mouse.x()))]
+            index = int(indices[np.argmin(np.abs(x_values[indices] - mouse.x()))])
             score = abs(y_values[index] - mouse.y())
             if best is None or score < best[0]:
                 # Store source z, never the plotted slope percentage or degrees.
@@ -496,7 +502,7 @@ class ProfileToolCore(QWidget):
         """Disconnect owned PyQtGraph mouse and range-change callbacks."""
         if not isinstance(self.dockwidget.plotWdg, pg.PlotWidget) or self.dockwidget.plotlibrary != "PyQtGraph":
             return
-        scene = cast("PlotScene | None", self.dockwidget.plotWdg.scene())
+        scene = cast("PlotWidget", self.dockwidget.plotWdg).scene()
         if scene is None:
             return
         with suppress(AttributeError, RuntimeError, TypeError):
@@ -520,26 +526,26 @@ class ProfileToolCore(QWidget):
         if pitems.sceneBoundingRect().contains(pos) and self.dockwidget.showcursor:
             view_range = cast("list[list[float]]", view_box.viewRange())
             # récupère le point souris à partir ViewBox
-            mousePoint = cast("QPointF", view_box.mapSceneToView(pos))
+            mousePoint = view_box.mapSceneToView(pos)
             xtoplot, ytoplot = self._nearest_plot_sample(pitems, mousePoint)
             # Draw labels and cursors only when a sample was found.
             if plot_data_items(pitems) and xtoplot is not None and ytoplot is not None:
-                for item in cast("list[QGraphicsItem]", pitems.allChildItems()):
+                for item in pitems.allChildItems():
                     if isinstance(item, pg.InfiniteLine):
                         if item.name() == "cross_vertical":
                             item.show()
-                            item.setPos(xtoplot)
+                            cast("CursorLine", item).setPos(xtoplot)
                         elif item.name() == "cross_horizontal":
                             item.show()
-                            item.setPos(ytoplot)
+                            cast("CursorLine", item).setPos(ytoplot)
                     elif isinstance(item, pg.TextItem):
                         if item.textItem.toPlainText().startswith("X"):
                             item.show()
-                            item.setText("X : " + str(round(xtoplot, 3)))
+                            cast("CursorLabel", item).setText("X : " + str(round(xtoplot, 3)))
                             item.setPos(xtoplot, view_range[1][0])
                         elif item.textItem.toPlainText().startswith("Y"):
                             item.show()
-                            item.setText("Y : " + str(round(ytoplot, 3)))
+                            cast("CursorLabel", item).setText("Y : " + str(round(ytoplot, 3)))
                             item.setPos(view_range[0][0], ytoplot)
             # tracking part
             self.updateCursorOnMap(xtoplot)
@@ -555,7 +561,9 @@ class ProfileToolCore(QWidget):
             try:
                 for item in plot_data_items(pitems):
                     if item.isVisible():
-                        x, y = item.getData()
+                        x, y = cast("tuple[ProfileSeries | None, ProfileSeries | None]", item.getData())
+                        if x is None or y is None:
+                            continue
                         nearestindex = np.argmin(abs(np.array(x, dtype=float) - mouse_point.x()))
                         if compt == 0 or ytoplot is None:
                             xtoplot = np.array(x, dtype=float)[nearestindex]

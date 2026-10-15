@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from contextlib import suppress
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from qgis.core import (
     Qgis,
@@ -57,7 +57,7 @@ from qgis.PyQt.QtWidgets import (
 
 # plugin import
 from .. import pyqtgraph as pg
-from ..tools.plottingtool import PlottingTool
+from ..tools.plottingtool import PlottingTool, pyqtgraph_plot_item
 from ..tools.tableviewtool import TableViewTool, layer_from_model
 
 try:
@@ -85,7 +85,7 @@ class PTDockWidget(QDockWidget, FormClass):
     """Present profile sources, plotting controls and coordinate export actions."""
 
     TITLE = "ProfileTool"
-    TYPE: str | None = None
+    plot_type: str | None = None
 
     closed = pyqtSignal()
 
@@ -213,7 +213,7 @@ class PTDockWidget(QDockWidget, FormClass):
             self.stackedWidget.setCurrentIndex(0)
             self.plotWdg = PlottingTool().changePlotWidget("PyQtGraph", self.frame_for_plot)
             layout.addWidget(self.plotWdg)
-            self.TYPE = "PyQtGraph"
+            self.plot_type = "PyQtGraph"
             self.cbxSaveAs.clear()
             self.cbxSaveAs.addItems(["Graph - PNG", "Graph - SVG", "3D line - DXF", "2D Profile - DXF"])
 
@@ -221,7 +221,7 @@ class PTDockWidget(QDockWidget, FormClass):
             self.stackedWidget.setCurrentIndex(0)
             self.plotWdg = PlottingTool().changePlotWidget("Matplotlib", self.frame_for_plot)
             layout.addWidget(self.plotWdg)
-            self.TYPE = "Matplotlib"
+            self.plot_type = "Matplotlib"
             self.cbxSaveAs.clear()
             self.cbxSaveAs.addItems(
                 [
@@ -266,9 +266,7 @@ class PTDockWidget(QDockWidget, FormClass):
 
     def _pyqtgraph_plot_item(self) -> DockPlotItem | None:
         """Resolve the real PyQtGraph plot item without Matplotlib forwarding."""
-        if isinstance(self.plotWdg, pg.PlotWidget):
-            return cast("DockPlotItem | None", self.plotWdg.getPlotItem())
-        return None
+        return pyqtgraph_plot_item(self.plotWdg)
 
     def plotRangechanged(self, param: object = None) -> None:  # noqa: ARG002 -- PyQtGraph range signal payload.
         """Refresh vertical-bound controls after the plot view range changes."""

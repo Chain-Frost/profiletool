@@ -33,9 +33,9 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 from qgis.core import QgsMapLayer, QgsProject, QgsUnitTypes
 from qgis.PyQt.QtCore import QSettings, Qt
-from qgis.PyQt.QtGui import QColor, QPainter, QStandardItemModel
+from qgis.PyQt.QtGui import QBrush, QColor, QPainter, QPen, QStandardItemModel
 from qgis.PyQt.QtSvg import QSvgGenerator
-from qgis.PyQt.QtWidgets import QFileDialog, QSizePolicy, QWidget
+from qgis.PyQt.QtWidgets import QFileDialog, QGraphicsView, QSizePolicy, QWidget
 
 from .. import pyqtgraph as pg
 from ..dxfwrite import (
@@ -52,6 +52,7 @@ if TYPE_CHECKING:
     from qgis.gui import QgisInterface
 
     from ..ui.ptdockwidget import PTDockWidget
+    from .plot_types import ExportFigure, PlotItem, PlotViewBox, PlotWidget
 
 pg.setConfigOption("background", "w")
 
@@ -72,21 +73,29 @@ def getSaveFileName(parent: QWidget | None, caption: str, directory: str, filter
     return fileName
 
 
-def pyqtgraph_plot_item(widget: QWidget | None) -> pg.PlotItem | None:
+def pyqtgraph_plot_item(widget: QWidget | None) -> PlotItem | None:
     """Resolve the concrete plot item only for a PyQtGraph widget."""
     if isinstance(widget, pg.PlotWidget):
-        return cast("pg.PlotItem | None", widget.getPlotItem())
+        return cast("PlotWidget", widget).getPlotItem()
     return None
 
 
-def plot_data_items(plot_item: pg.PlotItem) -> list[pg.PlotDataItem]:
+def plot_data_items(plot_item: PlotItem) -> list[pg.PlotDataItem]:
     """Read profile curves created by PlotWidget.plot as PlotDataItem instances."""
     return cast("list[pg.PlotDataItem]", plot_item.listDataItems())
 
 
-def plot_view_box(plot_item: pg.PlotItem) -> pg.ViewBox | None:
+def plot_view_box(plot_item: PlotItem) -> PlotViewBox | None:
     """Return the plot's view box, allowing for an already closed plot."""
-    return cast("pg.ViewBox | None", plot_item.getViewBox())
+    return plot_item.getViewBox()
+
+
+def _cosmetic_pen(color: QColor, width: int) -> QPen:
+    """Keep plot strokes at their configured pixel width when the view scales."""
+    pen = QPen(color)
+    pen.setWidthF(width)
+    pen.setCosmetic(True)
+    return pen
 
 
 class PlottingTool:
@@ -126,30 +135,34 @@ class PlottingTool:
         self,
         library: str,
         frame_for_plot: QWidget,  # noqa: ARG002 -- Legacy widget factory signature.
-    ) -> pg.PlotWidget | MatplotlibCanvas | None:
+    ) -> PlotWidget | MatplotlibCanvas | None:
         """Construct the selected plotting backend and configure its axes and cursors."""
         if library == "PyQtGraph":
-            plotWdg = pg.PlotWidget()
+            plotWdg = cast("PlotWidget", pg.PlotWidget())
             unit = self._chainage_unit()
             plotWdg.setLabel("bottom", f"Chainage ({unit})")
             plotWdg.showGrid(x=True, y=True, alpha=0.5)
-            datavline = pg.InfiniteLine(0, angle=90, pen=pg.mkPen("r", width=1), name="cross_vertical")
-            datahline = pg.InfiniteLine(0, angle=0, pen=pg.mkPen("r", width=1), name="cross_horizontal")
+            datavline = pg.InfiniteLine(
+                0, angle=90, pen=_cosmetic_pen(QColor(Qt.GlobalColor.red), 1), name="cross_vertical"
+            )
+            datahline = pg.InfiniteLine(
+                0, angle=0, pen=_cosmetic_pen(QColor(Qt.GlobalColor.red), 1), name="cross_horizontal"
+            )
             plotWdg.addItem(datavline)
             plotWdg.addItem(datahline)
             # cursor
             xtextitem = pg.TextItem(
                 "X : /",
                 color=(0, 0, 0),
-                border=pg.mkPen(color=(0, 0, 0), width=1),
-                fill=pg.mkBrush("w"),
+                border=_cosmetic_pen(QColor(Qt.GlobalColor.black), 1),
+                fill=QBrush(Qt.GlobalColor.white),
                 anchor=(0, 1),
             )
             ytextitem = pg.TextItem(
                 "Y : / ",
                 color=(0, 0, 0),
-                border=pg.mkPen(color=(0, 0, 0), width=1),
-                fill=pg.mkBrush("w"),
+                border=_cosmetic_pen(QColor(Qt.GlobalColor.black), 1),
+                fill=QBrush(Qt.GlobalColor.white),
                 anchor=(0, 0),
             )
             plotWdg.addItem(xtextitem)
@@ -157,16 +170,19 @@ class PlottingTool:
 
             plotWdg.getViewBox().autoRange(items=[])
             plotWdg.getViewBox().disableAutoRange()
-            plotWdg.getViewBox().border = pg.mkPen(color=(0, 0, 0), width=1)
+            plotWdg.getViewBox().border = _cosmetic_pen(QColor(Qt.GlobalColor.black), 1)
 
             return plotWdg
 
         if library == "Matplotlib" and has_mpl:
-            try:
+            if TYPE_CHECKING:
                 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-            except ImportError:
-                from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-            from matplotlib import rc
+            else:
+                try:
+                    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+                except ImportError:
+                    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+            from matplotlib import rcParams
             from matplotlib.figure import Figure, SubplotParams
 
             fig = Figure(
@@ -175,8 +191,9 @@ class PlottingTool:
                 subplotpars=SubplotParams(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0),
             )
 
-            font = {"family": "arial", "weight": "normal", "size": 12}
-            rc("font", **font)
+            rcParams["font.family"] = "arial"
+            rcParams["font.weight"] = "normal"
+            rcParams["font.size"] = 12
 
             rect = fig.patch
             rect.set_facecolor((0.9, 0.9, 0.9))
@@ -191,7 +208,7 @@ class PlottingTool:
             sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             sizePolicy.setHorizontalStretch(0)
             sizePolicy.setVerticalStretch(0)
-            canvas.setSizePolicy(sizePolicy)
+            cast("QWidget", canvas).setSizePolicy(sizePolicy)
             return canvas
         return None
 
@@ -235,10 +252,10 @@ class PlottingTool:
                 # case line outside the raster
                 y = np.array(profile["plot_y"], dtype=float)  # replace None value by np.nan
                 x = np.array(profile["plot_x"])
-                wdg.plotWdg.plot(
+                cast("PlotWidget", wdg.plotWdg).plot(
                     x,
                     y,
-                    pen=pg.mkPen(color_item.data(Qt.ItemDataRole.BackgroundRole), width=2),
+                    pen=_cosmetic_pen(color_item.data(Qt.ItemDataRole.BackgroundRole), 2),
                     name=tmp_name,
                 )
                 # set it visible or not
@@ -480,7 +497,7 @@ class PlottingTool:
             iface.mainWindow(), "Save As", "Profile of " + name + ".ps", "PostScript Format (*.ps)"
         )
         if fileName and library == "Matplotlib" and has_mpl:
-            wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
+            cast("ExportFigure", wdg.plotWdg.figure).savefig(str(fileName), bbox_inches="tight")
 
     def outPDF(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:
         """Save the Matplotlib plot as PDF after selecting an output path."""
@@ -500,7 +517,7 @@ class PlottingTool:
             "Portable Document Format (*.pdf)",
         )
         if fileName and library == "Matplotlib" and has_mpl:
-            wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
+            cast("ExportFigure", wdg.plotWdg.figure).savefig(str(fileName), bbox_inches="tight")
 
     def outSVG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:  # noqa: ARG002 -- Common export signature.
         """Export the current plot as SVG using the selected backend."""
@@ -521,20 +538,23 @@ class PlottingTool:
                 # Qt 6 SVG paths are not compatible with the bundled
                 # pyqtgraph exporter's coordinate parser. Render through Qt
                 # directly so paths, including NoData gaps, remain vector data.
+                if not isinstance(wdg.plotWdg, pg.PlotWidget):
+                    return
+                view = cast("QGraphicsView", wdg.plotWdg)
                 generator = QSvgGenerator()
                 generator.setFileName(fileName)
-                generator.setSize(wdg.plotWdg.size())
-                generator.setViewBox(wdg.plotWdg.rect())
+                generator.setSize(view.size())
+                generator.setViewBox(view.rect())
                 painter = QPainter()
                 if not painter.begin(generator):
                     message = "Could not open SVG export for painting."
                     raise OSError(message)
                 try:
-                    wdg.plotWdg.render(painter)
+                    view.render(painter)
                 finally:
                     painter.end()
             elif library == "Matplotlib" and has_mpl:
-                wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
+                cast("ExportFigure", wdg.plotWdg.figure).savefig(str(fileName), bbox_inches="tight")
 
     def outPNG(self, iface: QgisInterface, wdg: PTDockWidget, mdl: QStandardItemModel, library: str | None) -> None:  # noqa: ARG002 -- Common export signature.
         """Export the current plot as PNG using the selected backend."""
@@ -552,10 +572,13 @@ class PlottingTool:
             QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
 
             if library == "PyQtGraph":
-                exporter = exporters.ImageExporter(wdg.plotWdg.getPlotItem())
+                plot_item = pyqtgraph_plot_item(wdg.plotWdg)
+                if plot_item is None:
+                    return
+                exporter = exporters.ImageExporter(plot_item)
                 exporter.export(fileName)
             elif library == "Matplotlib" and has_mpl:
-                wdg.plotWdg.figure.savefig(str(fileName), bbox_inches="tight")
+                cast("ExportFigure", wdg.plotWdg.figure).savefig(str(fileName), bbox_inches="tight")
 
     def outDXF(
         self,

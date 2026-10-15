@@ -4,14 +4,49 @@ Measured on 14 October 2026 using the configured OSGeo4W Python 3.12 / QGIS
 4.2.1 environment and matching PyQt6 type definitions.
 
 Full strict Pyright decreased from **2,259 errors at commit `84b3ed3`** to
-**82 errors in the working tree**, with zero warnings: 2,177 fewer errors.
+**26 errors in the working tree**, with zero warnings: 2,233 fewer errors.
 The first batch reduced the count to 1,857 and was committed as `1e0a667`.
 The subsequent reader, plotting, table-model, map-tool, core and UI work removes
-another 1,775 errors.
+another 1,831 errors.
 The working-tree result includes uncommitted changes and is not a hosted CI
 result. Generated reports remain local and ignored.
 
 ## Changes
+
+- Renamed the mutable TYPE attribute to plot_type and updated every repository
+  caller; TITLE remains a constant. Added the Matplotlib file-export contract,
+  reducing full strict Pyright from 32 to 26 errors. All 21 isolated tests and
+  17 QGIS 4.x desktop cases passed. Intermediate report directories were
+  consolidated into validation/pyright/latest-working-tree; verified c540dd1
+  and f23009d baseline reports are retained. The latest set remains explicitly
+  uncommitted working-tree evidence.
+
+- Expanded plugin-owned type declarations for the concrete PyQtGraph scene,
+  plot, view-box and cursor methods used by this plugin. Runtime classes and
+  library code are unchanged; strict settings and exclusions are unchanged.
+  Shared resolution now clears the native-test and dock forwarding diagnostics.
+  Kept the lazy legacy Matplotlib fallback while resolving its modern type
+  identity and importing rcParams within the backend branch. Removed casts
+  made redundant by these contracts. Full Pyright fell from 60 to 32 errors.
+  Remaining: 24 incomplete library members, three legacy callback parameter
+  overrides, two mutable uppercase attributes and three defensive None checks.
+  All 21 isolated tests and 17 QGIS 4.x desktop cases passed. No QGIS 3.44 work
+  or new diagnostic suppressions were introduced.
+
+- The next export/cursor pass reduced full strict Pyright from 69 to 60 errors.
+  SVG rendering now uses the real QGraphicsView contract, retaining the same
+  runtime render override. PNG resolves a valid plot item before exporting.
+  Sample arrays and scalar indices are typed, and cursor callbacks skip curves
+  whose data is unavailable. Font configuration keeps the existing values via
+  rcParams. All 21 isolated tests and 17 live QGIS 4.x desktop cases passed.
+
+- On 15 October, typed polyline points and collected buffer geometries and
+  replaced dynamic pen/brush construction with Qt QPen/QBrush values. Cosmetic
+  pixel widths, colors and label fills remain equivalent. Full strict Pyright
+  decreased from 82 to 69 errors. All 21 isolated tests and 17 live QGIS 4.x
+  cases passed. QGIS 3.44 and bundled library source remain untouched. This
+  result is an uncommitted working tree based on c8adac6, not a committed-head
+  or hosted CI measurement.
 
 - The committed head f23009d was independently measured at 151 errors, zero
   warnings using OSGeo4W QGIS 4.2.3 and Pyright 1.1.414. The current plotting
@@ -152,7 +187,7 @@ remain acceptable after checking callers and compatibility.
 | CI-scoped strict Pyright | Zero errors and warnings |
 | Headless CI regression suite | 19 passed |
 | Tests in isolated QGIS processes | 21 passed |
-| Full strict Pyright | 82 errors, zero warnings |
+| Full strict Pyright | 26 errors, zero warnings |
 | Full Ruff inventory | Zero findings with documented compatibility exemptions |
 | EM101, D101, D102, SIM108 | Zero findings |
 | Live QGIS desktop automation through MCP | All 17 cases passed |
@@ -175,10 +210,10 @@ separate report-sharing branch is unchanged.
 
 | Diagnostic category | Count | Typical difficulty |
 | --- | --- | --- |
-| Unknown member/argument/variable/lambda types | 73 | Moderate to hard: QGIS and plotting-library API boundaries |
+| Unknown member/argument/variable/lambda types | 20 | Moderate to hard: QGIS and plotting-library API boundaries |
 | Undeclared attributes | 0 | Moderate to hard: generated stubs and legacy plugin interfaces |
 | Possibly missing objects | 0 | Easy to moderate: lifecycle and state checks |
-| Compatibility and cleanup findings | 9 | Easy to moderate; some preserve intentional legacy APIs |
+| Compatibility and cleanup findings | 6 | Easy to moderate; some preserve intentional legacy APIs |
 
 The earlier reader pass typed its polyline return and interpolation collections
 and guarded progress status bars. All 18 isolated tests and 17 live desktop

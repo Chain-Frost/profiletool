@@ -1,0 +1,430 @@
+{
+    "version": "1.1.414",
+    "time": "1792025606066",
+    "generalDiagnostics": [
+        {
+            "file": "e:\\Github\\profiletool\\tools\\dataReaderTool.py",
+            "severity": "error",
+            "message": "Condition will always evaluate to True since the types \"float\" and \"None\" have no overlap",
+            "range": {
+                "start": {
+                    "line": 276,
+                    "character": 33
+                },
+                "end": {
+                    "line": 276,
+                    "character": 52
+                }
+            },
+            "rule": "reportUnnecessaryComparison"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"setConfigOption\" is partially unknown\n  Type of \"setConfigOption\" is \"(opt: Unknown, value: Unknown) -> None\"",
+            "range": {
+                "start": {
+                    "line": 56,
+                    "character": 0
+                },
+                "end": {
+                    "line": 56,
+                    "character": 18
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"add_axes\" is partially unknown\n  Type of \"add_axes\" is \"Overload[(ax: Axes) -> Axes, (rect: tuple[float, float, float, float], projection: str | None = ..., polar: bool = ..., **kwargs: Unknown) -> Axes]\"",
+            "range": {
+                "start": {
+                    "line": 200,
+                    "character": 27
+                },
+                "end": {
+                    "line": 200,
+                    "character": 39
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"set_xlabel\" is partially unknown\n  Type of \"set_xlabel\" is \"(xlabel: str, fontdict: dict[str, Any] | None = ..., labelpad: float | None = ..., *, loc: Literal['left', 'center', 'right'] | None = ..., **kwargs: Unknown) -> Text\"",
+            "range": {
+                "start": {
+                    "line": 202,
+                    "character": 12
+                },
+                "end": {
+                    "line": 202,
+                    "character": 35
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"axvline\" is partially unknown\n  Type of \"axvline\" is \"((x: float = ..., ymin: float = ..., ymax: float = ..., **kwargs: Unknown) -> Line2D) | Any\"",
+            "range": {
+                "start": {
+                    "line": 228,
+                    "character": 16
+                },
+                "end": {
+                    "line": 228,
+                    "character": 56
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"plot\" is partially unknown\n  Type of \"plot\" is \"((*args: float | Buffer | _SupportsArray[dtype[Any]] | _NestedSequence[_SupportsArray[dtype[Any]]] | complex | bytes | str | _NestedSequence[complex | bytes | str], scalex: bool = ..., scaley: bool = ..., data: Mapping[str, Any] | None = ..., **kwargs: Unknown) -> list[Line2D]) | Any\"",
+            "range": {
+                "start": {
+                    "line": 273,
+                    "character": 20
+                },
+                "end": {
+                    "line": 273,
+                    "character": 57
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"plot\" is partially unknown\n  Type of \"plot\" is \"((*args: float | Buffer | _SupportsArray[dtype[Any]] | _NestedSequence[_SupportsArray[dtype[Any]]] | complex | bytes | str | _NestedSequence[complex | bytes | str], scalex: bool = ..., scaley: bool = ..., data: Mapping[str, Any] | None = ..., **kwargs: Unknown) -> list[Line2D]) | Any\"",
+            "range": {
+                "start": {
+                    "line": 281,
+                    "character": 20
+                },
+                "end": {
+                    "line": 281,
+                    "character": 57
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"setPen\" is partially unknown\n  Type of \"setPen\" is \"(...) -> None\"",
+            "range": {
+                "start": {
+                    "line": 406,
+                    "character": 20
+                },
+                "end": {
+                    "line": 406,
+                    "character": 31
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"draw\" is partially unknown\n  Type of \"draw\" is \"Any | ((...) -> None)\"",
+            "range": {
+                "start": {
+                    "line": 421,
+                    "character": 20
+                },
+                "end": {
+                    "line": 421,
+                    "character": 50
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"draw\" is partially unknown\n  Type of \"draw\" is \"Any | ((...) -> None)\"",
+            "range": {
+                "start": {
+                    "line": 450,
+                    "character": 20
+                },
+                "end": {
+                    "line": 450,
+                    "character": 50
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"set_xlabel\" is partially unknown\n  Type of \"set_xlabel\" is \"(xlabel: str, fontdict: dict[str, Any] | None = ..., labelpad: float | None = ..., *, loc: Literal['left', 'center', 'right'] | None = ..., **kwargs: Unknown) -> Text\"",
+            "range": {
+                "start": {
+                    "line": 458,
+                    "character": 8
+                },
+                "end": {
+                    "line": 458,
+                    "character": 23
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"grid\" is partially unknown\n  Type of \"grid\" is \"(visible: bool | None = ..., which: Literal['major', 'minor', 'both'] = ..., axis: Literal['both', 'x', 'y'] = ..., **kwargs: Unknown) -> None\"",
+            "range": {
+                "start": {
+                    "line": 459,
+                    "character": 8
+                },
+                "end": {
+                    "line": 459,
+                    "character": 17
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"tick_params\" is partially unknown\n  Type of \"tick_params\" is \"(axis: Literal['both', 'x', 'y'] = ..., **kwargs: Unknown) -> None\"",
+            "range": {
+                "start": {
+                    "line": 460,
+                    "character": 8
+                },
+                "end": {
+                    "line": 460,
+                    "character": 24
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"tick_params\" is partially unknown\n  Type of \"tick_params\" is \"(axis: Literal['both', 'x', 'y'] = ..., **kwargs: Unknown) -> None\"",
+            "range": {
+                "start": {
+                    "line": 472,
+                    "character": 8
+                },
+                "end": {
+                    "line": 472,
+                    "character": 24
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"export\" is partially unknown\n  Type of \"export\" is \"(fileName: Unknown | None = None, toBytes: bool = False, copy: bool = False) -> (QImage | bool | None)\"",
+            "range": {
+                "start": {
+                    "line": 578,
+                    "character": 16
+                },
+                "end": {
+                    "line": 578,
+                    "character": 31
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"add_layer\" is partially unknown\n  Type of \"add_layer\" is \"(name: Unknown, **kwargs: Unknown) -> Layer\"",
+            "range": {
+                "start": {
+                    "line": 605,
+                    "character": 12
+                },
+                "end": {
+                    "line": 605,
+                    "character": 29
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Condition will always evaluate to True since the types \"float\" and \"None\" have no overlap",
+            "range": {
+                "start": {
+                    "line": 608,
+                    "character": 46
+                },
+                "end": {
+                    "line": 608,
+                    "character": 67
+                }
+            },
+            "rule": "reportUnnecessaryComparison"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Condition will always evaluate to True since the types \"float\" and \"None\" have no overlap",
+            "range": {
+                "start": {
+                    "line": 613,
+                    "character": 41
+                },
+                "end": {
+                    "line": 613,
+                    "character": 62
+                }
+            },
+            "rule": "reportUnnecessaryComparison"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"add\" is partially unknown\n  Type of \"add\" is \"(entity: Unknown) -> Unknown\"",
+            "range": {
+                "start": {
+                    "line": 621,
+                    "character": 24
+                },
+                "end": {
+                    "line": 621,
+                    "character": 35
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\plottingtool.py",
+            "severity": "error",
+            "message": "Type of \"polyline\" is partially unknown\n  Type of \"polyline\" is \"(points: Unknown | None = None, **kwargs: Unknown) -> Polyline\"",
+            "range": {
+                "start": {
+                    "line": 621,
+                    "character": 36
+                },
+                "end": {
+                    "line": 621,
+                    "character": 48
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\profiletool_core.py",
+            "severity": "error",
+            "message": "Type of \"asMultiPolyline\" is partially unknown\n  Type of \"asMultiPolyline\" is \"() -> Unknown\"",
+            "range": {
+                "start": {
+                    "line": 189,
+                    "character": 55
+                },
+                "end": {
+                    "line": 189,
+                    "character": 79
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\profiletool_core.py",
+            "severity": "error",
+            "message": "Type of \"asPolyline\" is partially unknown\n  Type of \"asPolyline\" is \"() -> Unknown\"",
+            "range": {
+                "start": {
+                    "line": 191,
+                    "character": 55
+                },
+                "end": {
+                    "line": 191,
+                    "character": 74
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\profiletool_core.py",
+            "severity": "error",
+            "message": "Type of \"axvline\" is partially unknown\n  Type of \"axvline\" is \"((x: float = ..., ymin: float = ..., ymax: float = ..., **kwargs: Unknown) -> Line2D) | Any\"",
+            "range": {
+                "start": {
+                    "line": 441,
+                    "character": 25
+                },
+                "end": {
+                    "line": 441,
+                    "character": 77
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\ptmaptool.py",
+            "severity": "error",
+            "message": "Method \"canvasMoveEvent\" overrides class \"QgsMapTool\" in an incompatible manner\n  Parameter 2 name mismatch: base parameter is named \"e\", override parameter is named \"event\"",
+            "range": {
+                "start": {
+                    "line": 250,
+                    "character": 8
+                },
+                "end": {
+                    "line": 250,
+                    "character": 23
+                }
+            },
+            "rule": "reportIncompatibleMethodOverride"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\ptmaptool.py",
+            "severity": "error",
+            "message": "Method \"canvasReleaseEvent\" overrides class \"QgsMapTool\" in an incompatible manner\n  Parameter 2 name mismatch: base parameter is named \"e\", override parameter is named \"event\"",
+            "range": {
+                "start": {
+                    "line": 255,
+                    "character": 8
+                },
+                "end": {
+                    "line": 255,
+                    "character": 26
+                }
+            },
+            "rule": "reportIncompatibleMethodOverride"
+        },
+        {
+            "file": "e:\\Github\\profiletool\\tools\\ptmaptool.py",
+            "severity": "error",
+            "message": "Method \"canvasDoubleClickEvent\" overrides class \"QgsMapTool\" in an incompatible manner\n  Parameter 2 name mismatch: base parameter is named \"e\", override parameter is named \"event\"",
+            "range": {
+                "start": {
+                    "line": 264,
+                    "character": 8
+                },
+                "end": {
+                    "line": 264,
+                    "character": 30
+                }
+            },
+            "rule": "reportIncompatibleMethodOverride"
+        }
+    ],
+    "summary": {
+        "filesAnalyzed": 22,
+        "errorCount": 26,
+        "warningCount": 0,
+        "informationCount": 0,
+        "timeInSec": 3.468
+    }
+}
+
