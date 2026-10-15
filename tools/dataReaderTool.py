@@ -274,7 +274,7 @@ class DataReaderTool:
                 elif provider is not None:
                     # Single-band sampling avoids expensive multi-band identify().
                     sampled, valid = provider.sample(point, band)
-                    if valid and sampled is not None:
+                    if valid:
                         value = float(sampled)
             except (AttributeError, IndexError, KeyError, TypeError, ValueError):
                 pass  # Unavailable/out-of-range samples are gaps, never 0 m.

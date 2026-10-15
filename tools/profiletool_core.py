@@ -73,6 +73,17 @@ if TYPE_CHECKING:
     from ..profileplugin import ProfilePlugin
     from .plot_types import CursorLabel, CursorLine, PlotItem, PlotWidget
 
+    class _PolylineGeometry(Protocol):
+        """QGIS geometry-return signatures omitted by generated SIP type stubs."""
+
+        def asPolyline(self) -> list[QgsPointXY]:
+            """Return single-part line vertices."""
+            ...
+
+        def asMultiPolyline(self) -> list[list[QgsPointXY]]:
+            """Return multipart line vertices."""
+            ...
+
 
 class _SceneMouseEvent(Protocol):
     """Scene-coordinate interface supplied by plot mouse-click events."""
@@ -187,9 +198,9 @@ class ProfileToolCore(QWidget):
                     if geometry.isNull() or geometry.isEmpty():
                         continue
                     parts = (
-                        cast("list[list[QgsPointXY]]", geometry.asMultiPolyline())
+                        cast("_PolylineGeometry", geometry).asMultiPolyline()
                         if geometry.isMultipart()
-                        else [cast("list[QgsPointXY]", geometry.asPolyline())]
+                        else [cast("_PolylineGeometry", geometry).asPolyline()]
                     )
                     if not parts or not parts[0]:
                         continue

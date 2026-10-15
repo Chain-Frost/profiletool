@@ -73,6 +73,11 @@ def getSaveFileName(parent: QWidget | None, caption: str, directory: str, filter
     return fileName
 
 
+def _valid_elevation(value: float | None) -> bool:
+    """Accept finite numeric elevations while treating None and NaN as gaps."""
+    return value is not None and bool(np.isfinite(value))
+
+
 def pyqtgraph_plot_item(widget: QWidget | None) -> PlotItem | None:
     """Resolve the concrete plot item only for a PyQtGraph widget."""
     if isinstance(widget, pg.PlotWidget):
@@ -606,12 +611,12 @@ class PlottingTool:
             drawing.add_layer(name)
             if type == "2D":
                 vertices = [
-                    (length, elevation, 0) if elevation is not None and np.isfinite(elevation) else None
+                    (length, elevation, 0) if _valid_elevation(elevation) else None
                     for length, elevation in zip(profile["l"], profile["z"])
                 ]
             else:
                 vertices = [
-                    (x, y, elevation) if elevation is not None and np.isfinite(elevation) else None
+                    (x, y, elevation) if _valid_elevation(elevation) else None
                     for x, y, elevation in zip(profile["x"], profile["y"], profile["z"])
                 ]
             # NoData gaps must not become fictitious connecting lines.
