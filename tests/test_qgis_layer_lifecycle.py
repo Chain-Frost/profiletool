@@ -13,7 +13,14 @@ import pytest
 
 pytest.importorskip("qgis.core", reason="Requires the OSGeo4W QGIS environment")
 
-from qgis.core import QgsCoordinateReferenceSystem, QgsFeature, QgsGeometry, QgsPointXY, QgsProject, QgsVectorLayer
+from qgis.core import (
+    QgsCoordinateReferenceSystem,
+    QgsFeature,
+    QgsGeometry,
+    QgsPointXY,
+    QgsProject,
+    QgsVectorLayer,
+)
 from qgis.PyQt.QtCore import Qt, pyqtBoundSignal
 from qgis.PyQt.QtGui import QTransform
 from qgis.PyQt.QtWidgets import QApplication, QGroupBox, QVBoxLayout
