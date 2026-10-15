@@ -206,7 +206,7 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(
                 monkeypatch.setattr(
                     plottingtool_module,
                     "getSaveFileName",
-                    lambda *args, **kwargs: str(output),
+                    lambda *args, output_path=output, **kwargs: str(output_path),
                 )
                 assert dock.cbxSaveAs.findText("Graph - CSV") >= 0
                 dock.cbxSaveAs.setCurrentText("Graph - CSV")

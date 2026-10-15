@@ -11,3 +11,7 @@ validation_artifacts/
 # Local Pyright full-analysis output; paths and diagnostics are machine-specific.
 pyright-full.json
 pyright-summary.json
+
+# Generated QGIS plugin packaging outputs.
+build/
+profiletool.zip
