@@ -35,8 +35,17 @@ if TYPE_CHECKING:
             ...
 
         def tick_params(
-            self, *, axis: str, which: str, direction: str,
-            length: int, width: int, bottom: bool, top: bool, left: bool, right: bool
+            self,
+            *,
+            axis: str,
+            which: str,
+            direction: str,
+            length: int,
+            width: int,
+            bottom: bool,
+            top: bool,
+            left: bool,
+            right: bool,
         ) -> None:
             """Apply the major/minor tick presentation."""
             ...
@@ -46,8 +55,7 @@ if TYPE_CHECKING:
             ...
 
         def plot(
-            self, x: ProfileSeries, y: ProfileSeries, *, gid: str,
-            linewidth: float, visible: bool
+            self, x: ProfileSeries, y: ProfileSeries, *, gid: str, linewidth: float, visible: bool
         ) -> list[Line2D]:
             """Add a named profile series."""
             ...
@@ -102,9 +110,7 @@ if TYPE_CHECKING:
             """Create a drawing output."""
             ...
 
-        def polyline(
-            self, points: list[tuple[float, float, float]], *, color: int, layer: str
-        ) -> object:
+        def polyline(self, points: list[tuple[float, float, float]], *, color: int, layer: str) -> object:
             """Create an individual polyline within the output layer."""
             ...
 

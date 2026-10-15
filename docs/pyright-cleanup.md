@@ -1,15 +1,17 @@
 # Pyright cleanup validation
 
-> **Committed-head note (15 October 2026):** The most recent complete QGIS
-> Pyright JSON checked into `validation/pyright/latest-working-tree/` records
-> **26 errors and 0 warnings**, produced from a working tree based on
-> `c8adac6`. Those changes were subsequently committed as `21ab42c`.
-> Additional low-risk typing changes on PR #1 address numeric NoData guards,
-> QGIS polyline-return signatures and narrow Matplotlib/PyQtGraph/DXF export
-> call contracts. **No full QGIS Pyright recount has been verified at the
-> latest PR head.** The separate headless CI Pyright test cannot establish
-> that count. QGIS 3.44 remains a separate failing compatibility test.
+> **Latest local result (15 October 2026):** Full strict Pyright reports
+> **zero errors and zero warnings** across 22 files. The clean committed baseline
+> at `4c59717` had three override diagnostics; the user-approved `event` to `e`
+> parameter changes in the three QGIS canvas callbacks clear them. Established
+> method names are unchanged, and no repository callers used `event=`.
+> The single latest JSON report set records this uncommitted working tree.
+> Ruff, formatting, scoped Pyright, 21 isolated tests and all 17 live QGIS 4.x
+> desktop cases pass. This is local evidence, not hosted CI or committed-head
+> verification of the zero-error change. QGIS 3.44 remains paused; its separate
+> GraphicsObject.itemChange QVariant failure is not fixed by parameter names.
 
+Earlier working-tree measurements below are retained as historical evidence.
 
 Measured on 14 October 2026 using the configured OSGeo4W Python 3.12 / QGIS
 4.2.1 environment and matching PyQt6 type definitions.
@@ -181,14 +183,15 @@ An AST comparison against the branch base `ca522398` checked 115 function and
 method definitions in the retained legacy plugin files. No function or method
 names were removed or renamed. Four earlier parameter renames were restored:
 `setPointOnMap(..., y)` and the three canvas callbacks' `event` parameters.
-All audited parameter names now match the base. Established methods such as
+At that stage all audited parameter names matched the base. Established methods such as
 `changePlotWidget` retain their names. Obsolete QGIS 2 files removed earlier
 are outside this retained-file audit.
 
-The restored canvas parameter names produce three Pyright override diagnostics
-because QGIS's stubs use `e`. These are retained to preserve existing keyword
-calls; no diagnostics were suppressed. Targeted renames of misleading names
-remain acceptable after checking callers and compatibility.
+On 15 October, the user approved matching QGIS's `e` parameter name in
+`canvasMoveEvent`, `canvasReleaseEvent` and `canvasDoubleClickEvent`.
+Repository searches found no explicit keyword callers. These three intentional
+parameter changes remove the remaining override diagnostics without suppression;
+all established method names and other audited parameter names remain unchanged.
 
 ## Local validation
 
