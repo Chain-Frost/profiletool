@@ -1,8 +1,7 @@
-"""Isolated QGIS 3.44 diagnostic for PyQt5 QVariant auto-conversion.
+"""Diagnostic: test Qt5 without the bundled GraphicsObject.itemChange override.
 
-This intentionally modifies SIP's process-global QVariant conversion policy for
-one disposable CI process. It is not a production workaround or compatibility
-acceptance test.
+Do not use this as a production fix; parent/scene lifecycle notifications and
+view-range invalidation must be preserved and verified separately.
 """
 
 from __future__ import annotations
@@ -10,12 +9,13 @@ from __future__ import annotations
 import sys
 
 import pytest
-from PyQt5 import sip
-from PyQt5.QtCore import QVariant
+
+from profiletool.pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
 
 if __name__ == "__main__":
-    previous = sip.enableautoconversion(QVariant, False)
-    print(f"Diagnostic only: previous QVariant autoconversion={previous}; set=False", flush=True)
+    saved_override = GraphicsObject.itemChange
+    del GraphicsObject.itemChange
+    print("Diagnostic only: temporarily removed GraphicsObject.itemChange override", flush=True)
     try:
         result = pytest.main([
             "-s",
@@ -23,5 +23,5 @@ if __name__ == "__main__":
             "/tests_directory/profiletool/tests/test_qgis_layer_lifecycle.py",
         ])
     finally:
-        sip.enableautoconversion(QVariant, previous)
+        GraphicsObject.itemChange = saved_override
     sys.exit(int(result))
