@@ -66,6 +66,48 @@ if TYPE_CHECKING:
             """Redraw the current figure."""
             ...
 
+    class CurvePen(Protocol):
+        """Named curve's explicit colour and width update."""
+
+        def setPen(self, color: QColor, *, width: float) -> None:  # noqa: N802 -- Existing PyQtGraph API.
+            """Apply the source-table colour."""
+            ...
+
+    class ImageExport(Protocol):
+        """Export the displayed graphics scene to the selected image file."""
+
+        def export(self, filename: str) -> object:
+            """Write a rendered image and return the exporter's result."""
+            ...
+
+    class DxfDrawing(Protocol):
+        """Legacy dxfwrite drawing operations used for source profiles."""
+
+        def add_layer(self, name: str) -> object:
+            """Create a layer named after the source data layer."""
+            ...
+
+        def add(self, entity: object) -> object:
+            """Add a DXF polyline entity."""
+            ...
+
+        def save(self) -> None:
+            """Write the DXF file."""
+            ...
+
+    class DxfEngine(Protocol):
+        """Factory surface of the vendored dxfwrite engine."""
+
+        def drawing(self, name: str) -> DxfDrawing:
+            """Create a drawing output."""
+            ...
+
+        def polyline(
+            self, points: list[tuple[float, float, float]], *, color: int, layer: str
+        ) -> object:
+            """Create an individual polyline within the output layer."""
+            ...
+
     class ExportFigure(Protocol):
         """Matplotlib figure operations consumed by the file exporters."""
 

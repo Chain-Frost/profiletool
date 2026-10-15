@@ -54,7 +54,10 @@ if TYPE_CHECKING:
     from ..ui.ptdockwidget import PTDockWidget
     from .plot_types import (
         DrawableCanvas,
+        CurvePen,
+        DxfEngine,
         ExportFigure,
+        ImageExport,
         MatplotlibAxes,
         MatplotlibFigure,
         PlotConfig,
@@ -418,7 +421,7 @@ class PlottingTool:
                 return
             for item in plot_data_items(pitems):
                 if item.name() == name:
-                    item.setPen(color1, width=2)
+                    cast("CurvePen", item).setPen(color1, width=2)
 
         elif library == "Matplotlib":
             temp1 = wdg.plotWdg.figure.get_axes()[0].get_lines()
@@ -591,7 +594,7 @@ class PlottingTool:
                 if plot_item is None:
                     return
                 exporter = exporters.ImageExporter(plot_item)
-                exporter.export(fileName)
+                cast("ImageExport", exporter).export(fileName)
             elif library == "Matplotlib" and has_mpl:
                 cast("ExportFigure", wdg.plotWdg.figure).savefig(str(fileName), bbox_inches="tight")
 
@@ -615,7 +618,8 @@ class PlottingTool:
             return
         wdg.profiletoolcore.loaddirectory = str(Path(fileName).parent)
         QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
-        drawing = dxf.drawing(fileName)
+        dxf_engine = cast("DxfEngine", dxf)
+        drawing = dxf_engine.drawing(fileName)
         for profile in profiles:
             name = profile["layer"].name()
             drawing.add_layer(name)
@@ -634,7 +638,7 @@ class PlottingTool:
             for vertex in [*vertices, None]:
                 if vertex is None:
                     if len(part) >= 2:
-                        drawing.add(dxf.polyline(part, color=7, layer=name))
+                        drawing.add(dxf_engine.polyline(part, color=7, layer=name))
                     part = []
                 else:
                     part.append(vertex)
