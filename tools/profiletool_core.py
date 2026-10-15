@@ -71,7 +71,7 @@ if TYPE_CHECKING:
     from matplotlib.lines import Line2D
 
     from ..profileplugin import ProfilePlugin
-    from .plot_types import CursorLabel, CursorLine, PlotItem, PlotWidget
+    from .plot_types import CursorLabel, CursorLine, MatplotlibAxes, PlotItem, PlotWidget
 
     class _PolylineGeometry(Protocol):
         """QGIS geometry-return signatures omitted by generated SIP type stubs."""
@@ -450,7 +450,9 @@ class ProfileToolCore(QWidget):
         if event.xdata is not None and self.dockwidget.plotWdg is not None:
             self._remove_tracking_line()
             xdata = float(event.xdata)
-            self.vline = self.dockwidget.plotWdg.figure.get_axes()[0].axvline(xdata, linewidth=2, color="k")
+            self.vline = cast("MatplotlibAxes", self.dockwidget.plotWdg.figure.get_axes()[0]).axvline(
+                xdata, linewidth=2, color="k"
+            )
             self.dockwidget.plotWdg.draw()
             self.updateCursorOnMap(xdata)
 

@@ -52,9 +52,18 @@ if TYPE_CHECKING:
     from qgis.gui import QgisInterface
 
     from ..ui.ptdockwidget import PTDockWidget
-    from .plot_types import ExportFigure, PlotItem, PlotViewBox, PlotWidget
+    from .plot_types import (
+        DrawableCanvas,
+        ExportFigure,
+        MatplotlibAxes,
+        MatplotlibFigure,
+        PlotConfig,
+        PlotItem,
+        PlotViewBox,
+        PlotWidget,
+    )
 
-pg.setConfigOption("background", "w")
+cast("PlotConfig", pg).setConfigOption("background", "w")
 
 
 try:
@@ -203,9 +212,9 @@ class PlottingTool:
             rect = fig.patch
             rect.set_facecolor((0.9, 0.9, 0.9))
 
-            self.subplot = fig.add_axes((0.05, 0.15, 0.92, 0.82))
+            self.subplot = cast("MatplotlibFigure", fig).add_axes((0.05, 0.15, 0.92, 0.82))
             unit = self._chainage_unit()
-            self.subplot.set_xlabel(f"Chainage ({unit})")
+            cast("MatplotlibAxes", self.subplot).set_xlabel(f"Chainage ({unit})")
             self.subplot.set_xbound(0, 1000)
             self.subplot.set_ybound(0, 1000)
             self.manageMatplotlibAxe(self.subplot)
@@ -231,7 +240,7 @@ class PlottingTool:
                 x2 = float(pointstoDraw[i + 1][0])
                 y2 = float(pointstoDraw[i + 1][1])
                 profileLen += sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-                wdg.plotWdg.figure.get_axes()[0].axvline(
+                cast("MatplotlibAxes", wdg.plotWdg.figure.get_axes()[0]).axvline(
                     profileLen * DataReaderTool.project_distance_scale(), linewidth=1
                 )
             profileLen = 0
@@ -276,7 +285,7 @@ class PlottingTool:
                     continue
                 tmp_name = self.curveName(profile["layer"], profile["band"], model1)
                 if visibility_item.data(Qt.ItemDataRole.CheckStateRole):
-                    wdg.plotWdg.figure.get_axes()[0].plot(
+                    cast("MatplotlibAxes", wdg.plotWdg.figure.get_axes()[0]).plot(
                         profile["plot_x"],
                         profile["plot_y"],
                         gid=tmp_name,
@@ -284,7 +293,7 @@ class PlottingTool:
                         visible=True,
                     )
                 else:
-                    wdg.plotWdg.figure.get_axes()[0].plot(
+                    cast("MatplotlibAxes", wdg.plotWdg.figure.get_axes()[0]).plot(
                         profile["plot_x"],
                         profile["plot_y"],
                         gid=tmp_name,
@@ -424,7 +433,7 @@ class PlottingTool:
                         )
                     )
                     wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
-                    wdg.plotWdg.figure.canvas.draw()
+                    cast("DrawableCanvas", wdg.plotWdg.figure.canvas).draw()
                     wdg.plotWdg.draw()
                     break
 
@@ -453,7 +462,7 @@ class PlottingTool:
                     else:
                         temp1[i].set_visible(False)
                     wdg.plotWdg.figure.get_axes()[0].redraw_in_frame()
-                    wdg.plotWdg.figure.canvas.draw()
+                    cast("DrawableCanvas", wdg.plotWdg.figure.canvas).draw()
                     wdg.plotWdg.draw()
 
                     break
@@ -461,9 +470,10 @@ class PlottingTool:
     def manageMatplotlibAxe(self, axe1: Axes) -> None:
         """Configure chainage units, grid lines and ticks on a Matplotlib axis."""
         unit = self._chainage_unit()
-        axe1.set_xlabel(f"Chainage ({unit})")
-        axe1.grid()
-        axe1.tick_params(
+        ax = cast("MatplotlibAxes", axe1)
+        ax.set_xlabel(f"Chainage ({unit})")
+        ax.grid()
+        ax.tick_params(
             axis="both",
             which="major",
             direction="out",
@@ -475,7 +485,7 @@ class PlottingTool:
             right=False,
         )
         axe1.minorticks_on()
-        axe1.tick_params(
+        ax.tick_params(
             axis="both",
             which="minor",
             direction="out",
