@@ -27,7 +27,6 @@ class GraphicsObject(GraphicsItem, QtWidgets.QGraphicsObject):
             self.yChanged.connect(self.informViewBoundsChanged)
             self.rotationChanged.connect(self.informViewBoundsChanged)
             self.scaleChanged.connect(self.informViewBoundsChanged)
-            self.transformOriginPointChanged.connect(self.informViewBoundsChanged)
 
     if QT_LIB == 'PyQt5':
         def setTransform(self, transform, combine=False):
