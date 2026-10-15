@@ -53,8 +53,8 @@ if TYPE_CHECKING:
 
     from ..ui.ptdockwidget import PTDockWidget
     from .plot_types import (
-        DrawableCanvas,
         CurvePen,
+        DrawableCanvas,
         DxfEngine,
         ExportFigure,
         ImageExport,
