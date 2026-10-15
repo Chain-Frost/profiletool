@@ -190,9 +190,9 @@ class ProfileToolCore(QWidget):
                         point = self.toolrenderer.tool.toMapCoordinates(layer, QgsPointXY(geom.asPoint()))
                         points.append([point.x(), point.y()])
             else:
-                # Feature-selection mode narrows multipart geometry to the
-                # clicked part; whole-layer mode keeps the upstream feature
-                # concatenation behaviour (using each feature's first part).
+                # Feature-selection mode is narrowed to the clicked part
+                # by SelectLineTool. Whole-layer mode retains every vertex
+                # of each multipart source feature, as in the upstream code.
                 for feature in features:
                     geometry = feature.geometry()
                     if geometry.isNull() or geometry.isEmpty():
@@ -202,10 +202,13 @@ class ProfileToolCore(QWidget):
                         if geometry.isMultipart()
                         else [cast("_PolylineGeometry", geometry).asPolyline()]
                     )
-                    if not parts or not parts[0]:
+                    converted: list[list[float]] = []
+                    for part in parts:
+                        for vertex in part:
+                            point = self.toolrenderer.tool.toMapCoordinates(layer, vertex)
+                            converted.append([point.x(), point.y()])
+                    if not converted:
                         continue
-                    part_points = [self.toolrenderer.tool.toMapCoordinates(layer, p) for p in parts[0]]
-                    converted = [[p.x(), p.y()] for p in part_points]
                     # Restore the upstream whole-layer behaviour: every line
                     # feature contributes to the profile in iteration order.
                     # The first vertex of each subsequent feature is skipped,

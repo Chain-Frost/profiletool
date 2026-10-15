@@ -122,6 +122,19 @@ def test_whole_layer_selection_keeps_all_disconnected_features() -> None:
         # The upstream code concatenated all source lines, dropping the first
         # point of each subsequent feature. Preserve that observable behaviour.
         assert core.pointstoDraw == [[0.0, 0.0], [2.0, 0.0], [12.0, 0.0]]
+
+        # A single multipart feature must also preserve all of its vertices.
+        multipart = QgsFeature(layer.fields())
+        multipart.setGeometry(
+            QgsGeometry.fromMultiPolylineXY(
+                [
+                    [QgsPointXY(1, 1), QgsPointXY(2, 1)],
+                    [QgsPointXY(10, 1), QgsPointXY(11, 1)],
+                ]
+            )
+        )
+        core.updateProfilFromFeatures(layer, [multipart])
+        assert core.pointstoDraw == [[1.0, 1.0], [2.0, 1.0], [10.0, 1.0], [11.0, 1.0]]
     finally:
         plugin.unload()
         project.removeMapLayer(layer.id())
