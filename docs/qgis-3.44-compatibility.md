@@ -19,11 +19,16 @@ CI container.** The official `qgis/qgis:3.44.15-noble` image reports QGIS
   `rotationChanged` and `scaleChanged` signals. This retains view
   registration and movement/bounds updates without global SIP changes.
   The Qt6 path still uses its original Python `itemChange`.
-- The authoritative clean CI run passed **3/3** QGIS 3.44 tests, including
-  a new parent/scene attachment and movement-driven bounds notification
-  regression, with **no captured Qt callback exceptions**.
-  Normal hosted quality checks (Ruff, CI-scoped strict Pyright,
-  19 headless regressions) also passed.
+- The original clean CI run passed **3/3** QGIS 3.44 tests, including
+  parent/scene attachment and movement-driven bounds notification checks,
+  with **no captured Qt callback exceptions**.
+- The later 15 October run also passed **4/4** QGIS 3.44 tests. That run
+  adds explicit `setTransform()` / `resetTransform()` bounds notification,
+  upstream whole-layer feature concatenation, and new CSV Save As coverage
+  for the available plot backends. Qt5 uses direct bounds invalidation
+  in its matrix-transform setters; the native `itemChange` remains in place.
+  Hosted quality checks (Ruff, scoped strict Pyright, regression tests and
+  ZIP packaging) passed.
 - Experimental changes that tried to convert/return opaque QVariant
   wrappers or disable process-wide SIP autoconversion were **not retained**.
   The disposable diagnostic probe was removed.

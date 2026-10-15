@@ -62,8 +62,10 @@ than every manual action in the checklist.
 | 11 | Three close/reopen cycles, unload, disconnected callbacks; original map tool restored | Additional manual map-tool transitions |
 | 12 | PNG/SVG exported; DXF reopened with GDAL; two gap-separated 2D/3D lines with elevations 0–9 and 11–19; PNG visually inspected | Visual SVG review; PDF/CSV workflows where available |
 
-All items still need comparison on QGIS 3.40/3.44. PDF and CSV are absent from
-the tested PyQtGraph export menu; this run does not claim they were validated.
+All items still need comparison on QGIS 3.40/3.44. In this earlier test
+snapshot, PDF and CSV were absent from the Profile Tool PyQtGraph Save As
+menu; CSV was subsequently added to both backends. This earlier run does
+not claim the new CSV action was validated.
 
 The run discovered and repaired a native crash caused by retaining deleted
 layer wrappers in the source table, non-unique curve labels derived from layer
@@ -114,12 +116,14 @@ input events; human hardware clicks have not been performed by this runner.
 | Raster/CRS cases | Northern UTM EPSG:32632 sampled in Web Mercator EPSG:3857; ASCII grid; rotated GeoTIFF with unequal pixel dimensions and negative grades; provider-visible NoData preserved |
 | PDF/tables | Matplotlib save button produces a PDF; independently reopened as one page, rendered and visually inspected with a visible NoData gap; both clipboard table buttons checked against source values and coordinates |
 
-PDF is offered by the Matplotlib export menu, not by PyQtGraph. Neither menu
-offers native CSV saving. The two clipboard buttons produce tab-separated
-text: chainage/elevation, or chainage/x/y/elevation. Their numeric values and
-NoData samples were validated and saved as `.tsv` evidence. Importing that text
-into a spreadsheet and saving CSV is a separate workflow. The README now
-describes the supported behavior instead of claiming native CSV export.
+PDF is offered by the Matplotlib Save As menu, not by PyQtGraph. The Profile
+Tool Save As menus now offer CSV for both backends, with separate chainage
+and value columns for each plotted source and blanks for missing samples.
+PyQtGraph's existing context-menu CSV exporter also remains available.
+The earlier QGIS 4.2.1 run validated the two clipboard actions as
+tab-separated chainage/elevation and chainage/x/y/elevation tables; it did
+not validate the subsequently added CSV action. The QGIS 3.44 lifecycle
+test covers the new CSV menu path.
 
 The rotated-raster test also records an unresolved source-resolution
 limitation: QGIS exposes this rotated GeoTIFF through a square-pixel warped
