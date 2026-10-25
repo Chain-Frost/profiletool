@@ -17,7 +17,9 @@ jobs:
         run: python -m pip install numpy pytest ruff==0.16.6 "pyright>=1.1.410"
       - name: Ruff baseline (plugin-owned files only)
         run: |
-          ruff check --isolated --target-version py310 --select E,F,I,UP,B --ignore E501 \
+          # B905/UP007 are legacy typing/zip cleanups tracked for a separate PR
+          # after the parallel correctness branch merges; do not overlap its files.
+          ruff check --isolated --target-version py310 --select E,F,I,UP,B --ignore E501,B905,UP007 \
             __init__.py profileplugin.py \
             tools/profilers.py tools/dataReaderTool.py tools/selectlinetool.py tools/utils.py \
             tools/ptmaptool.py tools/tableviewtool.py tools/plottingtool.py \
