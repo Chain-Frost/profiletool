@@ -34,7 +34,9 @@ The historical [validation matrix](validation-matrix.md), [Qt5 compatibility
 report](qgis-3.44-compatibility.md), and merged PR provide reproducible scenarios
 and dated results. Old results are not proof for a changed branch head.
 
-## Acceptance required before distributing or proposing upstream
+## Human acceptance for release and upstream submission
+
+The human interactive QGIS checks are intentionally tracked independently of the code/CI merge. Do not interpret an unchecked item as a failed automated check.
 
 - [ ] **Windows QGIS 3.44.x/PyQt5:** Run the interactive plugin workflow natively
   and record QGIS, Python, Qt, PyQt and plugin commit. Verify graph rendering,
@@ -66,8 +68,9 @@ Both workstreams branch directly from post-PR-#1 master:
 2. `chore/profiletool-ci-acceptance`: CI triggers and authoritative acceptance
    documentation. Owns `.github/workflows/`, `README.md` and `docs/` only.
 
-Do not edit the other workstream's files, modify master, merge either PR, or
-claim native Windows test execution without actual evidence.
+The workstreams were initially independent and the final integration must
+re-run the workflows after merging. Human desktop checks are tracked in a
+separate follow-up PR; do not claim manual verification without recorded evidence.
 
 ## Intentional limitations
 
@@ -78,5 +81,8 @@ claim native Windows test execution without actual evidence.
   grades assume consistent horizontal/vertical units; geographic projects use
   geodesic metres and assume elevations are in metres.
 - Warped/rotated raster resampling may suppress narrow source NoData gaps.
-- Fork metadata still reports upstream version 4.3.4 until a separate distribution
-  or release decision. These changes are not an upstream version release.
+- The source changes include a proposed **4.4.0** version bump in
+  [PR #2](https://github.com/Chain-Frost/profiletool/pull/2), above the upstream
+  4.3.4 baseline. This is a new Profile Tool version intended for upstream review,
+  not a claim that PANOimagen has approved or released it. Preserve the upstream
+  maintainer's final decision on the published version and release tag.
