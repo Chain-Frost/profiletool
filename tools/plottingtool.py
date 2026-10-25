@@ -101,7 +101,7 @@ def pyqtgraph_plot_item(widget: QWidget | None) -> PlotItem | None:
 
 def plot_data_items(plot_item: PlotItem) -> list[pg.PlotDataItem]:
     """Read profile curves created by PlotWidget.plot as PlotDataItem instances."""
-    return cast("list[pg.PlotDataItem]", plot_item.listDataItems())
+    return plot_item.listDataItems()
 
 
 def plot_view_box(plot_item: PlotItem) -> PlotViewBox | None:
@@ -349,7 +349,7 @@ class PlottingTool:
             plot_item = pyqtgraph_plot_item(wdg.plotWdg)
             if plot_item is None or (view_box := plot_view_box(plot_item)) is None:
                 return
-            view_range = cast("list[list[float]]", view_box.viewRange())
+            view_range = view_box.viewRange()
             wdg.disconnectYSpinbox()
             wdg.sbMaxVal.setValue(view_range[1][1])
             wdg.sbMinVal.setValue(view_range[1][0])

@@ -609,7 +609,7 @@ class ProfileToolCore(QWidget):
         # si connexion directe du signal "mouseMoved" : la fonction reçoit le point courant
         # si le point est dans la zone courante
         if pitems.sceneBoundingRect().contains(pos) and self.dockwidget.showcursor:
-            view_range = cast("list[list[float]]", view_box.viewRange())
+            view_range = view_box.viewRange()
             # récupère le point souris à partir ViewBox
             mousePoint = view_box.mapSceneToView(pos)
             xtoplot, ytoplot = self._nearest_plot_sample(pitems, mousePoint)
