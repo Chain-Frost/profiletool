@@ -448,6 +448,66 @@ def test_geographic_grade_uses_metre_distance_without_changing_degree_axis(profi
     np.testing.assert_allclose(grades, [1, 1])
 
 
+
+def test_mesh_identification_uses_map_crs_instead_of_layer_crs(
+    reader_module: ReaderFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Identify a mixed-CRS mesh at project coordinates, not transformed layer coordinates."""
+    reader, project, crs_factory = reader_module
+    project.crs = lambda: crs_factory()
+    canvas = object()
+    identified_points: list[tuple[float, float]] = []
+
+    class Identifier:
+        IdentifyMode = SimpleNamespace(DefaultQgsSetting=0)
+        Type = SimpleNamespace(MeshLayer=3)
+
+        def __init__(self, selected_canvas: object) -> None:
+            assert selected_canvas is canvas
+
+        def identify(self, point: _Coordinates, *_args: object) -> list[SimpleNamespace]:
+            identified_points.append((point.x(), point.y()))
+            return [SimpleNamespace(mAttributes={"Scalar Value": "14.5"})]
+
+    class MeshLayer:
+        def type(self) -> int:
+            return 3
+
+        def crs(self) -> str:
+            return "source-mesh-crs"
+
+    class MapTool:
+        def toLayerCoordinates(self, _layer: object, point: _Coordinates) -> _Coordinates:
+            return reader.QgsPointXY(point.x() + 1000.0, point.y() + 2000.0)
+
+    class Interface:
+        def mapCanvas(self) -> object:
+            return canvas
+
+        def mainWindow(self) -> Interface:
+            return self
+
+        def statusBar(self) -> Interface:
+            return self
+
+        def showMessage(self, _message: str) -> None:
+            pass
+
+    monkeypatch.setattr(sys.modules["qgis.gui"], "QgsMapToolIdentify", Identifier, raising=False)
+    monkeypatch.setattr(reader, "QgsGeometry", SimpleNamespace(fromPointXY=_same_point))
+
+    profile = reader.DataReaderTool().dataRasterReaderTool(
+        Interface(),
+        MapTool(),
+        {"layer": MeshLayer(), "band": 0},
+        [[1.0, 2.0], [3.0, 2.0]],
+        "samples",
+    )
+    assert identified_points == [(1.0, 2.0), (3.0, 2.0)]
+    assert profile["x"] == [1001.0, 1003.0]
+    assert profile["y"] == [2002.0, 2002.0]
+    assert profile["z"] == [14.5, 14.5]
+
 @pytest.mark.parametrize("scalar", ["12.5", None, "invalid"])
 def test_mesh_sampling_uses_the_supplied_interface(
     reader_module: ReaderFixture, monkeypatch: pytest.MonkeyPatch, scalar: str | None
