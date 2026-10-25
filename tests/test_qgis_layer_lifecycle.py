@@ -17,6 +17,7 @@ pytest.importorskip("qgis.core", reason="Requires the OSGeo4W QGIS environment")
 from qgis.core import (
     QgsCoordinateReferenceSystem,
     QgsCoordinateTransform,
+    QgsCsException,
     QgsFeature,
     QgsGeometry,
     QgsPointXY,
@@ -32,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from profiletool import pyqtgraph as pg
 from profiletool.profileplugin import ProfilePlugin
 from profiletool.tools import plottingtool as plottingtool_module
+from profiletool.tools import profiletool_core as profiletool_core_module
 from profiletool.tools.plottingtool import PlottingTool, pyqtgraph_plot_item
 
 
@@ -241,6 +243,50 @@ def test_active_profile_preserves_geometry_and_elevations_across_project_crs_cha
         assert not plugin.profiletool or not plugin.profiletool._crs_signal_connected
         project.removeMapLayer(layer.id())
         project.setCrs(original_crs)
+
+
+def test_failed_project_crs_transform_does_not_leave_stale_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Failed coordinate transforms must clear the path and disconnect on unload."""
+    iface = get_iface()
+    iface.activeLayer.return_value = None
+    project = QgsProject.instance()
+    assert project is not None
+    old_crs = QgsCoordinateReferenceSystem(project.crs())
+    source_crs = QgsCoordinateReferenceSystem("EPSG:28350")
+    target_crs = QgsCoordinateReferenceSystem("EPSG:4326")
+    project.setCrs(source_crs)
+    plugin = ProfilePlugin(iface)
+    plugin.initGui()
+    try:
+        plugin.run()
+        core = plugin.profiletool
+        assert core is not None
+        assert core.toolrenderer is not None
+        points = [[400000.0, 6500000.0], [400010.0, 6500000.0]]
+        core.toolrenderer.pointstoDraw = list(points)
+        core.toolrenderer.updateRubberBand()
+        core.updateProfil(points, removeSelection=False)
+
+        class FailingTransform:
+            def __init__(self, *_args: object) -> None:
+                pass
+
+            def transform(self, _point: QgsPointXY) -> QgsPointXY:
+                raise QgsCsException("Deliberate CRS transformation failure")
+
+        monkeypatch.setattr(profiletool_core_module, "QgsCoordinateTransform", FailingTransform)
+        project.setCrs(target_crs)
+        assert core.pointstoDraw == []
+        assert core.toolrenderer.pointstoDraw == []
+        assert core.profiles == []
+        assert not core.toolrenderer.rubberbandpoint.isVisible()
+        assert core._profile_crs == target_crs
+    finally:
+        plugin.unload()
+        assert plugin.profiletool is None or not plugin.profiletool._crs_signal_connected
+        project.setCrs(old_crs)
 
 
 def test_matplotlib_autoscales_when_final_profile_is_empty() -> None:

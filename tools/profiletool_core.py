@@ -157,25 +157,30 @@ class ProfileToolCore(QWidget):
             return
         self._profile_crs = new_crs
         renderer = self.toolrenderer
-        try:
-            if not previous_crs.isValid() or not new_crs.isValid():
-                msg = "Cannot transform a profile with an invalid project CRS"
-                raise ValueError(msg)
-            transform = QgsCoordinateTransform(previous_crs, new_crs, self.instance)
 
-            def transformed(points: Sequence[Sequence[float]]) -> list[list[float]]:
-                result: list[list[float]] = []
-                for coordinates in points:
-                    point = transform.transform(QgsPointXY(coordinates[0], coordinates[1]))
-                    if not np.isfinite(point.x()) or not np.isfinite(point.y()):
-                        msg = "Profile transformation produced non-finite coordinates"
-                        raise ValueError(msg)
-                    result.append([point.x(), point.y()])
-                return result
+        def transformed(transform: QgsCoordinateTransform, points: Sequence[Sequence[float]]) -> list[list[float]]:
+            result: list[list[float]] = []
+            for coordinates in points:
+                point = transform.transform(QgsPointXY(coordinates[0], coordinates[1]))
+                if not np.isfinite(point.x()) or not np.isfinite(point.y()):
+                    msg = "Profile transformation produced non-finite coordinates"
+                    raise ValueError(msg)
+                result.append([point.x(), point.y()])
+            return result
 
-            new_points = transformed(self.pointstoDraw)
-            renderer_points = transformed(renderer.pointstoDraw) if renderer is not None else []
-        except (QgsCsException, ValueError):
+        # Transform both stored/completed profiles and any in-progress drawn path.
+        # Work on copies so a partial failure cannot leave a mixture of CRSs.
+        failed = not previous_crs.isValid() or not new_crs.isValid()
+        new_points: list[list[float]] = []
+        renderer_points: list[list[float]] = []
+        if not failed:
+            try:
+                transform = QgsCoordinateTransform(previous_crs, new_crs, self.instance)
+                new_points = transformed(transform, self.pointstoDraw)
+                renderer_points = transformed(transform, renderer.pointstoDraw) if renderer is not None else []
+            except (QgsCsException, ValueError):
+                failed = True
+        if failed:
             # Never reuse old project coordinates as though they belonged to the new CRS.
             new_points = []
             renderer_points = []
