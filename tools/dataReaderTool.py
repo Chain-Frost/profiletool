@@ -164,7 +164,7 @@ class DataReaderTool:
             {
                 "l": lengths,
                 "l_slope": self._slope_distances(project_samples, lengths),
-                "z": self._extractZValues(sample_x, sample_y),
+                "z": self._extractZValues(sample_x, sample_y, map_points=project_samples),
                 "x": sample_x,
                 "y": sample_y,
                 "crs": layer.crs(),
@@ -234,7 +234,10 @@ class DataReaderTool:
             if status_bar is not None:
                 status_bar.showMessage(message)
 
-    def _extractZValues(self, x: Sequence[float], y: Sequence[float]) -> list[float]:
+    def _extractZValues(
+        self, x: Sequence[float], y: Sequence[float], *, map_points: Sequence[QgsPointXY] | None = None
+    ) -> list[float]:
+        """Identify raster/plugin samples in the layer CRS, mesh samples in map coordinates."""
         layer = self.profiles["layer"]
         band = self.profiles["band"]
         values: list[float] = []
@@ -264,8 +267,11 @@ class DataReaderTool:
                     result = plugin_source.identify(point)
                     value = float(list(result[1].values())[band])
                 elif is_mesh and identifier is not None:
+                    # QgsMapToolIdentify.identify(geometry, ...) accepts map/project
+                    # coordinates, unlike QgsRasterDataProvider.sample().
+                    map_point = map_points[n] if map_points is not None else point
                     matches = identifier.identify(
-                        QgsGeometry.fromPointXY(point),
+                        QgsGeometry.fromPointXY(map_point),
                         identifier.IdentifyMode.DefaultQgsSetting,
                         [layer],
                         identifier.Type.MeshLayer,

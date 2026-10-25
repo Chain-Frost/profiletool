@@ -16,6 +16,8 @@ pytest.importorskip("qgis.core", reason="Requires the OSGeo4W QGIS environment")
 
 from qgis.core import (
     QgsCoordinateReferenceSystem,
+    QgsCoordinateTransform,
+    QgsCsException,
     QgsFeature,
     QgsGeometry,
     QgsPointXY,
@@ -31,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from profiletool import pyqtgraph as pg
 from profiletool.profileplugin import ProfilePlugin
 from profiletool.tools import plottingtool as plottingtool_module
+from profiletool.tools import profiletool_core as profiletool_core_module
 from profiletool.tools.plottingtool import PlottingTool, pyqtgraph_plot_item
 
 
@@ -167,6 +170,169 @@ def test_chainage_label_refreshes_for_project_crs_changes() -> None:
             assert PlottingTool._chainage_unit() in dock.plotWdg.figure.get_axes()[0].get_xlabel()
     finally:
         plugin.unload()
+        project.setCrs(old_crs)
+
+
+
+def test_active_profile_preserves_geometry_and_elevations_across_project_crs_change() -> None:
+    """Reproject the active path, then resample it without misinterpreting stored coordinates."""
+    iface = get_iface()
+    iface.activeLayer.return_value = None
+    project = QgsProject.instance()
+    assert project is not None
+    original_crs = QgsCoordinateReferenceSystem(project.crs())
+    source_crs = QgsCoordinateReferenceSystem("EPSG:28350")
+    destination_crs = QgsCoordinateReferenceSystem("EPSG:4326")
+    project.setCrs(source_crs)
+    layer = QgsVectorLayer("Point?crs=EPSG:28350&field=z:double", "crs-change-points", "memory")
+    provider = layer.dataProvider()
+    assert provider is not None
+    for x, z in ((400000.0, 10.0), (400020.0, 20.0)):
+        feature = QgsFeature(layer.fields())
+        feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(x, 6500000.0)))
+        feature["z"] = z
+        assert provider.addFeatures([feature])[0]
+    project.addMapLayer(layer)
+    plugin = ProfilePlugin(iface)
+    plugin.initGui()
+    try:
+        plugin.run()
+        core = plugin.profiletool
+        assert core is not None
+        assert core.toolrenderer is not None
+        dock = core.dockwidget
+        dock.addLayer(layer)
+        old_points = [[400000.0, 6500000.0], [400020.0, 6500000.0]]
+        core.toolrenderer.pointstoDraw = list(old_points)
+        core.toolrenderer.updateRubberBand()
+        core.updateProfil(old_points, removeSelection=False)
+        assert len(core.profiles) == 1
+        assert core.profiles[0]["z"] == pytest.approx([10.0, 20.0])
+        assert core.profiles[0]["l"][-1] == pytest.approx(20.0)
+
+        transform = QgsCoordinateTransform(source_crs, destination_crs, project)
+        expected = [transform.transform(QgsPointXY(*coords)) for coords in old_points]
+        project.setCrs(destination_crs)
+        assert len(core.pointstoDraw) == 2
+        for point, reference in zip(core.pointstoDraw, expected):
+            assert point == pytest.approx([reference.x(), reference.y()], abs=1e-7)
+        assert core.toolrenderer.pointstoDraw == core.pointstoDraw
+        assert core.profiles[0]["z"] == pytest.approx([10.0, 20.0])
+        assert core.profiles[0]["l"][-1] == pytest.approx(
+            QgsGeometry.fromPolylineXY(expected).length(), rel=1e-5
+        )
+        assert core.profiles[0]["crs"] == destination_crs
+        assert core.pointLayer is None
+
+        # Repeated changes must use the immediately preceding CRS, not the initial one.
+        project.setCrs(source_crs)
+        for point, reference in zip(core.pointstoDraw, old_points):
+            assert point == pytest.approx(reference, abs=0.01)
+        # QgsGeometry vertex interpolation can repeat endpoint samples after a
+        # round-trip CRS transform. Their positions and elevations must remain
+        # valid; equal sample counts are not a contract of the point reader.
+        assert core.profiles[0]["z"][0] == pytest.approx(10.0)
+        assert core.profiles[0]["z"][-1] == pytest.approx(20.0)
+        assert set(core.profiles[0]["z"]) == {10.0, 20.0}
+        assert core.profiles[0]["l"][-1] == pytest.approx(20.0, abs=0.01)
+
+        # Unloading removes our project CRS signal and leaves no stale callbacks.
+        assert core._crs_signal_connected
+    finally:
+        plugin.unload()
+        assert not plugin.profiletool or not plugin.profiletool._crs_signal_connected
+        project.removeMapLayer(layer.id())
+        project.setCrs(original_crs)
+
+
+@pytest.mark.parametrize("completed", [False, True])
+def test_freehand_preview_state_survives_project_crs_change(*, completed: bool) -> None:
+    """Reproject the overlay without restarting a completed freehand preview."""
+    iface = get_iface()
+    iface.activeLayer.return_value = None
+    project = QgsProject.instance()
+    assert project is not None
+    original_crs = QgsCoordinateReferenceSystem(project.crs())
+    source_crs = QgsCoordinateReferenceSystem("EPSG:28350")
+    target_crs = QgsCoordinateReferenceSystem("EPSG:4326")
+    project.setCrs(source_crs)
+    plugin = ProfilePlugin(iface)
+    plugin.initGui()
+    try:
+        plugin.run()
+        core = plugin.profiletool
+        assert core is not None
+        renderer = core.toolrenderer
+        assert renderer is not None
+        points = [[400000.0, 6500000.0], [400020.0, 6500000.0]]
+        renderer.pointstoDraw = list(points)
+        renderer.isPlotting = True
+        renderer.updateRubberBand()
+        core.updateProfil(points, removeSelection=False)
+        if completed:
+            renderer.rightClicked({"x": 0, "y": 0})
+            assert renderer.pointstoDraw == []
+        transform = QgsCoordinateTransform(source_crs, target_crs, project)
+        expected = QgsGeometry.fromPolylineXY([transform.transform(QgsPointXY(*point)) for point in points])
+        project.setCrs(target_crs)
+        assert renderer.isPlotting is (not completed)
+        assert bool(renderer.pointstoDraw) is (not completed)
+        overlay = renderer.rubberband.asGeometry()
+        assert overlay.asWkt(12) == expected.asWkt(12)
+        stored_points = list(core.pointstoDraw)
+        renderer.moved({"x": 10, "y": 20})
+        assert core.pointstoDraw == stored_points
+        if completed:
+            assert renderer.rubberband.asGeometry().asWkt(12) == overlay.asWkt(12)
+        else:
+            assert renderer.rubberband.numberOfVertices() == 3
+    finally:
+        plugin.unload()
+        project.setCrs(original_crs)
+
+
+def test_failed_project_crs_transform_does_not_leave_stale_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Failed coordinate transforms must clear the path and disconnect on unload."""
+    iface = get_iface()
+    iface.activeLayer.return_value = None
+    project = QgsProject.instance()
+    assert project is not None
+    old_crs = QgsCoordinateReferenceSystem(project.crs())
+    source_crs = QgsCoordinateReferenceSystem("EPSG:28350")
+    target_crs = QgsCoordinateReferenceSystem("EPSG:4326")
+    project.setCrs(source_crs)
+    plugin = ProfilePlugin(iface)
+    plugin.initGui()
+    try:
+        plugin.run()
+        core = plugin.profiletool
+        assert core is not None
+        assert core.toolrenderer is not None
+        points = [[400000.0, 6500000.0], [400010.0, 6500000.0]]
+        core.toolrenderer.pointstoDraw = list(points)
+        core.toolrenderer.updateRubberBand()
+        core.updateProfil(points, removeSelection=False)
+
+        class FailingTransform:
+            def __init__(self, *_args: object) -> None:
+                pass
+
+            def transform(self, _point: QgsPointXY) -> QgsPointXY:
+                message = "Deliberate CRS transformation failure"
+                raise QgsCsException(message)
+
+        monkeypatch.setattr(profiletool_core_module, "QgsCoordinateTransform", FailingTransform)
+        project.setCrs(target_crs)
+        assert core.pointstoDraw == []
+        assert core.toolrenderer.pointstoDraw == []
+        assert core.profiles == []
+        assert not core.toolrenderer.rubberbandpoint.isVisible()
+        assert core._profile_crs == target_crs
+    finally:
+        plugin.unload()
+        assert plugin.profiletool is None or not plugin.profiletool._crs_signal_connected
         project.setCrs(old_crs)
 
 
