@@ -198,8 +198,11 @@ class ProfileToolCore(QWidget):
         # New picks must use (or create) a layer whose CRS matches this project.
         self.pointLayer = None
         if renderer is not None:
-            renderer.pointstoDraw = renderer_points or list(new_points)
+            renderer.pointstoDraw = list(renderer_points or new_points)
             renderer.updateRubberBand()
+            # A completed freehand path has an empty working list. Keep its
+            # overlay, but do not reactivate the moving preview after reprojection.
+            renderer.pointstoDraw = list(renderer_points)
             renderer.rubberbandpoint.hide()
         self.updateProfil(new_points, removeSelection=False)
 

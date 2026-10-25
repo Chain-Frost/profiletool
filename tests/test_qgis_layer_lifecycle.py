@@ -245,6 +245,52 @@ def test_active_profile_preserves_geometry_and_elevations_across_project_crs_cha
         project.setCrs(original_crs)
 
 
+@pytest.mark.parametrize("completed", [False, True])
+def test_freehand_preview_state_survives_project_crs_change(*, completed: bool) -> None:
+    """Reproject the overlay without restarting a completed freehand preview."""
+    iface = get_iface()
+    iface.activeLayer.return_value = None
+    project = QgsProject.instance()
+    assert project is not None
+    original_crs = QgsCoordinateReferenceSystem(project.crs())
+    source_crs = QgsCoordinateReferenceSystem("EPSG:28350")
+    target_crs = QgsCoordinateReferenceSystem("EPSG:4326")
+    project.setCrs(source_crs)
+    plugin = ProfilePlugin(iface)
+    plugin.initGui()
+    try:
+        plugin.run()
+        core = plugin.profiletool
+        assert core is not None
+        renderer = core.toolrenderer
+        assert renderer is not None
+        points = [[400000.0, 6500000.0], [400020.0, 6500000.0]]
+        renderer.pointstoDraw = list(points)
+        renderer.isPlotting = True
+        renderer.updateRubberBand()
+        core.updateProfil(points, removeSelection=False)
+        if completed:
+            renderer.rightClicked({"x": 0, "y": 0})
+            assert renderer.pointstoDraw == []
+        transform = QgsCoordinateTransform(source_crs, target_crs, project)
+        expected = QgsGeometry.fromPolylineXY([transform.transform(QgsPointXY(*point)) for point in points])
+        project.setCrs(target_crs)
+        assert renderer.isPlotting is (not completed)
+        assert bool(renderer.pointstoDraw) is (not completed)
+        overlay = renderer.rubberband.asGeometry()
+        assert overlay.asWkt(12) == expected.asWkt(12)
+        stored_points = list(core.pointstoDraw)
+        renderer.moved({"x": 10, "y": 20})
+        assert core.pointstoDraw == stored_points
+        if completed:
+            assert renderer.rubberband.asGeometry().asWkt(12) == overlay.asWkt(12)
+        else:
+            assert renderer.rubberband.numberOfVertices() == 3
+    finally:
+        plugin.unload()
+        project.setCrs(original_crs)
+
+
 def test_failed_project_crs_transform_does_not_leave_stale_profile(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
