@@ -114,7 +114,7 @@ class DataReaderTool:
         first_segment = True
         layer = profile1["layer"]
 
-        for start, end in zip(pointstoDraw1[:-1], pointstoDraw1[1:]):
+        for start, end in zip(pointstoDraw1[:-1], pointstoDraw1[1:], strict=False):
             start_map, end_map = QgsPointXY(*start), QgsPointXY(*end)
             start_layer = tool1.toLayerCoordinates(layer, start_map)
             end_layer = tool1.toLayerCoordinates(layer, end_map)
@@ -204,7 +204,7 @@ class DataReaderTool:
         ellipsoid = project.ellipsoid()
         distance.setEllipsoid(ellipsoid if ellipsoid and ellipsoid != "NONE" else "WGS84")
         result = [0.0]
-        for start, end in zip(project_points[:-1], project_points[1:]):
+        for start, end in zip(project_points[:-1], project_points[1:], strict=False):
             result.append(result[-1] + distance.measureLine(start, end))
         return result
 
@@ -257,7 +257,7 @@ class DataReaderTool:
         # Non-plugin/non-mesh sources reach this method through the raster path.
         provider = cast("QgsRasterDataProvider | None", layer.dataProvider()) if not (is_plugin or is_mesh) else None
 
-        for n, (x_coord, y_coord) in enumerate(zip(x, y)):
+        for n, (x_coord, y_coord) in enumerate(zip(x, y, strict=False)):
             point = QgsPointXY(x_coord, y_coord)
             value = np.nan
             try:

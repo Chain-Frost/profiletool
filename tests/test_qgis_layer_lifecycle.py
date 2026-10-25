@@ -214,7 +214,7 @@ def test_active_profile_preserves_geometry_and_elevations_across_project_crs_cha
         expected = [transform.transform(QgsPointXY(*coords)) for coords in old_points]
         project.setCrs(destination_crs)
         assert len(core.pointstoDraw) == 2
-        for point, reference in zip(core.pointstoDraw, expected):
+        for point, reference in zip(core.pointstoDraw, expected, strict=True):
             assert point == pytest.approx([reference.x(), reference.y()], abs=1e-7)
         assert core.toolrenderer.pointstoDraw == core.pointstoDraw
         assert core.profiles[0]["z"] == pytest.approx([10.0, 20.0])
@@ -226,7 +226,7 @@ def test_active_profile_preserves_geometry_and_elevations_across_project_crs_cha
 
         # Repeated changes must use the immediately preceding CRS, not the initial one.
         project.setCrs(source_crs)
-        for point, reference in zip(core.pointstoDraw, old_points):
+        for point, reference in zip(core.pointstoDraw, old_points, strict=True):
             assert point == pytest.approx(reference, abs=0.01)
         # QgsGeometry vertex interpolation can repeat endpoint samples after a
         # round-trip CRS transform. Their positions and elevations must remain
@@ -479,7 +479,7 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(
         clipboard = QApplication.clipboard()
         assert clipboard is not None
         dock.profilePushButton[0].click()
-        expected = "".join(f"{length}\t{height}\n" for length, height in zip(profile["l"], profile["z"]))
+        expected = "".join(f"{length}\t{height}\n" for length, height in zip(profile["l"], profile["z"], strict=True))
         assert clipboard.text() == expected
         dock.coordsPushButton[0].click()
         assert all(len(row.split("\t")) == 4 for row in clipboard.text().splitlines())

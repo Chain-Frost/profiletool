@@ -27,13 +27,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import TypedDict, Union
+from typing import TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
 
-# This runtime alias must also be constructible under Python 3.9.
-ProfileSeries = Union[Sequence[float], NDArray[np.float64]]
+# Python 3.10+ supports PEP 604 unions at runtime.
+ProfileSeries = Sequence[float] | NDArray[np.float64]
 
 
 class ProfileSamples(TypedDict):
