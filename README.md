@@ -62,7 +62,10 @@ QGIS 3 user profile; `make clean` removes the staging directory and ZIP.
 Install the check tools with `python -m pip install -r requirements-dev.txt`.
 Additional settings: Ruff linting and formatting (120 columns,
 Google-style docstrings), strict Pyright, and EditorConfig/VS Code defaults.
-The Python 3.9 target preserves compatibility with older QGIS Python environments.
+The Ruff Python 3.10 target permits modern lint fixes while retaining compatibility
+with QGIS 3.44 installations using Python 3.10. Ruff targets `py310` in both
+the repository configuration and CI; full and CI-scoped Pyright continue to
+check Python 3.12.
 Bundled `pyqtgraph`, `dxfwrite`, and generated `resources.py` are excluded.
 
     python -m ruff check .

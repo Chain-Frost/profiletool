@@ -1,5 +1,5 @@
 required-version = "==0.16.6"
-target-version = "py39"
+target-version = "py310"
 line-length = 120
 
 # Bundled dependencies and Qt-generated resources are maintained separately.
