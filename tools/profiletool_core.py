@@ -39,6 +39,9 @@ from qgis.core import (
     Qgis,
     QgsFeature,
     QgsGeometry,
+    QgsCoordinateReferenceSystem,
+    QgsCoordinateTransform,
+    QgsCsException,
     QgsPointXY,
     QgsProject,
     QgsVectorLayer,
@@ -103,6 +106,8 @@ class ProfileToolCore(QWidget):
             msg = "Profile Tool requires an active QGIS project"
             raise RuntimeError(msg)
         self.instance = project
+        self._profile_crs = QgsCoordinateReferenceSystem(project.crs())
+        self._crs_signal_connected = False
         self.vline: Line2D | None = None
         self.cid: int | None = None
 
@@ -141,6 +146,57 @@ class ProfileToolCore(QWidget):
         self.dockwidget.plotComboBox.currentIndexChanged.connect(self._on_plot_type_changed)
         # dockwidget graph zone
         self.dockwidget.changePlotLibrary(self.dockwidget.cboLibrary.currentIndex())
+        self.instance.crsChanged.connect(self._on_project_crs_changed)
+        self._crs_signal_connected = True
+
+    def _on_project_crs_changed(self) -> None:
+        """Keep an active path in the same real-world location after a project CRS change."""
+        new_crs = QgsCoordinateReferenceSystem(self.instance.crs())
+        previous_crs = self._profile_crs
+        if previous_crs == new_crs:
+            return
+        self._profile_crs = new_crs
+        renderer = self.toolrenderer
+        try:
+            if not previous_crs.isValid() or not new_crs.isValid():
+                msg = "Cannot transform a profile with an invalid project CRS"
+                raise ValueError(msg)
+            transform = QgsCoordinateTransform(previous_crs, new_crs, self.instance)
+
+            def transformed(points: Sequence[Sequence[float]]) -> list[list[float]]:
+                result: list[list[float]] = []
+                for coordinates in points:
+                    point = transform.transform(QgsPointXY(coordinates[0], coordinates[1]))
+                    if not np.isfinite(point.x()) or not np.isfinite(point.y()):
+                        msg = "Profile transformation produced non-finite coordinates"
+                        raise ValueError(msg)
+                    result.append([point.x(), point.y()])
+                return result
+
+            new_points = transformed(self.pointstoDraw)
+            renderer_points = transformed(renderer.pointstoDraw) if renderer is not None else []
+        except (QgsCsException, ValueError):
+            # Never reuse old project coordinates as though they belonged to the new CRS.
+            new_points = []
+            renderer_points = []
+            if renderer is not None:
+                renderer.isPlotting = False
+            message_bar = self.iface.messageBar()
+            if message_bar is not None:
+                message_bar.pushMessage(
+                    "Profile Tool",
+                    "Profile cleared because its coordinates could not be transformed to the new project CRS.",
+                    level=Qgis.MessageLevel.Warning,
+                )
+        self.x_cursor = None
+        # Existing saved profile points remain in their original point layer.
+        # New picks must use (or create) a layer whose CRS matches this project.
+        self.pointLayer = None
+        if renderer is not None:
+            renderer.pointstoDraw = renderer_points or list(new_points)
+            renderer.updateRubberBand()
+            renderer.rubberbandpoint.hide()
+        self.updateProfil(new_points, removeSelection=False)
 
     def _on_plot_type_changed(self, _index: int) -> None:
         """Refresh the plotted series when the display selection changes."""
@@ -404,6 +460,10 @@ class ProfileToolCore(QWidget):
 
     def cleaning(self) -> None:
         """Clear sampled profiles and disconnect owned project callbacks."""
+        if self._crs_signal_connected:
+            with suppress(AttributeError, RuntimeError, TypeError):
+                self.instance.crsChanged.disconnect(self._on_project_crs_changed)
+            self._crs_signal_connected = False
         self.profiles = []
         self.pointstoDraw = []
         if self.toolrenderer:

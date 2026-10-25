@@ -16,6 +16,7 @@ pytest.importorskip("qgis.core", reason="Requires the OSGeo4W QGIS environment")
 
 from qgis.core import (
     QgsCoordinateReferenceSystem,
+    QgsCoordinateTransform,
     QgsFeature,
     QgsGeometry,
     QgsPointXY,
@@ -168,6 +169,72 @@ def test_chainage_label_refreshes_for_project_crs_changes() -> None:
     finally:
         plugin.unload()
         project.setCrs(old_crs)
+
+
+
+def test_active_profile_preserves_geometry_and_elevations_across_project_crs_change() -> None:
+    """Reproject the active path, then resample it without misinterpreting stored coordinates."""
+    iface = get_iface()
+    iface.activeLayer.return_value = None
+    project = QgsProject.instance()
+    assert project is not None
+    original_crs = QgsCoordinateReferenceSystem(project.crs())
+    source_crs = QgsCoordinateReferenceSystem("EPSG:28350")
+    destination_crs = QgsCoordinateReferenceSystem("EPSG:4326")
+    project.setCrs(source_crs)
+    layer = QgsVectorLayer("Point?crs=EPSG:28350&field=z:double", "crs-change-points", "memory")
+    provider = layer.dataProvider()
+    assert provider is not None
+    for x, z in ((400000.0, 10.0), (400020.0, 20.0)):
+        feature = QgsFeature(layer.fields())
+        feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(x, 6500000.0)))
+        feature["z"] = z
+        assert provider.addFeatures([feature])[0]
+    project.addMapLayer(layer)
+    plugin = ProfilePlugin(iface)
+    plugin.initGui()
+    try:
+        plugin.run()
+        core = plugin.profiletool
+        assert core is not None
+        assert core.toolrenderer is not None
+        dock = core.dockwidget
+        dock.addLayer(layer)
+        old_points = [[400000.0, 6500000.0], [400020.0, 6500000.0]]
+        core.toolrenderer.pointstoDraw = list(old_points)
+        core.toolrenderer.updateRubberBand()
+        core.updateProfil(old_points, removeSelection=False)
+        assert len(core.profiles) == 1
+        assert core.profiles[0]["z"] == pytest.approx([10.0, 20.0])
+        assert core.profiles[0]["l"][-1] == pytest.approx(20.0)
+
+        transform = QgsCoordinateTransform(source_crs, destination_crs, project)
+        expected = [transform.transform(QgsPointXY(*coords)) for coords in old_points]
+        project.setCrs(destination_crs)
+        assert len(core.pointstoDraw) == 2
+        for point, reference in zip(core.pointstoDraw, expected):
+            assert point == pytest.approx([reference.x(), reference.y()], abs=1e-7)
+        assert core.toolrenderer.pointstoDraw == core.pointstoDraw
+        assert core.profiles[0]["z"] == pytest.approx([10.0, 20.0])
+        assert core.profiles[0]["l"][-1] == pytest.approx(
+            QgsGeometry.fromPolylineXY(expected).length(), rel=1e-5
+        )
+        assert core.profiles[0]["crs"] == destination_crs
+        assert core.pointLayer is None
+
+        # Repeated changes must use the immediately preceding CRS, not the initial one.
+        project.setCrs(source_crs)
+        for point, reference in zip(core.pointstoDraw, old_points):
+            assert point == pytest.approx(reference, abs=0.01)
+        assert core.profiles[0]["z"] == pytest.approx([10.0, 20.0])
+
+        # Unloading removes our project CRS signal and leaves no stale callbacks.
+        assert core._crs_signal_connected
+    finally:
+        plugin.unload()
+        assert not plugin.profiletool or not plugin.profiletool._crs_signal_connected
+        project.removeMapLayer(layer.id())
+        project.setCrs(original_crs)
 
 
 def test_matplotlib_autoscales_when_final_profile_is_empty() -> None:
