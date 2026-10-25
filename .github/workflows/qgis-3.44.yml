@@ -3,7 +3,7 @@ name: QGIS 3.44 compatibility
 on:
   workflow_dispatch:
   push:
-    branches: ["fix/profile-correctness-reliability"]
+    branches: [master, "fix/**", "feat/**", "chore/**"]
     paths:
       - ".github/workflows/qgis-3.44.yml"
       - "__init__.py"

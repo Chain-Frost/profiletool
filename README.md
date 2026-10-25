@@ -15,6 +15,13 @@ to compatible units before trusting the slope plot. Map coordinates do not
 determine a raster band's vertical units.
 Supports 3D polyline export to dxf.
 
+**Fork acceptance:** This is the Chain-Frost maintenance fork of
+[PANOimagen/profiletool](https://github.com/PANOimagen/profiletool). Runtime
+features and upstream metadata/version are deliberately retained. See the
+[acceptance status and parity matrix](docs/acceptance-status.md) for verified
+checks, remaining native desktop tests, and known limitations. Passing headless
+CI does not establish full QGIS desktop parity.
+
 **Authors:** Borys Jurgiel - Patrice Verchere - Etienne Tourigny - Javier Becerra
 
 **Current mantainer:** PANOimagen S.L.
@@ -55,7 +62,12 @@ QGIS 3 user profile; `make clean` removes the staging directory and ZIP.
 Install the check tools with `python -m pip install -r requirements-dev.txt`.
 Additional settings: Ruff linting and formatting (120 columns,
 Google-style docstrings), strict Pyright, and EditorConfig/VS Code defaults.
-The Python 3.9 target preserves compatibility with older QGIS Python environments.
+The Ruff Python 3.10 target permits modern lint fixes while retaining compatibility
+with QGIS 3.44 installations using Python 3.10. Ruff targets `py310` in both
+the repository configuration and CI; full and CI-scoped Pyright continue to
+check Python 3.12. The existing `B905` (explicit `zip(strict=...)`) and `UP007`
+(runtime union syntax) findings are temporarily exempted in the isolated CI
+baseline until a separate source cleanup can follow the in-flight correctness PR.
 Bundled `pyqtgraph`, `dxfwrite`, and generated `resources.py` are excluded.
 
     python -m ruff check .
@@ -72,6 +84,8 @@ script requiring `iface`; it is not a standalone pytest suite.
 
 Run `open-qgis-dev.bat` to open `C:\OSGeo4W` QGIS with an isolated development
 profile and load this checkout directly. The Profile Tool dock opens on startup.
+The OSGeo4W and checkout paths shown here are examples from one Windows setup;
+adapt them to the installed QGIS version and local or network checkout.
 The plugin instance is accessible in the QGIS Python console as
 `iface.profiletool_dev`. Restart this session after changing Python sources.
 Startup results are written to `%TEMP%\profiletool-qgis-dev-status.json`.
