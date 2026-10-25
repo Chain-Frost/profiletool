@@ -274,7 +274,8 @@ def test_failed_project_crs_transform_does_not_leave_stale_profile(
                 pass
 
             def transform(self, _point: QgsPointXY) -> QgsPointXY:
-                raise QgsCsException("Deliberate CRS transformation failure")
+                message = "Deliberate CRS transformation failure"
+                raise QgsCsException(message)
 
         monkeypatch.setattr(profiletool_core_module, "QgsCoordinateTransform", FailingTransform)
         project.setCrs(target_crs)
