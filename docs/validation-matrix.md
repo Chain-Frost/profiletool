@@ -1,5 +1,10 @@
 # Profile Tool regression verification
 
+This document retains historical QGIS 4.x desktop-automation evidence. For the
+current post-merge release gate, consult [fork acceptance status](acceptance-status.md).
+Passing scripted checks does not establish native Windows visual or
+real-project-data acceptance.
+
 The automatic regression suite covers project CRS chainage units (degrees for a
 geographic project, native linear units for a projected project), geographic-project grades
 computed from physical metre distances, transformed sampling

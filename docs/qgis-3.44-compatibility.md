@@ -49,7 +49,11 @@ docker run --rm --entrypoint /bin/bash \
   'python3 -m pytest -s -q /tests_directory/profiletool/tests/test_qgis_layer_lifecycle.py'
 ```
 
-## Remaining merge acceptance
+## Remaining fork acceptance
+
+PR #1 was merged on 15 October 2026. The Linux-container compatibility success
+is not evidence that the unchecked native-Windows and visual requirements were
+completed. Track current acceptance in [fork acceptance status](acceptance-status.md).
 
 The CI result resolves the **reproducible Qt5 QVariant code blocker**, not
 every compatibility or visual requirement:

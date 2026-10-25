@@ -2,7 +2,7 @@ name: Profile Tool quality
 
 on:
   push:
-    branches: [master, "fix/**", "feat/**"]
+    branches: [master, "fix/**", "feat/**", "chore/**"]
   pull_request:
 
 jobs:

@@ -15,6 +15,13 @@ to compatible units before trusting the slope plot. Map coordinates do not
 determine a raster band's vertical units.
 Supports 3D polyline export to dxf.
 
+**Fork acceptance:** This is the Chain-Frost maintenance fork of
+[PANOimagen/profiletool](https://github.com/PANOimagen/profiletool). Runtime
+features and upstream metadata/version are deliberately retained. See the
+[acceptance status and parity matrix](docs/acceptance-status.md) for verified
+checks, remaining native desktop tests, and known limitations. Passing headless
+CI does not establish full QGIS desktop parity.
+
 **Authors:** Borys Jurgiel - Patrice Verchere - Etienne Tourigny - Javier Becerra
 
 **Current mantainer:** PANOimagen S.L.
@@ -72,6 +79,8 @@ script requiring `iface`; it is not a standalone pytest suite.
 
 Run `open-qgis-dev.bat` to open `C:\OSGeo4W` QGIS with an isolated development
 profile and load this checkout directly. The Profile Tool dock opens on startup.
+The OSGeo4W and checkout paths shown here are examples from one Windows setup;
+adapt them to the installed QGIS version and local or network checkout.
 The plugin instance is accessible in the QGIS Python console as
 `iface.profiletool_dev`. Restart this session after changing Python sources.
 Startup results are written to `%TEMP%\profiletool-qgis-dev-status.json`.
