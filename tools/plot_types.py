@@ -9,11 +9,13 @@ if TYPE_CHECKING:
 
     from matplotlib.axes import Axes
     from matplotlib.lines import Line2D
-    from qgis.PyQt.QtCore import QPointF, pyqtBoundSignal
+    from qgis.PyQt.QtCore import QPointF, QRectF, pyqtBoundSignal
     from qgis.PyQt.QtGui import QColor, QPen
     from qgis.PyQt.QtWidgets import QGraphicsItem, QGraphicsScene
 
     from .. import pyqtgraph as pg
+    from ..pyqtgraph.graphicsItems.PlotItem.PlotItem import PlotItem as BasePlotItem
+    from ..pyqtgraph.graphicsItems.ViewBox.ViewBox import ViewBox as BaseViewBox
     from .profilers import ProfileSeries
 
     class PlotConfig(Protocol):
@@ -139,8 +141,18 @@ if TYPE_CHECKING:
             """Replace cursor text, optionally updating its color."""
             ...
 
-    class PlotViewBox(pg.ViewBox):
+    class PlotViewBox(BaseViewBox):
         """View box with the bound range signal used by the dock controls."""
+
+        state: dict[str, object]
+
+        def viewRange(self) -> list[list[float]]:  # noqa: N802 -- Existing PyQtGraph API.
+            """Return horizontal and vertical bounds."""
+            ...
+
+        def setAspectLocked(self, lock: bool = True, ratio: float | None = 1) -> None:  # noqa: N802 -- Existing PyQtGraph API.
+            """Lock the horizontal-to-vertical scale ratio."""
+            ...
 
         sigRangeChanged: pyqtBoundSignal  # noqa: N815 -- Existing PyQtGraph signal API.
 
@@ -167,8 +179,29 @@ if TYPE_CHECKING:
             """Apply numeric vertical bounds and optional relative padding."""
             ...
 
-    class PlotItem(pg.PlotItem):
+    class PlotAxis(Protocol):
+        """Axis label exposed to plot unit checks."""
+
+        labelText: str  # noqa: N815 -- Existing PyQtGraph API.
+
+    class PlotItem(BasePlotItem):
         """Concrete graphics-item methods used by the plugin's profile plot."""
+
+        def getAxis(self, name: str) -> PlotAxis:  # noqa: N802 -- Existing PyQtGraph API.
+            """Return the requested axis and its displayed label."""
+            ...
+
+        def listDataItems(self) -> list[pg.PlotDataItem]:  # noqa: N802 -- Existing PyQtGraph API.
+            """Return the plotted data curves."""
+            ...
+
+        def sceneBoundingRect(self) -> QRectF:  # noqa: N802 -- Existing Qt API.
+            """Return plot bounds in scene coordinates."""
+            ...
+
+        def viewRange(self) -> list[list[float]]:  # noqa: N802 -- Existing PyQtGraph API.
+            """Return horizontal and vertical bounds."""
+            ...
 
         def getViewBox(self) -> PlotViewBox | None:  # noqa: N802 -- Existing PyQtGraph API.
             """Return the view that maps scene and data coordinates."""
@@ -201,7 +234,11 @@ if TYPE_CHECKING:
             """Forward graphics-item insertion to the owned plot."""
             ...
 
-        def plot(self, x: ProfileSeries, y: ProfileSeries, *, pen: QPen, name: str) -> pg.PlotDataItem:
+        def removeItem(self, *args: QGraphicsItem) -> None:  # noqa: N802 -- Existing PyQtGraph API.
+            """Forward removal of a graphics item to the owned plot."""
+            ...
+
+        def plot(self, x: ProfileSeries, y: ProfileSeries, *, pen: QPen | None = None, name: str) -> pg.PlotDataItem:
             """Create a named profile curve with explicit sample arrays and pen."""
             ...
 

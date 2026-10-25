@@ -94,7 +94,7 @@ def profilers() -> _ProfileMath:
 
 def test_plot_extent_uses_valid_sources_even_when_last_source_is_empty(profilers: _ProfileMath) -> None:
     """A final empty or NoData-only series must not hide valid earlier data."""
-    sources = [
+    sources: list[tuple[ProfileSeries, ProfileSeries]] = [
         ([0.0, 10.0, 20.0], [5.0, 7.0, 9.0]),
         ([], []),
         ([0.0, 100.0], [float("nan"), float("nan")]),
