@@ -673,12 +673,12 @@ class PlottingTool:
             if type == "2D":
                 vertices = [
                     (length, elevation, 0) if _valid_elevation(elevation) else None
-                    for length, elevation in zip(profile["l"], profile["z"])
+                    for length, elevation in zip(profile["l"], profile["z"], strict=False)
                 ]
             else:
                 vertices = [
                     (x, y, elevation) if _valid_elevation(elevation) else None
-                    for x, y, elevation in zip(profile["x"], profile["y"], profile["z"])
+                    for x, y, elevation in zip(profile["x"], profile["y"], profile["z"], strict=False)
                 ]
             # NoData gaps must not become fictitious connecting lines.
             part: list[tuple[float, float, float]] = []
