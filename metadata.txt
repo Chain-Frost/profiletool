@@ -5,7 +5,7 @@ qgisMaximumVersion=4.99
 description=Plots terrain profile
 about=This tool plots profile lines from raster layers or point vector layer with elevation field. Supports multiple lines as well as graph export to svg, pdf, png or csv file. Supports 3D polyline export to dxf. 
 category=Raster
-version=4.3.7
+version=4.3.8
 author=Borys Jurgiel - Patrice Verchere - Etienne Tourigny - Javier Becerra
 email=javier@panoimagen.com
 supportsQt6=True
@@ -13,6 +13,7 @@ experimental=False
 deprecated=False
 
 changelog=
+    4.3.8 : Add graph CSV Save As for both plotting backends, with labelled source columns and blank missing values.
     4.3.7 : Fix raster, point and mesh sampling, CRS/chainage and slope calculations, multipart selection, source tracking, plot lifecycle and graph/DXF output with NoData gaps.
     4.3.6 : Fix Qt5 graphics callbacks, including scene changes and plot bounds updates; retain Qt6 behaviour.
     4.3.5 : Remove obsolete QGIS 2 compatibility shims and simplify source ZIP packaging for QGIS 3/4.
