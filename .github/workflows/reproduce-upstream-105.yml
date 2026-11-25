@@ -1,0 +1,19 @@
+name: Internal DXF issue 105 reproduction
+on:
+  push:
+    branches: [test/upstream-stack-preflight]
+    paths: ["tests/reproduce_upstream_105.py"]
+permissions:
+  contents: read
+jobs:
+  reproduce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          docker run --rm --entrypoint /bin/bash \
+            -e QT_QPA_PLATFORM=offscreen -e QGIS_PREFIX_PATH=/usr \
+            -e PYTHONPATH=/tests_directory:/usr/share/qgis/python \
+            -v "$GITHUB_WORKSPACE:/tests_directory/profiletool" \
+            qgis/qgis:3.44.15-noble -euc 'python3 /tests_directory/profiletool/tests/reproduce_upstream_105.py'

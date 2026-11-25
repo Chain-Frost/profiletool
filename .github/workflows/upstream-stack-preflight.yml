@@ -2,7 +2,8 @@ name: Internal upstream stack preflight
 
 on:
   push:
-    branches: [test/upstream-stack-preflight]
+    branches: [test/upstream-stack-preflight-disabled]
+    paths: [".github/workflows/upstream-stack-preflight.yml"]
   pull_request:
     paths: [".github/workflows/upstream-stack-preflight.yml"]
 
