@@ -25,6 +25,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from math import sqrt
 from pathlib import Path
@@ -90,6 +91,23 @@ def getSaveFileName(parent: QWidget | None, caption: str, directory: str, filter
 def _valid_elevation(value: float | None) -> bool:
     """Accept finite numeric elevations while treating None and NaN as gaps."""
     return value is not None and bool(np.isfinite(value))
+
+
+# Names already created by the bundled R12 writer, plus AutoCAD's special layers.
+_R12_RESERVED_LAYERS = frozenset({"0", "DEFPOINTS", "DIMENSIONS", "TABLEBACKGROUND", "TABLECONTENT", "TABLEGRID", "VIEWPORTS"})
+
+
+def _allocate_r12_layer_name(source_name: str, used: set[str]) -> str:
+    """Allocate an ASCII, case-insensitive R12 symbol-table name (31 characters)."""
+    base = re.sub(r"[^A-Za-z0-9_$-]+", "_", source_name).upper()[:31] or "PROFILE"
+    candidate = base
+    number = 2
+    while candidate in used:
+        suffix = f"_{number}"
+        candidate = base[:31 - len(suffix)] + suffix
+        number += 1
+    used.add(candidate)
+    return candidate
 
 
 def pyqtgraph_plot_item(widget: QWidget | None) -> PlotItem | None:
@@ -667,9 +685,15 @@ class PlottingTool:
         QSettings().setValue("profiletool/lastdirectory", wdg.profiletoolcore.loaddirectory)
         dxf_engine = cast("DxfEngine", dxf)
         drawing = dxf_engine.drawing(fileName)
+        used_names = set(_R12_RESERVED_LAYERS)
+        layer_names: dict[str, str] = {}
         for profile in profiles:
-            name = profile["layer"].name()
-            drawing.add_layer(name)
+            layer = profile["layer"]
+            layer_id = layer.id()
+            if layer_id not in layer_names:
+                layer_names[layer_id] = _allocate_r12_layer_name(layer.name(), used_names)
+                drawing.add_layer(layer_names[layer_id])
+            name = layer_names[layer_id]
             if type == "2D":
                 vertices = [
                     (length, elevation, 0) if _valid_elevation(elevation) else None

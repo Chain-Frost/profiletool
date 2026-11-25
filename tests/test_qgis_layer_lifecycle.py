@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import csv
+import re
 import sys
 from collections.abc import Iterable
 from pathlib import Path
 from traceback import format_exception
-from types import TracebackType
+from types import SimpleNamespace, TracebackType
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -25,6 +26,7 @@ from qgis.core import (
     QgsVectorLayer,
 )
 from qgis.PyQt.QtCore import QPointF, Qt, pyqtBoundSignal
+from qgis.PyQt.QtGui import QStandardItemModel
 from qgis.PyQt.QtWidgets import QApplication, QGroupBox, QVBoxLayout
 from qgis.testing.mocked import get_iface
 
@@ -37,6 +39,8 @@ from profiletool.tools.plottingtool import PlottingTool, pyqtgraph_plot_item
 
 if TYPE_CHECKING:
     from profiletool.tools.plot_types import PlotWidget
+    from profiletool.tools.profile_types import Profile
+    from profiletool.ui.ptdockwidget import PTDockWidget
 
 
 def test_unload_before_opening_dock_disconnects_map_tool_callback() -> None:
@@ -578,3 +582,71 @@ def test_whole_layer_selection_retains_multipart_point_vertices() -> None:
         plugin.unload()
         project.removeMapLayer(layer.id())
         project.setCrs(original_crs)
+
+
+@pytest.mark.parametrize("mode", ["2D", "3D"])
+def test_dxf_export_uses_unique_r12_layer_names(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mode: str
+) -> None:
+    """Export legal R12 names, keep distinct sources separate, and preserve geometry."""
+    iface = get_iface()
+    source_names = ["RASTER-0.200", "raster-0_200", "RASTER-0.200", "A" * 40, "VIEWPORTS", "0", "水位"]
+    expected_names = ["RASTER-0_200", "RASTER-0_200_2", "RASTER-0_200_3", "A" * 31, "VIEWPORTS_2", "0_2", "_"]
+    layers = [QgsVectorLayer("Point?crs=EPSG:28350", name, "memory") for name in source_names]
+    assert all(layer.isValid() for layer in layers)
+    distances = [0.0, 1.0, 2.0, 3.0, 4.0]
+    elevations = [0.0, 2.0, float("nan"), 4.0, 5.0]
+    profiles: list[Profile] = [
+        {
+            "layer": layer,
+            "band": 1,
+            "l": distances,
+            "z": elevations,
+            "x": [10.0, 11.0, 12.0, 13.0, 14.0],
+            "y": [20.0, 21.0, 22.0, 23.0, 24.0],
+            "crs": layer.crs(),
+            "plot_x": distances,
+            "plot_y": elevations,
+        }
+        for layer in layers
+    ]
+    # Repeated bands of the same source retain its existing DXF grouping.
+    repeated = profiles[0].copy()
+    repeated["band"] = 2
+    profiles.append(repeated)
+    dock = cast("PTDockWidget", SimpleNamespace(profiletoolcore=SimpleNamespace(loaddirectory=str(tmp_path))))
+    output = tmp_path / f"profile-{mode}.dxf"
+
+    def save_path(*_args: object, **_kwargs: object) -> str:
+        return str(output)
+
+    monkeypatch.setattr(plottingtool_module, "getSaveFileName", save_path)
+    PlottingTool().outDXF(iface, dock, QStandardItemModel(), None, profiles, type=mode)
+
+    # Inspect the emitted DXF group-code records, independently of dxfwrite.
+    lines = output.read_text(encoding="cp1252").splitlines()
+    tags = [(int(code), value.strip()) for code, value in zip(lines[::2], lines[1::2], strict=True)]
+    assert tags[tags.index((9, "$ACADVER")) + 1] == (1, "AC1009")
+    records: list[tuple[str, dict[int, str]]] = []
+    for code, value in tags:
+        if code == 0:
+            records.append((value, {}))
+        elif records:
+            records[-1][1][code] = value
+
+    names = [attributes[2] for kind, attributes in records if kind == "LAYER"]
+    assert len(names) == len({name.upper() for name in names})
+    assert all(re.fullmatch(r"[A-Z0-9_$-]{1,31}", name) for name in names)
+    assert set(expected_names) <= set(names)
+    polylines: list[tuple[str, list[tuple[float, float, float]]]] = []
+    for kind, attributes in records:
+        if kind == "POLYLINE":
+            polylines.append((attributes[8], []))
+        elif kind == "VERTEX":
+            assert attributes[8] == polylines[-1][0]
+            polylines[-1][1].append((float(attributes[10]), float(attributes[20]), float(attributes.get(30, "0"))))
+    first = [(0.0, 0.0, 0.0), (1.0, 2.0, 0.0)] if mode == "2D" else [(10.0, 20.0, 0.0), (11.0, 21.0, 2.0)]
+    second = [(3.0, 4.0, 0.0), (4.0, 5.0, 0.0)] if mode == "2D" else [(13.0, 23.0, 4.0), (14.0, 24.0, 5.0)]
+    assert polylines == [
+        (name, part) for name in [*expected_names, expected_names[0]] for part in [first, second]
+    ]
