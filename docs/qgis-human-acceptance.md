@@ -8,6 +8,13 @@ Automated test success is **not** a substitute for the visual and interactive
 checks below. Do not mark boxes based solely on scripted QtTest input, a Linux
 offscreen QGIS container, or a previous code revision.
 
+## Current handoff — 25 November 2026
+
+- Integrated master is now `54045fe12a15961d67abbdc9961a122eb8a1fb25`, including merged [PR #6](https://github.com/Chain-Frost/profiletool/pull/6). The older 74-error Pyright result and prepared ZIP below are historical. PR #6 recorded zero errors/warnings on its tested head; master passed [quality CI](https://github.com/Chain-Frost/profiletool/actions/runs/40197036286) (26 regressions) and [QGIS 3.44 CI](https://github.com/Chain-Frost/profiletool/actions/runs/40197036344) (11 native Linux QGIS regressions).
+- Rebuild the install ZIP from the exact final contribution-stack head; record new SHA and package digest. Earlier automated evidence is not acceptance of the new commit. The candidate on fork master reports 4.4.0; upstream may decide the release version.
+- H01–H21 remain NOT TESTED in both Windows environments. H19 additionally needs [upstream #105](https://github.com/PANOimagen/profiletool/issues/105) reproduction: export both DXFs with a raster named `RASTER-0.200`, duplicate names, zero and NoData gaps; open in actual AutoCAD or DWG TrueView, record exact versions and independent geometry checks. QGIS reopening alone is insufficient. If reproduced, diagnose DXF dialect/table-name restrictions and add a focused deterministic collision-safe fix with regression tests. If CAD is unavailable, record NOT TESTED. No claim that #105 is resolved.
+- Historical preflight instructions below refer to the October candidate and must not be used as the final package identity. This PR stays draft until actual desktop evidence and a signed recommendation exist.
+
 ## Purpose and constraints
 
 - Compare real user workflows against **upstream version 4.3.4** while allowing

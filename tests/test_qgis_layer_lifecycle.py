@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from traceback import format_exception
 from types import TracebackType
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -26,7 +26,7 @@ from qgis.core import (
 )
 from qgis.PyQt.QtCore import QPointF, Qt, pyqtBoundSignal
 from qgis.PyQt.QtGui import QTransform
-from qgis.PyQt.QtWidgets import QApplication, QGroupBox, QVBoxLayout
+from qgis.PyQt.QtWidgets import QApplication, QGraphicsItem, QGroupBox, QVBoxLayout
 from qgis.testing.mocked import get_iface
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -35,6 +35,9 @@ from profiletool.profileplugin import ProfilePlugin
 from profiletool.tools import plottingtool as plottingtool_module
 from profiletool.tools import profiletool_core as profiletool_core_module
 from profiletool.tools.plottingtool import PlottingTool, pyqtgraph_plot_item
+
+if TYPE_CHECKING:
+    from profiletool.tools.plot_types import PlotWidget
 
 
 def test_unload_before_opening_dock_disconnects_map_tool_callback() -> None:
@@ -59,7 +62,7 @@ def test_graphics_parent_scene_and_bounds_notifications_are_preserved(monkeypatc
         callback_errors.append(value)
 
     monkeypatch.setattr(sys, "excepthook", capture_callback_error)
-    plot = pg.PlotWidget()
+    plot = cast("PlotWidget", pg.PlotWidget())
     curve = pg.PlotDataItem([0.0, 1.0], [3.0, 6.0])
     try:
         assert curve.scene() is None
@@ -78,14 +81,14 @@ def test_graphics_parent_scene_and_bounds_notifications_are_preserved(monkeypatc
             previous_bounds_changed(item)
 
         monkeypatch.setattr(view_box, "itemBoundsChanged", capture_bounds_changed)
-        curve.setPos(12.0, 4.0)
+        cast("QGraphicsItem", curve).setPos(12.0, 4.0)
         assert curve.pos().x() == 12.0
         assert curve.pos().y() == 4.0
         assert curve in bounds_changed
 
         # QGIS 3/PyQt5 must invalidate bounds for explicit transforms, too.
         bounds_changed.clear()
-        curve.setTransform(QTransform.fromScale(2.0, 1.5))
+        cast("QGraphicsItem", curve).setTransform(QTransform.fromScale(2.0, 1.5))
         assert curve in bounds_changed
         bounds_changed.clear()
         curve.resetTransform()
@@ -111,16 +114,17 @@ def test_plot_cursor_hides_nodata_and_marker(monkeypatch: pytest.MonkeyPatch) ->
         assert core.toolrenderer is not None
         plot = core.dockwidget.plotWdg
         assert isinstance(plot, pg.PlotWidget)
-        plot_item = plot.getPlotItem()
-        gap_curve = plot.plot([0.0, 1.0, 2.0], [3.0, float("nan"), 5.0], name="gap")
-        assert core._nearest_plot_sample(plot_item, QPointF(0.0, 3.0)) == (0.0, 3.0)
-        assert core._nearest_plot_sample(plot_item, QPointF(1.0, 4.0)) == (None, None)
-        other = plot.plot([0.0, 1.0, 2.0], [float("nan"), 7.0, float("nan")], name="other")
-        assert core._nearest_plot_sample(plot_item, QPointF(1.0, 6.0)) == (1.0, 7.0)
+        plot_item = pyqtgraph_plot_item(plot)
+        assert plot_item is not None
+        gap_curve = cast("PlotWidget", plot).plot([0.0, 1.0, 2.0], [3.0, float("nan"), 5.0], name="gap")
+        assert core._nearest_plot_sample(plot_item, QPointF(0.0, 3.0)) == (0.0, 3.0)  # pyright: ignore[reportPrivateUsage] -- Regression verifies internal state.
+        assert core._nearest_plot_sample(plot_item, QPointF(1.0, 4.0)) == (None, None)  # pyright: ignore[reportPrivateUsage] -- Regression verifies internal state.
+        other = cast("PlotWidget", plot).plot([0.0, 1.0, 2.0], [float("nan"), 7.0, float("nan")], name="other")
+        assert core._nearest_plot_sample(plot_item, QPointF(1.0, 6.0)) == (1.0, 7.0)  # pyright: ignore[reportPrivateUsage] -- Regression verifies internal state.
         other.hide()
-        assert core._nearest_plot_sample(plot_item, QPointF(1.0, 4.0)) == (None, None)
+        assert core._nearest_plot_sample(plot_item, QPointF(1.0, 4.0)) == (None, None)  # pyright: ignore[reportPrivateUsage] -- Regression verifies internal state.
         gap_curve.hide()
-        assert core._nearest_plot_sample(plot_item, QPointF(0.0, 3.0)) == (None, None)
+        assert core._nearest_plot_sample(plot_item, QPointF(0.0, 3.0)) == (None, None)  # pyright: ignore[reportPrivateUsage] -- Regression verifies internal state.
         gap_curve.show()
 
         core.pointstoDraw = [[0.0, 0.0], [2.0, 0.0]]
@@ -128,7 +132,10 @@ def test_plot_cursor_hides_nodata_and_marker(monkeypatch: pytest.MonkeyPatch) ->
         core.updateCursorOnMap(0.0)
         marker = core.toolrenderer.rubberbandpoint
         assert marker.isVisible()
-        monkeypatch.setattr(core, "_nearest_plot_sample", lambda *args: (None, None))
+        def no_sample(*_args: object) -> tuple[None, None]:
+            return None, None
+
+        monkeypatch.setattr(core, "_nearest_plot_sample", no_sample)
         core.dockwidget.showcursor = True
         core.mouseMovedPyQtGraph(plot_item.sceneBoundingRect().center())
         assert core.x_cursor is None
@@ -160,14 +167,17 @@ def test_chainage_label_refreshes_for_project_crs_changes() -> None:
         dock = core.dockwidget
         plot = dock.plotWdg
         assert isinstance(plot, pg.PlotWidget)
-        assert "m" in plot.getPlotItem().getAxis("bottom").labelText
+        plot_item = pyqtgraph_plot_item(plot)
+        assert plot_item is not None
+        assert "m" in plot_item.getAxis("bottom").labelText
         project.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
         core.plotProfil()
-        assert PlottingTool._chainage_unit() in plot.getPlotItem().getAxis("bottom").labelText
+        assert PlottingTool._chainage_unit() in plot_item.getAxis("bottom").labelText  # pyright: ignore[reportPrivateUsage] -- Regression verifies internal state.
         if dock.cboLibrary.findText("Matplotlib") >= 0:
             dock.cboLibrary.setCurrentIndex(dock.cboLibrary.findText("Matplotlib"))
             core.plotProfil()
-            assert PlottingTool._chainage_unit() in dock.plotWdg.figure.get_axes()[0].get_xlabel()
+            assert dock.plotWdg is not None
+            assert PlottingTool._chainage_unit() in dock.plotWdg.figure.get_axes()[0].get_xlabel()  # pyright: ignore[reportPrivateUsage] -- Regression verifies internal state.
     finally:
         plugin.unload()
         project.setCrs(old_crs)
@@ -237,10 +247,10 @@ def test_active_profile_preserves_geometry_and_elevations_across_project_crs_cha
         assert core.profiles[0]["l"][-1] == pytest.approx(20.0, abs=0.01)
 
         # Unloading removes our project CRS signal and leaves no stale callbacks.
-        assert core._crs_signal_connected
+        assert core._crs_signal_connected  # pyright: ignore[reportPrivateUsage] -- Regression verifies internal state.
     finally:
         plugin.unload()
-        assert not plugin.profiletool or not plugin.profiletool._crs_signal_connected
+        assert not plugin.profiletool or not plugin.profiletool._crs_signal_connected  # pyright: ignore[reportPrivateUsage] -- Regression verifies unload state.
         project.removeMapLayer(layer.id())
         project.setCrs(original_crs)
 
@@ -329,10 +339,10 @@ def test_failed_project_crs_transform_does_not_leave_stale_profile(
         assert core.toolrenderer.pointstoDraw == []
         assert core.profiles == []
         assert not core.toolrenderer.rubberbandpoint.isVisible()
-        assert core._profile_crs == target_crs
+        assert core._profile_crs == target_crs  # pyright: ignore[reportPrivateUsage] -- Regression verifies internal state.
     finally:
         plugin.unload()
-        assert plugin.profiletool is None or not plugin.profiletool._crs_signal_connected
+        assert plugin.profiletool is None or not plugin.profiletool._crs_signal_connected  # pyright: ignore[reportPrivateUsage] -- Regression verifies unload state.
         project.setCrs(old_crs)
 
 
@@ -372,6 +382,7 @@ def test_matplotlib_autoscales_when_final_profile_is_empty() -> None:
         assert len(core.profiles) == 2
         assert len(core.profiles[0]["plot_y"]) > 0
         assert not core.profiles[-1]["plot_x"]
+        assert dock.plotWdg is not None
         axes = dock.plotWdg.figure.get_axes()[0]
         assert 19.0 <= axes.get_xlim()[1] < 100.0
         assert axes.get_ylim()[1] >= 220.0
@@ -504,11 +515,10 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(
                 dock.refreshPlot()
                 # Exercise the actual Save As menu on every installed backend.
                 output = tmp_path / f"profile_{index}.csv"
-                monkeypatch.setattr(
-                    plottingtool_module,
-                    "getSaveFileName",
-                    lambda *args, output_path=output, **kwargs: str(output_path),
-                )
+                def save_path(*_args: object, output_path: Path = output, **_kwargs: object) -> str:
+                    return str(output_path)
+
+                monkeypatch.setattr(plottingtool_module, "getSaveFileName", save_path)
                 assert dock.cbxSaveAs.findText("Graph - CSV") >= 0
                 dock.cbxSaveAs.setCurrentText("Graph - CSV")
                 dock.butSaveAs.click()
