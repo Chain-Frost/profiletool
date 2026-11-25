@@ -1,8 +1,8 @@
-# Profile Tool 4.4.0: native QGIS manual acceptance
+# Profile Tool contribution stack: native QGIS manual acceptance
 
-**Status: automated preflight completed; human acceptance NOT TESTED.**
+**Status: historical automated preflight completed; final stack validation pending; human acceptance NOT TESTED.**
 This is the human validation record for the Chain-Frost maintenance fork's
-proposed **Profile Tool 4.4.0** contribution to
+proposed Profile Tool contribution to
 [PANOimagen/profiletool](https://github.com/PANOimagen/profiletool).
 Automated test success is **not** a substitute for the visual and interactive
 checks below. Do not mark boxes based solely on scripted QtTest input, a Linux
@@ -11,7 +11,8 @@ offscreen QGIS container, or a previous code revision.
 ## Current handoff — 25 November 2026
 
 - Integrated master is now `54045fe12a15961d67abbdc9961a122eb8a1fb25`, including merged [PR #6](https://github.com/Chain-Frost/profiletool/pull/6). The older 74-error Pyright result and prepared ZIP below are historical. PR #6 recorded zero errors/warnings on its tested head; master passed [quality CI](https://github.com/Chain-Frost/profiletool/actions/runs/40197036286) (26 regressions) and [QGIS 3.44 CI](https://github.com/Chain-Frost/profiletool/actions/runs/40197036344) (11 native Linux QGIS regressions).
-- Rebuild the install ZIP from the exact final contribution-stack head; record new SHA and package digest. Earlier automated evidence is not acceptance of the new commit. The candidate on fork master reports 4.4.0; upstream may decide the release version.
+- Draft PRs #7–#11 form a stack on the upstream baseline. Final candidate: `54ae27969c6fd9ef54aca93bc72d2a3ab2b05dd6` on `upstream/05-ci-documentation`. Runtime and packaging blobs match integrated master byte for byte; tests were reorganised and CI/documents narrowed. This is not new test evidence.
+- Rebuild the install ZIP from the exact final stack head and record SHA and package digest. Fork master reports 4.4.0, but the stack retains upstream metadata 4.3.4 pending the maintainer's release decision. Check the version reported by the actual candidate metadata, not a hard-coded version.
 - H01–H21 remain NOT TESTED in both Windows environments. H19 additionally needs [upstream #105](https://github.com/PANOimagen/profiletool/issues/105) reproduction: export both DXFs with a raster named `RASTER-0.200`, duplicate names, zero and NoData gaps; open in actual AutoCAD or DWG TrueView, record exact versions and independent geometry checks. QGIS reopening alone is insufficient. If reproduced, diagnose DXF dialect/table-name restrictions and add a focused deterministic collision-safe fix with regression tests. If CAD is unavailable, record NOT TESTED. No claim that #105 is resolved.
 - Historical preflight instructions below refer to the October candidate and must not be used as the final package identity. This PR stays draft until actual desktop evidence and a signed recommendation exist.
 
@@ -21,7 +22,7 @@ offscreen QGIS container, or a previous code revision.
   the documented bug fixes of 4.4.0. Do not introduce new features or redesign
   the original plugin.
 - Use the release-ready ZIP from the **exact Git SHA being accepted** and check
-  the installed plugin's `metadata.txt` reports version `4.4.0`. Record its SHA.
+  the installed plugin's `metadata.txt` matches the selected candidate. Record its SHA.
 - Prefer **native Windows QGIS 3.44.x (PyQt5)** and **QGIS 4.x (PyQt6)**. Record
   exact QGIS, Qt, PyQt, Python, GDAL, OS and source commit for each run.
   If one installation is genuinely unavailable, record **NOT TESTED** and why;
@@ -123,8 +124,7 @@ Additional local checks on 25 October 2026, against the same source SHA:
 A human tester must launch the prepared disposable profile, activate the ZIP,
 execute and document H01–H21 with independent source/export checks, and sign
 the acceptance decision. Repeat with native QGIS 3.44 when available; retain
-explicit exclusions otherwise. An authorised maintainer must dispatch the
-missing exact-head compatibility workflow. Recheck CI and typing after any
+explicit exclusions otherwise. Record the exact-head compatibility workflow; dispatch it if no automatic run exists. Recheck CI and typing after any
 source changes, then request the documentation/evidence review specified in
 the PR before handing back a signed recommendation. Keep this PR Draft and
 unmerged. Local staging is not approval for release or upstream submission.
@@ -165,11 +165,11 @@ a mock. For DXF, inspect vertex geometry independently of the plugin.
 
 ### Human tester: preparation and execution
 
-1. Obtain the prepared ZIP and private launch instructions from the local
-   handover. Verify the SHA-256 above. Use a disposable profile, not your normal
+1. Build or obtain the ZIP from the current final stack SHA (not the historical October ZIP).
+   Verify its newly recorded SHA-256 against the accepted candidate. Use a disposable profile, not your normal
    QGIS profile. In another installation, use **Settings > User Profiles > New
    Profile**, then **Plugins > Manage and Install Plugins > Install from ZIP**.
-   Confirm version `4.4.0` and record the source SHA and environment versions.
+   Confirm the candidate's metadata version and record the source SHA and environment versions.
 2. Prepare copies of a single-band and multiband raster, duplicate-name layers,
    a raster containing valid zero and NoData, multipart/disconnected lines,
    numeric-Z points and an actual scalar mesh. Include differing layer/project
@@ -221,8 +221,7 @@ Recommendation: PASS / QUALIFIED PASS / FAIL
 Signature:
 ```
 
-The agent supplies automated evidence, not the human signature. An authorised
-maintainer must dispatch the missing exact-head QGIS 3.44 workflow and request
+The agent supplies automated evidence, not the human signature. Record the final stack's exact-head QGIS 3.44 workflow result; dispatch if needed and request
 the Codex documentation/evidence review after human results are recorded.
 
 - [ ] All applicable H01–H21 checks have recorded results for both target QGIS
@@ -234,7 +233,7 @@ the Codex documentation/evidence review after human results are recorded.
 - [ ] Required quality workflow, QGIS 3.44 compatibility workflow and
   QGIS-aware typing results are recorded at the exact final source SHA;
   inherited full-Pyright findings are distinguished from changed-line defects.
-- [ ] The candidate 4.4.0 metadata, licence/attributions and changelog were
+- [ ] The candidate metadata, licence/attributions and changelog were
   reviewed for submission to upstream; no GitHub release/tag is implied.
 - [ ] Human tester records final PASS / QUALIFIED PASS / FAIL decision, date,
   environments and remaining exclusions in a PR comment.
