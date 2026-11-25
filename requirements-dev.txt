@@ -1,0 +1,5 @@
+# QGIS-independent checks; use the QGIS Python environment for native tests.
+numpy
+pytest>=9
+ruff==0.16.6
+pyright>=1.1.410

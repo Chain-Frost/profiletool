@@ -1,0 +1,15 @@
+{
+  "include": [
+    "tools/profilers.py",
+    "tools/csv_export.py"
+  ],
+  "exclude": [
+    "pyqtgraph",
+    "dxfwrite",
+    "resources.py",
+    "**/__pycache__",
+    ".venv"
+  ],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "strict"
+}
