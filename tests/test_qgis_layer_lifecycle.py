@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import sys
 from collections.abc import Iterable
 from pathlib import Path
@@ -30,6 +31,7 @@ from qgis.testing.mocked import get_iface
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from profiletool import pyqtgraph as pg
 from profiletool.profileplugin import ProfilePlugin
+from profiletool.tools import plottingtool as plottingtool_module
 from profiletool.tools import profiletool_core as profiletool_core_module
 from profiletool.tools.plottingtool import PlottingTool, pyqtgraph_plot_item
 
@@ -389,7 +391,7 @@ def test_whole_layer_selection_keeps_all_disconnected_features() -> None:
 
 
 def test_deleting_profile_sources_refreshes_without_deleted_wrappers(
-    monkeypatch: pytest.MonkeyPatch
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Deleting one or several sources must keep model and sampled profiles valid."""
     callback_errors: list[tuple[type[BaseException], BaseException, TracebackType | None]] = []
@@ -461,6 +463,20 @@ def test_deleting_profile_sources_refreshes_without_deleted_wrappers(
             for index in range(dock.cboLibrary.count()):
                 dock.cboLibrary.setCurrentIndex(index)
                 dock.refreshPlot()
+                # Exercise the actual Save As menu on every installed backend.
+                output = tmp_path / f"profile_{index}.csv"
+                def save_path(*_args: object, output_path: Path = output, **_kwargs: object) -> str:
+                    return str(output_path)
+
+                monkeypatch.setattr(plottingtool_module, "getSaveFileName", save_path)
+                assert dock.cbxSaveAs.findText("Graph - CSV") >= 0
+                dock.cbxSaveAs.setCurrentText("Graph - CSV")
+                dock.butSaveAs.click()
+                with output.open(newline="", encoding="utf-8") as stream:
+                    csv_rows = list(csv.reader(stream))
+                assert len(csv_rows) > 1
+                assert len(csv_rows[0]) == 2 * len(core.profiles)
+                assert csv_rows[1][1] != ""
                 if dock.cboLibrary.currentText() == "PyQtGraph":
                     plot = dock.plotWdg
                     assert isinstance(plot, pg.PlotWidget)
