@@ -1,6 +1,6 @@
 # Profile Tool contribution stack: native QGIS manual acceptance
 
-**Status: historical automated preflight completed; final stack validation pending; human acceptance NOT TESTED.**
+**Status: final stack automated checks passed; independent review of the DXF follow-on requested; human acceptance NOT TESTED.**
 This is the human validation record for the Chain-Frost maintenance fork's
 proposed Profile Tool contribution to
 [PANOimagen/profiletool](https://github.com/PANOimagen/profiletool).
@@ -11,15 +11,16 @@ offscreen QGIS container, or a previous code revision.
 ## Current handoff — 25 November 2026
 
 - Integrated master is now `54045fe12a15961d67abbdc9961a122eb8a1fb25`, including merged [PR #6](https://github.com/Chain-Frost/profiletool/pull/6). The older 74-error Pyright result and prepared ZIP below are historical. PR #6 recorded zero errors/warnings on its tested head; master passed [quality CI](https://github.com/Chain-Frost/profiletool/actions/runs/40197036286) (26 regressions) and [QGIS 3.44 CI](https://github.com/Chain-Frost/profiletool/actions/runs/40197036344) (11 native Linux QGIS regressions).
-- Draft PRs #7–#11 form a stack on the upstream baseline. Final candidate: `645047d80f6fd31fd0526a2e063f400775259191` on `upstream/05-ci-documentation` (4.3.9). The previous unversioned stack matched integrated master; subsequent focused review fixes address PyQt5 scene-only graphics registration (#8), projected mesh sampling density and multipart point vertices (#9). Validate the new exact heads.
-- Rebuild the install ZIP from the exact final stack head and record SHA and package digest. Fork master reports 4.4.0; the contribution stack advances from upstream 4.3.4 through 4.3.5–4.3.9, with cumulative changelog entries. Verify version 4.3.9 for the final candidate. Use a disposable profile because a local 4.4.0 installation may be considered newer. These are proposed source versions, not published releases.
-- H01–H21 remain NOT TESTED in both Windows environments. H19 additionally needs [upstream #105](https://github.com/PANOimagen/profiletool/issues/105) reproduction: export both DXFs with a raster named `RASTER-0.200`, duplicate names, zero and NoData gaps; open in actual AutoCAD or DWG TrueView, record exact versions and independent geometry checks. QGIS reopening alone is insufficient. If reproduced, diagnose DXF dialect/table-name restrictions and add a focused deterministic collision-safe fix with regression tests. If CAD is unavailable, record NOT TESTED. No claim that #105 is resolved.
+- Draft PRs #7–#12 form a six-PR stack on the upstream baseline. Final candidate: `f22371dfd312f0afda200085de626ac5552c4a52` on `upstream/06-dxf-layer-names` (4.3.10). PRs #7–#11 passed exact-head independent review; their intermediate ZIP/deploy, installed initialization and applicable regression tests passed in [preflight](https://github.com/Chain-Frost/profiletool/actions/runs/45614318342). The 4.3.10 candidate passed [quality](https://github.com/Chain-Frost/profiletool/actions/runs/45614939325) (27 tests, Ruff, scoped Pyright, compile, ZIP) and [QGIS 3.44](https://github.com/Chain-Frost/profiletool/actions/runs/45614939329) (15 tests). Independent review of #12 was requested; confirm the latest exact-head result before submission. 
+- Review fixes include PyQt5 scene-only graphics registration (#8), projected mesh sampling density and multipart point vertices (#9), and a focused R12 layer-name fix (#12). The [pre-fix actual-output reproduction](https://github.com/Chain-Frost/profiletool/actions/runs/45614704194) confirmed AC1009 with invalid `RASTER-0.200` in both DXF modes. #12 adds legacy-safe unique layer names and regression checks for the emitted records and geometry; this is not actual AutoCAD opening evidence.
+- Rebuild the install ZIP from the exact final stack head and record SHA and package digest. Fork master reports 4.4.0; the contribution stack advances from upstream 4.3.4 through 4.3.5–4.3.10, with cumulative changelog entries. Verify version 4.3.10 for the final candidate. Use a disposable profile because a local 4.4.0 installation may be considered newer. These are proposed source versions, not published releases.
+- H01–H21 remain NOT TESTED in both Windows environments. H19 additionally requires verification of [upstream #105](https://github.com/PANOimagen/profiletool/issues/105): export both DXFs from a raster named `RASTER-0.200`, include duplicate/sanitization-colliding names, long names, zero and NoData gaps; verify actual AutoCAD or DWG TrueView reopening, CAD layer names and independent geometry checks. Use 4.3.9 for the before-fix comparison if practical and 4.3.10 for the after-fix test. QGIS reopening alone is insufficient. If CAD is unavailable, record NOT TESTED. Do not claim #105 resolved without actual evidence.
 - Historical preflight instructions below refer to the October candidate and must not be used as the final package identity. This PR stays draft until actual desktop evidence and a signed recommendation exist.
 
 ## Purpose and constraints
 
 - Compare real user workflows against **upstream version 4.3.4** while allowing
-  the documented bug fixes of 4.4.0. Do not introduce new features or redesign
+  the documented fixes in the six-PR contribution stack. Do not introduce new features or redesign
   the original plugin.
 - Use the release-ready ZIP from the **exact Git SHA being accepted** and check
   the installed plugin's `metadata.txt` matches the selected candidate. Record its SHA.
@@ -149,7 +150,7 @@ unmerged. Local staging is not approval for release or upstream submission.
 | H16 | On slope plot, click to save profile points; copy sample/coordinate tables | Saved Z is source elevation, not grade; legitimate zero values survive | NOT TESTED | NOT TESTED |
 | H17 | Save/reopen PNG, SVG and CSV from supported backends | Legible axes and correct series, units, NoData gaps and CSV columns | NOT TESTED | NOT TESTED |
 | H18 | Matplotlib PDF (and existing PS option if functional); inspect output | PDF renders/opens; correct axis/curves/gaps; record unsupported PS honestly | NOT TESTED | NOT TESTED |
-| H19 | Export 2D/3D DXF, reopen independently in CAD/QGIS | 2D distance/elevation and 3D source-coordinate lines correct; no lines bridging NoData | NOT TESTED | NOT TESTED |
+| H19 | Export 2D/3D DXF, reopen in AutoCAD/TrueView for upstream #105 and compare independently in CAD/QGIS | Valid unique R12 layer names; 2D distance/elevation and 3D source-coordinate lines correct; no lines bridging NoData | NOT TESTED | NOT TESTED |
 | H20 | Rotated/warped raster with narrow source NoData column | Compare raw pixels to provider-visible samples; document QGIS resampling caveat, not fabricated preservation | NOT TESTED | NOT TESTED |
 | H21 | Remove layer while dock is open; change map tools, then unload/reload | No dangling source wrappers, stale map tools or callback exceptions | NOT TESTED | NOT TESTED |
 
