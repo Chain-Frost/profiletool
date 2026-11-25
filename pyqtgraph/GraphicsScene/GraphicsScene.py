@@ -5,7 +5,7 @@ from time import perf_counter, perf_counter_ns
 from .. import debug as debug
 from .. import getConfigOption
 from ..Point import Point
-from ..Qt import QtCore, QtGui, QtWidgets, isQObjectAlive
+from ..Qt import QT_LIB, QtCore, QtGui, QtWidgets, isQObjectAlive
 from .mouseEvents import HoverEvent, MouseClickEvent, MouseDragEvent
 
 getMillis = lambda: perf_counter_ns() // 10 ** 6
@@ -386,15 +386,29 @@ class GraphicsScene(QtWidgets.QGraphicsScene):
         self.sigMouseClicked.emit(ev)
         return ev.isAccepted()
 
+    @staticmethod
+    def _refreshQt5SceneView(item):
+        # GraphicsObject keeps Qt's native itemChange in PyQt5. Scene-only
+        # changes do not emit parentChanged. Refresh after native add/remove.
+        if QT_LIB != 'PyQt5':
+            return
+        from ..graphicsItems.GraphicsObject import GraphicsObject
+        if isinstance(item, GraphicsObject):
+            item.changeParent()
+        for child in item.childItems():
+            GraphicsScene._refreshQt5SceneView(child)
+
     def addItem(self, item):
         # extend QGraphicsScene.addItem to emit a sigItemAdded signal
         ret = QtWidgets.QGraphicsScene.addItem(self, item)
+        self._refreshQt5SceneView(item)
         self.sigItemAdded.emit(item)
         return ret
 
     def removeItem(self, item):
         # extend QGraphicsScene.removeItem to emit a sigItemRemoved signal
         ret = QtWidgets.QGraphicsScene.removeItem(self, item)
+        self._refreshQt5SceneView(item)
         self.sigItemRemoved.emit(item)
         return ret
 

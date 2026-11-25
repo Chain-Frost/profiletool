@@ -15,6 +15,29 @@ class GraphicsObject(GraphicsItem, QtWidgets.QGraphicsObject):
         QtWidgets.QGraphicsObject.__init__(self, *args)
         self.setFlag(self.GraphicsItemFlag.ItemSendsGeometryChanges)
         GraphicsItem.__init__(self)
+        if QT_LIB == 'PyQt5':
+            # QGIS 3.44/PyQt5 cannot round-trip QVariant wrappers for parent
+            # and scene pointers through a Python itemChange() override.
+            # Mirror the view-registration and bounds invalidation callbacks
+            # through QGraphicsObject's native Qt property signals instead.
+            # Access the parent's parentChanged signal explicitly: the
+            # GraphicsItem mixin also defines a legacy parentChanged method.
+            QtWidgets.QGraphicsObject.parentChanged.__get__(self, type(self)).connect(self.changeParent)
+            self.xChanged.connect(self.informViewBoundsChanged)
+            self.yChanged.connect(self.informViewBoundsChanged)
+            self.rotationChanged.connect(self.informViewBoundsChanged)
+            self.scaleChanged.connect(self.informViewBoundsChanged)
+
+    if QT_LIB == 'PyQt5':
+        def setTransform(self, transform, combine=False):
+            # An explicit matrix change does not emit x/rotation/scale signals.
+            # Notify auto-range without restoring the unsafe Qt5 itemChange().
+            QtWidgets.QGraphicsObject.setTransform(self, transform, combine)
+            self.informViewBoundsChanged()
+
+        def resetTransform(self):
+            QtWidgets.QGraphicsObject.resetTransform(self)
+            self.informViewBoundsChanged()
         
     def itemChange(self, change, value):
         ret = super().itemChange(change, value)
@@ -45,3 +68,11 @@ class GraphicsObject(GraphicsItem, QtWidgets.QGraphicsObject):
                 self.informViewBoundsChanged()
             
         return ret
+
+
+if QT_LIB == 'PyQt5':
+    # Keep the native Qt virtual method for Qt5. Its QVariant arguments can
+    # contain scene/item pointers which SIP cannot convert to Python. Removing
+    # the Python override avoids corrupting the parent/scene change request.
+    # Qt6 retains the original itemChange() implementation above.
+    del GraphicsObject.itemChange
