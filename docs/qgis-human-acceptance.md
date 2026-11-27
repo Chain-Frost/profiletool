@@ -1,21 +1,19 @@
 # Profile Tool contribution stack: native QGIS manual acceptance
 
-**Status: final stack automated checks passed; independent review of the DXF follow-on requested; human acceptance NOT TESTED.**
-This is the human validation record for the Chain-Frost maintenance fork's
-proposed Profile Tool contribution to
-[PANOimagen/profiletool](https://github.com/PANOimagen/profiletool).
-Automated test success is **not** a substitute for the visual and interactive
-checks below. Do not mark boxes based solely on scripted QtTest input, a Linux
-offscreen QGIS container, or a previous code revision.
+**Status: native Windows scripted and Autodesk engine evidence recorded. Human acceptance remains NOT TESTED.**
 
-## Current handoff — 25 November 2026
+The [28 November 2026 Windows evidence](qgis-native-windows-4.3.10.md) records
+the exact 4.3.10 ZIP and candidate SHA, both native QGIS environments,
+regression and typing outcomes, and the Autodesk result for upstream #105.
+The independent review of PR #12 completed with no findings at
+`f22371dfd312f0afda200085de626ac5552c4a52`.
 
-- Integrated master is now `54045fe12a15961d67abbdc9961a122eb8a1fb25`, including merged [PR #6](https://github.com/Chain-Frost/profiletool/pull/6). The older 74-error Pyright result and prepared ZIP below are historical. PR #6 recorded zero errors/warnings on its tested head; master passed [quality CI](https://github.com/Chain-Frost/profiletool/actions/runs/40197036286) (26 regressions) and [QGIS 3.44 CI](https://github.com/Chain-Frost/profiletool/actions/runs/40197036344) (11 native Linux QGIS regressions).
-- Draft PRs #7–#12 form a six-PR stack on the upstream baseline. Final candidate: `f22371dfd312f0afda200085de626ac5552c4a52` on `upstream/06-dxf-layer-names` (4.3.10). PRs #7–#11 passed exact-head independent review; their intermediate ZIP/deploy, installed initialization and applicable regression tests passed in [preflight](https://github.com/Chain-Frost/profiletool/actions/runs/45614318342). The 4.3.10 candidate passed [quality](https://github.com/Chain-Frost/profiletool/actions/runs/45614939325) (27 tests, Ruff, scoped Pyright, compile, ZIP) and [QGIS 3.44](https://github.com/Chain-Frost/profiletool/actions/runs/45614939329) (15 tests). Independent review of #12 was requested; confirm the latest exact-head result before submission. 
-- Review fixes include PyQt5 scene-only graphics registration (#8), projected mesh sampling density and multipart point vertices (#9), and a focused R12 layer-name fix (#12). The [pre-fix actual-output reproduction](https://github.com/Chain-Frost/profiletool/actions/runs/45614704194) confirmed AC1009 with invalid `RASTER-0.200` in both DXF modes. #12 adds legacy-safe unique layer names and regression checks for the emitted records and geometry; this is not actual AutoCAD opening evidence.
-- Rebuild the install ZIP from the exact final stack head and record SHA and package digest. Fork master reports 4.4.0; the contribution stack advances from upstream 4.3.4 through 4.3.5–4.3.10, with cumulative changelog entries. Verify version 4.3.10 for the final candidate. Use a disposable profile because a local 4.4.0 installation may be considered newer. These are proposed source versions, not published releases.
-- H01–H21 remain NOT TESTED in both Windows environments. H19 additionally requires verification of [upstream #105](https://github.com/PANOimagen/profiletool/issues/105): export both DXFs from a raster named `RASTER-0.200`, include duplicate/sanitization-colliding names, long names, zero and NoData gaps; verify actual AutoCAD or DWG TrueView reopening, CAD layer names and independent geometry checks. Use 4.3.9 for the before-fix comparison if practical and 4.3.10 for the after-fix test. QGIS reopening alone is insufficient. If CAD is unavailable, record NOT TESTED. Do not claim #105 resolved without actual evidence.
-- Historical preflight instructions below refer to the October candidate and must not be used as the final package identity. This PR stays draft until actual desktop evidence and a signed recommendation exist.
+Both QGIS versions are available in disposable profiles. Human testers should
+use the new 4.3.10 ZIP and synthetic fixtures, record physical interactions
+and visuals, explicitly assess the H15 backend redraw behavior and the
+H20 provider-resampling limitation, and sign the final recommendation.
+The legacy Selafin selector remains dependent on a compatible provider.
+The October 4.4.0 preflight below is retained for historical context.
 
 ## Purpose and constraints
 
@@ -186,7 +184,7 @@ a mock. For DXF, inspect vertex geometry independently of the plugin.
    (H08–H14, H20); plotting and exports (H15–H19). Repeat in each available target
    installation. Leave unavailable cases explicitly NOT TESTED with a reason.
 5. Open PNG/SVG/PDF in independent viewers, CSV in a spreadsheet/text editor,
-   and DXF in CAD or a fresh QGIS layer. Compare sample values and vertices
+   and DXF in AutoCAD or DWG TrueView. Compare sample values and vertices
    against your references; check axes, gaps, units and legibility. Do not
    count file existence alone as successful export acceptance.
 6. Complete one result record per scenario/environment using the template below.
