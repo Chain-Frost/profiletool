@@ -1,3 +1,7 @@
 *.pyc
-__pycache__
-.venv
+__pycache__/
+.venv/
+.ruff_cache/
+.pytest_cache/
+build/
+profiletool.zip

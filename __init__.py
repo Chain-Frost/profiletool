@@ -22,10 +22,22 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
-from . import apicompat
+# QGIS 2 compatibility shims are obsolete; supported versions start at QGIS 3.40.
+
+"""QGIS Profile Tool plugin package and entry-point factory."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from qgis.gui import QgisInterface
+
+    from .profileplugin import ProfilePlugin
 
 
-def classFactory(iface):
+def classFactory(iface: QgisInterface) -> ProfilePlugin:
+    """Create the plugin instance after QGIS provides its desktop interface."""
     from .profileplugin import ProfilePlugin
 
     return ProfilePlugin(iface)
