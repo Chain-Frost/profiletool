@@ -1,6 +1,44 @@
 # Profile Tool contribution stack: native QGIS manual acceptance
 
-**Status: native Windows scripted and Autodesk engine evidence recorded. Human acceptance remains NOT TESTED.**
+**Status: owner-approved qualified disposition for sequential upstream submission. Native Windows scripted and Autodesk engine evidence recorded; formal human H01–H21 acceptance remains NOT TESTED/unsigned.**
+
+## Owner disposition — 28 November 2026
+
+The repository owner reported that they had used the upgraded plugin for a
+period and it appeared to work. The exact installed version, commit, duration,
+environment and scenarios of that practical use were not established. This is
+a preliminary usability observation, not a signed test matrix or evidence that
+the exact 4.3.10 package passed manual checks.
+
+After reviewing the scripted and Autodesk evidence below, the owner authorised
+proceeding with the sequential upstream contribution stack (#7–#12) on a
+qualified basis without requiring all 42 manual checks first. The following
+limitations are retained explicitly:
+
+- H15: switching plotting backends clears the curve until redraw, consistent
+  with inherited upstream behavior. Defer a focused fix.
+- H20: the plugin matched provider-visible samples; raw narrow NoData gaps can
+  disappear under QGIS provider resampling. Document the limitation, not a
+  claim of raw-pixel preservation.
+- H14: the legacy Selafin plugin-layer selector is not tested with its required
+  external provider.
+- Full strict Pyright remains outside the enforced scoped baseline: 14 errors
+  under PyQt6 and 474 under PyQt5. The exploratory broader Ruff findings are
+  also not resolved. Do not claim full lint/type acceptance.
+- Formal physical input and visual H01–H21 results, including interactive CAD
+  inspection, remain unsigned. No results are promoted to PASS.
+
+The actual Autodesk 4.3.9 rejection and 4.3.10 opening/geometry checks support
+the R12 DXF correction for the tested fixtures; upstream #105 remains open
+until upstream disposition. This qualified submission approval does not
+authorise a release, tag, publishing, or merge on behalf of upstream
+maintainers. Keep PR #5 as the open record for formal acceptance; seek an
+independent review of this evidence/disposition and verify the exact
+incremental diff against current upstream master before each submission.
+
+The manual checklist below remains available for any later full acceptance.
+Its unsigned status is not a claim that the owner withheld submission
+approval.
 
 The [28 November 2026 Windows evidence](qgis-native-windows-4.3.10.md) records
 the exact 4.3.10 ZIP and candidate SHA, both native QGIS environments,
