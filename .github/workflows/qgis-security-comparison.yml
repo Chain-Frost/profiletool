@@ -1,0 +1,98 @@
+name: One-off QGIS security comparison (PR 111)
+on:
+  push:
+    branches: ['audit/qgis-security-pr111-20261128']
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f22371dfd312f0afda200085de626ac5552c4a52
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scanners and obtain upstream wheel without importing it
+        run: |
+          python -m pip install bandit detect-secrets flake8
+          python -m pip download --no-deps --only-binary=:all: pyqtgraph==0.14.0 -d "$RUNNER_TEMP/pgwheel"
+          python -m pip show bandit detect-secrets flake8 | grep -E '^(Name|Version):'
+          git rev-parse HEAD
+      - name: Build exact plugin and compare with unmodified upstream replacement
+        run: |
+          make zip
+          python - <<'PY'
+          import collections
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import shutil
+          import subprocess
+          import zipfile
+
+          work = pathlib.Path(os.environ["RUNNER_TEMP"])
+          base = work / "baseline"
+          candidate = work / "candidate"
+          with zipfile.ZipFile("profiletool.zip") as z:
+              z.extractall(base)
+          print("Plugin zip SHA256:", hashlib.sha256(pathlib.Path("profiletool.zip").read_bytes()).hexdigest())
+          shutil.copytree(base, candidate)
+          wheel = next((work / "pgwheel").glob("*.whl"))
+          print("Candidate wheel SHA256:", hashlib.sha256(wheel.read_bytes()).hexdigest())
+          print("Candidate is a static scan only; downstream patches are not reapplied.")
+          target = candidate / "profiletool" / "pyqtgraph"
+          shutil.rmtree(target)
+          with zipfile.ZipFile(wheel) as z:
+              for entry in z.infolist():
+                  if entry.filename.startswith("pyqtgraph/") and not entry.is_dir():
+                      z.extract(entry, target.parent)
+              for name in z.namelist():
+                  if ".dist-info/" in name and name.endswith("/METADATA"):
+                      for line in z.read(name).decode().splitlines():
+                          if line.startswith(("Version:", "Requires-Python:", "Requires-Dist:")) and "extra ==" not in line:
+                              print(line)
+          def component(path):
+              parts = pathlib.PurePosixPath(path).parts
+              return next((x for x in ("pyqtgraph", "dxfwrite") if x in parts), "plugin-other")
+          def run(args, root):
+              p = subprocess.run(args, cwd=root, text=True, capture_output=True, timeout=180)
+              print("Command:", " ".join(args), "exit:", p.returncode)
+              if p.returncode not in (0, 1):
+                  raise RuntimeError("Scanner execution failed; no count admitted")
+              return p.stdout
+          for label, root in [("PR 111 bundled 0.13.7", base), ("Candidate upstream 0.14.0", candidate)]:
+              print("\n===", label, "===")
+              print("Files:", dict(collections.Counter(component(str(p.relative_to(root))) for p in root.rglob("*") if p.is_file())))
+              print("Python files:", dict(collections.Counter(component(str(p.relative_to(root))) for p in root.rglob("*.py"))))
+              b = json.loads(run(["bandit", "-r", ".", "-f", "json", "--quiet"], root))
+              if b.get("errors"):
+                  print("Bandit parse errors:", [(e.get("filename"), e.get("reason")) for e in b["errors"]])
+                  raise RuntimeError("Incomplete Bandit scan")
+              rows = b["results"]
+              print("Bandit all:", dict(collections.Counter((component(r["filename"]), r["issue_severity"]) for r in rows)))
+              print("Bandit medium/high total:", sum(r["issue_severity"] in ("MEDIUM", "HIGH") for r in rows))
+              print("Bandit rules by component:", dict(collections.Counter((component(r["filename"]), r["test_id"], r["issue_severity"]) for r in rows)))
+              for r in rows:
+                  if r["issue_severity"] in ("MEDIUM", "HIGH"):
+                      print("Bandit medium/high:", r["filename"], r["line_number"], r["test_id"], r["issue_severity"], r["issue_confidence"])
+              for args in (["detect-secrets", "scan", "."], ["detect-secrets", "scan", "--all-files", "--exclude-files", r"metadata\.txt", "--exclude-files", r"\.secrets\.baseline", "."]):
+                  s = json.loads(run(args, root))["results"]
+                  print("Secrets candidates by component/type:", dict(collections.Counter((component(path), r["type"]) for path, results in s.items() for r in results)))
+                  print("Secrets total:", sum(map(len, s.values())))
+                  for path, results in sorted(s.items()):
+                      for r in results:
+                          print("Potential secret:", path, r["line_number"], r["type"])
+              for args in (["flake8", "--format=%(path)s|%(code)s", "."], ["flake8", "--max-line-length=120", "--format=%(path)s|%(code)s", "."]):
+                  raw = run(args, root)
+                  f = [line.rsplit("|", 1) for line in raw.splitlines() if "|" in line]
+                  if len(f) != len(raw.splitlines()):
+                      raise RuntimeError("Unexpected Flake8 output")
+                  print("Flake8 findings by component:", dict(collections.Counter(component(path) for path, code in f)))
+                  print("Flake8 total:", len(f))
+                  print("Flake8 top codes:", collections.Counter(code for path, code in f).most_common(20))
+          PY
